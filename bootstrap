@@ -7,7 +7,7 @@ set -e
 #fi
 rm -rf *.cache config.guess config.log \
     config.status config.sub depcomp ltmain.sh
-
+touch NEWS README AUTHORS ChangeLog
 
 #cat ./ac_utils.m4 > ./acinclude.m4
 #cat ./ac_freezepython.m4 >> ./acinclude.m4

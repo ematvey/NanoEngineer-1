@@ -22,7 +22,7 @@ class Splitter(PaneWithChildren):
         total = amount + BAR_SIZE
         for i in range(num_children):
             child = self._main_children[i]
-            child.size = 
+            child.size = 1 # fixed syntax
 ##    def subpanes_for_draw(self):
 ##        "yield sequence of (region, transform, subpane)"
 ##            # or equiv objects? something that filters/transforms events...
