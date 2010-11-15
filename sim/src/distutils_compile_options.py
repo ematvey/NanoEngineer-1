@@ -1,5 +1,6 @@
 # Copyright 2006 Nanorex, Inc.  See LICENSE file for details. 
 import sys
+import re
 import distutils.sysconfig
 import distutils.ccompiler
 
@@ -18,6 +19,8 @@ if len(sys.argv) < 2:
 else:
     for arg in sys.argv[1:]:
         cmd = getattr(mcc, arg)
-        if cmd.startswith("gcc ") or cmd.startswith("g++ "):
-            cmd = cmd[4:]
+        cmd = re.sub(r'(gcc|g\+\+)(-[0-9\.]+)? (.+)', r'\3', cmd)
+        cmd = re.sub(r' -arch [a-z0-9_-]+', r'', cmd)
+        #if cmd.startswith("gcc ") or cmd.startswith("g++ "):
+        #    cmd = cmd[4:]
         print cmd

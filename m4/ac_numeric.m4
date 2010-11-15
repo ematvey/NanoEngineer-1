@@ -1,3 +1,4 @@
+include('ac_utils.m4')
 
 #
 # CHECK_NUMERIC(DESIRED-VERSION)

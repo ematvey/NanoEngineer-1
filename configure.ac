@@ -10,18 +10,25 @@ AC_INIT(NanoEngineer, 1_0.9.2, support@nanorex.com, NanoEngineer)
 
 AM_INIT_AUTOMAKE
 AC_COPYRIGHT([Copyright 2007 Nanorex, Inc.  See LICENSE file for details.])
-AC_CONFIG_SRCDIR([cad/src/NE1ToolBar.py])
+AC_CONFIG_SRCDIR([cad/src/widgets/NE1ToolBar.py])
 AC_CONFIG_HEADER([config.h])
+AC_CONFIG_MACRO_DIR([m4])
 
 # Checks for programs.
 AM_PATH_PYTHON([2.3])
-AC_SUBST(PYTHON_BASE, "$(echo ${PYTHON} | sed "s%/bin/python%%")")
+if test -z "${PYTHON_BASE}"; then
+	AC_SUBST(PYTHON_BASE, "$(echo ${PYTHON} | sed "s%/bin/python%%")")
+fi
 AC_PATH_PROG(PYREXC, pyrexc)
 AC_PROG_CXX
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_LIBTOOL
 AC_PROG_INSTALL
 AC_PROG_LN_S
+
+PKG_CONFIG_PATH=$PKG_CONFIG_PATH:`pwd`/pkg-conf
+TEST_CHECK_DESIRED_VERSION
 
 #
 # Check strictness option
@@ -68,6 +75,7 @@ AM_CONDITIONAL([ENABLE_CPPUNIT_TESTS], [test "$enable_cppunit_tests" = "yes"])
 CHECK_FREEZEPYTHON([3.0.3])
 CHECK_QT([4.2.3])
 CHECK_PYQT([4.2])
+CHECK_PYQT([4.2.1])
 CHECK_NUMARRAY([1.5.2])
 CHECK_NUMERIC([23.8])
 CHECK_NUMPY([1.0.2])
@@ -106,6 +114,10 @@ fi
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([clock_gettime gettimeofday memmove memset pow select sqrt strcasecmp strerror strncasecmp strtol])
 
+#				cad/plugins/HDF5_SimResults/Makefile
+#					cad/plugins/HDF5_SimResults/src/Makefile
+#						cad/plugins/HDF5_SimResults/src/Testing/Makefile
+
 # Miscellaneous
 AC_SUBST(UNAME_A, "$(uname -a)")
 
@@ -116,9 +128,6 @@ AC_CONFIG_FILES([Makefile
 			cad/partlib/Makefile
 			cad/plugins/Makefile
 				cad/plugins/DNA/Makefile
-				cad/plugins/HDF5_SimResults/Makefile
-					cad/plugins/HDF5_SimResults/src/Makefile
-						cad/plugins/HDF5_SimResults/src/Testing/Makefile
 		debian/postinst
 		sim/Makefile
 			sim/src/Makefile])

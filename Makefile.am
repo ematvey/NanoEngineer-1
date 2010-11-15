@@ -2,6 +2,8 @@
 #SUBDIRS = sim
 SUBDIRS = cad sim
 
+ACLOCAL_AMFLAGS = -I m4
+
 deb-dist: dist
 	tar xzf NanoEngineer-$(PACKAGE_VERSION).tar.gz
 	cp -r debian NanoEngineer-$(PACKAGE_VERSION)/

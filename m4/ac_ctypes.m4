@@ -1,3 +1,4 @@
+include('ac_utils.m4')
 
 #
 # CHECK_CTYPES(DESIRED-VERSION)
