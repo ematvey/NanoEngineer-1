@@ -1,0 +1,61 @@
+mmpformat 050920 required; 070415 preferred
+kelvin 300
+group (View Data)
+info opengroup open = True
+csys (HomeView) (1.000000, 0.000000, 0.000000, 0.000000) (10.000000) (0.000000, 0.000000, 0.000000) (1.000000)
+csys (LastView) (0.834588, -0.085788, 0.195024, 0.508005) (7.853973) (-2.115855, 7.141500, -3.627500) (1.000000)
+egroup (View Data)
+group (l_histidine_mm2_neutral)
+info opengroup open = True
+mol (l_histidine_mm2_neutral) def
+atom 1 (7) (1637, -5998, 3746) def
+atom 2 (6) (2595, -6954, 3200) def
+bond1 1
+atom 3 (6) (2907, -8016, 4233) def
+info atom atomtype = sp2
+bond1 2
+atom 4 (8) (2790, -9184, 3975) def
+info atom atomtype = sp2
+bond2 3
+atom 5 (1) (1972, -5099, 4066) def
+bond1 1
+atom 6 (1) (2123, -7452, 2318) def
+bond1 2
+atom 7 (0) (984, -6223, 3983) def
+bond1 1
+atom 8 (0) (3100, -7764, 4937) def
+bond1 3
+atom 9 (6) (3910, -6289, 2691) def
+bond1 2
+atom 10 (1) (3682, -5614, 1867) def
+bond1 9
+atom 11 (1) (4577, -7052, 2292) def
+bond1 9
+atom 12 (6) (4642, -5488, 3807) def
+info atom atomtype = sp2
+bond1 9
+atom 13 (6) (5848, -5720, 4318) def
+info atom atomtype = sp2
+bond2 12
+atom 14 (1) (6530, -6520, 4034) def
+bond1 13
+atom 15 (7) (4049, -4288, 4484) def
+bond1 12
+atom 16 (6) (5166, -3938, 5440) def
+info atom atomtype = sp2
+bond1 15
+atom 17 (1) (5117, -3099, 6131) def
+bond1 16
+atom 18 (7) (6179, -4708, 5378) def
+info atom atomtype = sp2
+bond1 13
+bond2 16
+atom 19 (1) (3888, -3534, 3820) def
+bond1 15
+info chunk hotspot = 8
+egroup (l_histidine_mm2_neutral)
+end1
+group (Clipboard)
+info opengroup open = False
+egroup (Clipboard)
+end molecular machine part l_histidine_mm2_neutral

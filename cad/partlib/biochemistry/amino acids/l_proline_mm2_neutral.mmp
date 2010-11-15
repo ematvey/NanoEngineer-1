@@ -1,0 +1,50 @@
+mmpformat 050920 required; 070415 preferred
+kelvin 300
+group (View Data)
+info opengroup open = True
+csys (HomeView) (1.000000, 0.000000, 0.000000, 0.000000) (10.000000) (0.000000, 0.000000, 0.000000) (1.000000)
+csys (LastView) (0.834588, -0.085788, 0.195024, 0.508005) (7.853973) (-2.115855, 7.141500, -3.627500) (1.000000)
+egroup (View Data)
+group (l_proline_mm2_neutral)
+info opengroup open = True
+mol (l_proline_mm2_neutral) def
+atom 1 (7) (1637, -5998, 3746) def
+atom 2 (6) (2595, -6954, 3200) def
+bond1 1
+atom 3 (6) (2907, -8016, 4233) def
+info atom atomtype = sp2
+bond1 2
+atom 4 (8) (2790, -9184, 3975) def
+info atom atomtype = sp2
+bond2 3
+atom 5 (1) (2123, -7452, 2318) def
+bond1 2
+atom 6 (0) (983, -6222, 3982) def
+bond1 1
+atom 7 (0) (3100, -7764, 4937) def
+bond1 3
+atom 8 (6) (3875, -6143, 2841) def
+bond1 2
+atom 9 (1) (3901, -5925, 1774) def
+bond1 8
+atom 10 (1) (4780, -6696, 3088) def
+bond1 8
+atom 11 (6) (2344, -4792, 4287) def
+bond1 1
+atom 12 (1) (2412, -4795, 5374) def
+bond1 11
+atom 13 (1) (1850, -3859, 4021) def
+bond1 11
+atom 14 (6) (3780, -4817, 3673) def
+bond1 11 8
+atom 15 (1) (4536, -4801, 4457) def
+bond1 14
+atom 16 (1) (3946, -3949, 3036) def
+bond1 14
+info chunk hotspot = 7
+egroup (l_proline_mm2_neutral)
+end1
+group (Clipboard)
+info opengroup open = False
+egroup (Clipboard)
+end molecular machine part l_proline_mm2_neutral

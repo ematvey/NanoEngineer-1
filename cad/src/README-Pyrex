@@ -1,0 +1,39 @@
+ Copyright 2005-2007 Nanorex, Inc.  See LICENSE file for details. 
+README-Pyrex -- list of Pyrex-related files and their roles.
+
+$Id: README-Pyrex 10016 2007-09-04 20:54:47Z brucesmith $
+
+
+Related source files:
+
+  pyrex_test.pyx
+      contains an example helper function written in Pyrex,
+      and (in docstring) link to wiki page about our use of Pyrex
+      
+  extensions.py 
+      calls the pyrex_test extension module, assuming that got compiled from 
+      its .pyx source file into its .so (or .dll or .dylib?) dynamic library file; 
+      reports import errors, and in future might try to verify the extension module
+      is up-to-date, and handle all our custom extension modules in a uniform way.
+      (No pure python file can be named pyrex_test.py, since "import pyrex_test" would
+      then not know whether to import the pure python module or the extension module.)
+
+  setup.py (for distutils; configures compiling of all Python extensions from their source files)
+
+  Makefile (has new "pyx" and/or "extensions" targets)
+
+Files produced by building Pyrex extensions:
+
+  pyrex_test.* (produced when Pyrex compiles this file; suffixes vary by platform, on the Mac they're .c and .so)
+
+  build/   (subdirectory)
+
+How to build:
+
+  in cad/src, "make pyx"
+
+How to test:
+
+  see docstring of extensions.py
+
+#end

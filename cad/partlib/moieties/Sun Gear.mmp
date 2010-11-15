@@ -1,0 +1,82 @@
+mmpformat 050920 required; 070415 preferred
+kelvin 300
+group (View Data)
+info opengroup open = True
+csys (HomeView) (1.000000, 0.000000, 0.000000, 0.000000) (10.000000) (0.000000, 0.000000, 0.000000) (1.000000)
+csys (LastView) (1.000000, 0.000000, 0.000000, 0.000000) (6.270693) (-1.402605, -5.101951, -0.065812) (1.000000)
+egroup (View Data)
+group (Untitled)
+info opengroup open = True
+mol (sun gear moiety) def
+atom 1 (6) (3082, 6910, 2173) def
+atom 2 (6) (620, 7905, 2240) def
+atom 3 (6) (1564, 6697, 2226) def
+bond1 1 2
+atom 4 (6) (-683, 7120, 2341) def
+bond1 2
+atom 5 (8) (3476, 7532, 872) def
+bond1 1
+atom 6 (8) (681, 8677, 1002) def
+bond1 2
+atom 7 (6) (1343, 5771, 1002) def
+bond1 3
+atom 8 (6) (-936, 6204, 1117) def
+bond1 4
+atom 9 (8) (36, 5106, 1082) def
+bond1 7 8
+atom 10 (6) (2952, 6849, -352) def
+bond1 5
+atom 11 (6) (488, 7855, -191) def
+bond1 6
+atom 12 (6) (1432, 6650, -267) def
+bond1 7 10 11
+atom 13 (6) (-814, 7067, -153) def
+bond1 8 11
+atom 14 (8) (3377, 7491, -1589) def
+bond1 10
+atom 15 (8) (536, 8650, -1442) def
+bond1 11
+atom 16 (6) (860, 5908, -1508) def
+bond1 12
+atom 17 (6) (-672, 6196, -1430) def
+bond1 13 16
+atom 18 (8) (1345, 4514, -1556) def
+bond1 16
+atom 19 (0) (-803, 6655, -2040) def
+bond1 17
+atom 20 (0) (3355, 7279, 2791) def
+bond1 1
+atom 21 (0) (-544, 6691, 2971) def
+bond1 4
+atom 22 (0) (1092, 6305, -2131) def
+bond1 16
+atom 23 (0) (3136, 7190, -2158) def
+bond1 14
+atom 24 (0) (727, 8326, 2876) def
+bond1 2
+atom 25 (0) (1338, 6336, 2873) def
+bond1 3
+atom 26 (0) (458, 8307, -2032) def
+bond1 15
+atom 27 (0) (3147, 6100, -343) def
+bond1 10
+atom 28 (0) (1989, 5344, 980) def
+bond1 7
+atom 29 (0) (2031, 4554, -1566) def
+bond1 18
+atom 30 (0) (3277, 6162, 2167) def
+bond1 1
+atom 31 (0) (-1484, 7455, -128) def
+bond1 13
+atom 32 (0) (-1693, 6048, 1158) def
+bond1 8
+atom 33 (0) (-1352, 7507, 2382) def
+bond1 4
+atom 34 (0) (-1180, 5618, -1421) def
+bond1 17
+egroup (Untitled)
+end1
+group (Clipboard)
+info opengroup open = True
+egroup (Clipboard)
+end molecular machine part Untitled

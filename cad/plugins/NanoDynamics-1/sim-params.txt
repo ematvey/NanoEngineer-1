@@ -1,0 +1,469 @@
+#
+# Copyright 2007 Nanorex, Inc.  See LICENSE file for details. 
+# $Id: sim-params.txt 13225 2008-06-24 00:53:54Z ericmessick $
+#
+
+# This file should be placed in your ~/Nanorex directory.  It is read
+# by the simulator before each simulation or minimization run.  You
+# should be able to edit and save it between runs and see the new
+# results in later runs.
+
+# The element, stretch, and bend lines define new force field
+# parameters which override or extend the force field compiled into
+# the simulator.
+
+# Angle values can be entered in either degrees or radians.  The units
+# line lets you specify which.  You can switch between the two as often
+# as you like.  The default is:
+#
+#units radians
+
+units degrees
+
+# format for element lines
+#
+#    Z (int)    number of protons, or atomType index
+#  grp (int)    group number in periodic table (not currently used)
+#                 groups 9-22 are lanthanides
+#                 groups 8-31 are transition metals
+#  per (int)    period in periodic table (not currently used)
+#  sym (string) abbreviated symbol name (one-three characters)
+#                 sym values are used in stretch and bend records
+# name (string) full name, for printing
+# mass (double) in yg (yoctograms, or 1e-24 g)
+# rvdW (double) van der Waals radius, in 1e-10 m or angstroms or 0.1 nm
+# evdW (double) van der Waals stiffness, in zJ (zepto Joules, or milli atto Joules, or 1e-21 J)
+#                 NOTE: specifing an evdW value < .1 will cause the value to be calculated based on number of protons
+# rcov (double) covalent radius in pm (1e-12 m)
+#                 used to generate unspecified bond parameters
+# chrg (double) charge in mulitples of proton charge
+#
+#         Z grp per par sym   name                      mass    rvdW  evdW  bnds rcov chrg virt
+
+element 997  0  0   All PAM5  All-PAM5-Pseudo-Atoms       0.0   0.0    0.0   0     0   0    0
+element 996  0  0   PAM5 P5S  PAM5-Sugars                 0.0   0.0    0.0   0     0   0    0
+element 995  0  0   PAM5 P5P  PAM5-Phosphates             0.0   0.0    0.0   0     0   0    0
+element 994  0  0   PAM5 P5G  PAM5-Major-Grooves          0.0   0.0    0.0   0     0   0    0
+element 993  0  0   PAM5 P5V  PAM5-Virtual-Atoms          0.0   0.0    0.0   0     0   0    0
+element 992  0  0   PAM5 P5d  PAM5-depricated             0.0   0.0    0.0   0     0   0    0
+element 991  0  0   All PAM3  All-PAM3-Pseudo-Atoms       0.0   0.0    0.0   0     0   0    0
+
+element 200  0  0   P5d Ax5   DNA-Pseudo-Axis           167.0   0.0    0.0   4   100   0    0   700
+element 201  0  0   P5S Ss5   DNA-Pseudo-Sugar          167.0   0.0    0.0   3   170   0    0   800
+element 202  0  0   P5P Pl5   DNA-Pseudo-Phosphate      167.0   0.0    0.0   2   170   0    0   900
+element 203  0  0   P5d Sj5   DNA-Pseudo-Sugar-Junction 167.0   0.0    0.0   3   170   0    0   810
+element 204  0  0   P5d Ae5   DNA-Pseudo-Axis-End       167.0   0.0    0.0   1   100   0    0   701
+element 205  0  0   P5d Pe5   DNA-Pseudo-Phosphate-End  167.0   0.0    0.0   1   170   0    0   901
+element 206  0  0   P5d Sh5   DNA-Pseudo-Sugar-End      167.0   0.0    0.0   1   170   0    0   902
+element 207  0  0   P5d Hp5   DNA-Pseudo-Hairpin        167.0   0.0    0.0   2   100   0    0   820
+element 208  0  0   P5G Gv5   DNA-Pseudo-Groove         167.0   0.0    0.0   2   100   0    0   820
+element 209  0  0   P5G Gr5   DNA-Pseudo-Groove-End     167.0   0.0    0.0   2   100   0    0   820
+
+element 213  0  0   P5d Ah5   DNA-Pseudo-Axis-Handle      1.0   0.0    0.0   1   100   0    0
+element 219  0  0   P5V vAh5  DNA-Pseudo-Axis-Handle-v    0.0   0.0    0.0   1   100   0    0
+
+element 220  0  0   P5V vDa1  virtual-DNA-planeA-1        0.0   0.0    0.0   1   100   0    1
+element 221  0  0   P5V vDa1p virtual-DNA-planeA-1p       0.0   0.0    0.0   1   100   0    1
+element 222  0  0   P5V vDa2  virtual-DNA-planeA-2        0.0   0.0    0.0   1   100   0    1
+element 223  0  0   P5V vDa2p virtual-DNA-planeA-2p       0.0   0.0    0.0   1   100   0    1
+element 224  0  0   P5V vDa3  virtual-DNA-planeA-3        0.0   0.0    0.0   1   100   0    1
+element 225  0  0   P5V vDa4  virtual-DNA-planeA-4        0.0   0.0    0.0   1   100   0    1
+element 226  0  0   P5V vDa5  virtual-DNA-planeA-5        0.0   0.0    0.0   1   100   0    1
+
+element 230  0  0   P5V vDb1  virtual-DNA-planeB-1        0.0   0.0    0.0   1   100   0    1
+element 231  0  0   P5V vDb1p virtual-DNA-planeB-1p       0.0   0.0    0.0   1   100   0    1
+element 232  0  0   P5V vDb2  virtual-DNA-planeB-2        0.0   0.0    0.0   1   100   0    1
+element 233  0  0   P5V vDb2p virtual-DNA-planeB-2p       0.0   0.0    0.0   1   100   0    1
+element 234  0  0   P5V vDb3  virtual-DNA-planeB-3        0.0   0.0    0.0   1   100   0    1
+element 235  0  0   P5V vDb4  virtual-DNA-planeB-4        0.0   0.0    0.0   1   100   0    1
+element 236  0  0   P5V vDb5  virtual-DNA-planeB-5        0.0   0.0    0.0   1   100   0    1
+
+element 240  0  0   P5V vDn   virtual-DNA-non-bonded      0.0   0.0    0.0   0   100   0    1
+
+element 300  0  0   PAM3 Ax3  PAM3-Axis                 167.0   0.0    0.0   4   100   0    0   700
+element 301  0  0   PAM3 Ss3  PAM3-Sugar                167.0   0.0    0.0   3   170   0    0   800
+element 302  0  0   PAM3 Pl3  PAM3-Phosphate-Link       167.0   3.6   10.0   2   170  -1    0   900
+element 303  0  0   PAM3 Sj3  PAM3-Sugar-Junction       167.0   0.0   10.0   3   170   0    0   810
+element 304  0  0   PAM3 Ae3  PAM3-Axis-End             167.0   0.0    0.0   1   100   0    0   701
+element 305  0  0   PAM3 Se3  PAM3-Sugar-End            167.0   3.6   10.0   1   170  -2    0   901
+element 306  0  0   PAM3 Sh3  PAM3-Sugar-Hydroxyl       167.0   0.0    0.0   1   170   0    0   902
+element 307  0  0   PAM3 Hp3  PAM3-Hairpin              167.0   0.0    0.0   2   100   0    0   820
+
+# format for vdw lines
+#
+# rvdW              (double) van der Waals radius in pm or 1e-12 m
+# evdW              (double) van der Waals energy in zJ or 1e-21 J
+# cutoffRadiusStart (double) start of smooth transition in pm
+# cutoffRadiusEnd   (double) end of smooth transition in pm
+# name              (string) symbol-v-symbol
+#                        The atomType (number of protons) of the first symbol must be <= the second.
+#
+# The vdw potential is multiplied by a smooth transition function
+# between cutoffRadiusStart and cutoffRadiusEnd.  Beyond
+# cutoffRadiusEnd the vdw potential is identically zero.  If
+# cutoffRadiusEnd < cutoffRadiusStart, this transition is disabled,
+# and the potential is shifted so that it is zero at cutoffRadiusEnd.
+# If cutoffRadiusStart < 0, it is set to rvdW.  If cutoffRadiusEnd <
+# 0, it is set to rvdW * VanDerWaalsCutoffFactor (specified by
+# --vdw-cutoff-factor).  Setting cutoffRadiusEnd to rvdW, and
+# cutoffRadiusStart to any larger value selects only the repulsive
+# interaction.
+
+
+# For Yukawa potentials, the numbers on vdw lines are irrelevant, only
+# their existence matters, defining the set of interacting pseudo
+# atoms.
+#
+#  rvdW evdW start end name
+
+vdw 700.0 10.0 100.0 7.2 Pl5-v-Pl5
+
+vdw 700.0 10.0 100.0 7.2 Ss3-v-Ss3
+vdw 700.0 10.0 100.0 7.2 Ss3-v-Sj3
+vdw 700.0 10.0 100.0 7.2 Ss3-v-Se3
+vdw 700.0 10.0 100.0 7.2 Sj3-v-Sj3
+vdw 700.0 10.0 100.0 7.2 Sj3-v-Se3
+vdw 700.0 10.0 100.0 7.2 Se3-v-Se3
+
+# format for stretch lines
+#
+#          ks (double) in N/m
+#          r0 (double) equilibrium distance, in pm, or 1e-12 m
+#          de (double) in aJ, or 1e-18 J
+#        beta (double) in 1e10 m^-1
+#                        set to sqrt(ks / (2.0 * de)) / 10.0 if value here is less than zero
+# inflectionR (double) r value in pm where d^2(Lippincott(r)) / dr^2 == 0
+#                        inflectionR is end of interpolation table during minimization
+#                        set to r0*1.5 if value here is less than zero
+#        qual (int)    quality of parameter (use of a parameter with quality < 5 produces a warning)
+#        quad (int)    flag, non-zero if this stretch should be quadratic instead of Lippincott/Morse
+#    bondName (string) symbol-bondOrder-symbol
+#                        bondOrders are: (1, a, g, 2, 3)  a is aromatic, g is graphitic
+#                        The atomType (number of protons) of the first symbol must be <= the second.
+#
+#         ks    r0      de      beta    inflectionR qual quad bondName
+
+stretch   4.00  318.00  1.0000   -1         -1       9    1   Ax5-1-Ax5
+stretch  50.00  676.00  1.0000   -1         -1       9    1   Ax5-1-Ss5
+stretch  50.00  676.00  1.0000   -1         -1       9    1   Ax5-1-Sj5
+stretch   4.00  400.00  1.0000   -1         -1       9    1   Pl5-1-Sj5
+stretch   4.00  180.00  1.0000   -1         -1       9    1   Ax5-1-Ae5
+stretch   4.00  200.00  1.0000   -1         -1       9    1   Ss5-1-Sh5
+stretch   4.00  364.00  1.0000   -1         -1       9    1   Ss5-1-Pe5
+stretch   4.00  357.00  1.0000   -1         -1       9    1   Pl5-1-Hp5
+stretch   4.00  357.00  1.0000   -1         -1       9    1   Pe5-1-Hp5
+stretch   4.00  200.00  1.0000   -1         -1       9    1   Sh5-1-Hp5
+
+stretch   0.00  180.00  1.0000   -1         -1       9    1   H-1-Ax5
+stretch   0.00  200.00  1.0000   -1         -1       9    1   H-1-Ss5
+stretch   0.00  200.00  1.0000   -1         -1       9    1   H-1-Gv5
+stretch   0.00  200.00  1.0000   -1         -1       9    1   H-1-Pl5
+stretch   0.00  200.00  1.0000   -1         -1       9    1   H-1-Hp5
+
+######## From among the "PAM5 Parameters"
+stretch  10.00  923.40  1.0000   -1         -1       9    1   Gr5-1-Ss5
+stretch   0.00  519.00  1.0000   -1         -1       9    1   Gv5-1-Gr5
+stretch   0.00  519.00  1.0000   -1         -1       9    1   Gr5-1-Gr5
+
+###########################################################
+########  PAM5 Parameters ######################################
+
+#         ks       r0    de      beta    inflectionR qual quad bondName
+
+stretch  50.00  1075.00  1.0000   -1         -1       9    6   Ss5-1-Ss5
+stretch  50.00   923.40  1.0000   -1         -1       9    1   Gv5-1-Ss5
+
+# this stretch is to the Pl on the 5' side of the Gv
+stretch   1.00  1092.90  1.0000   -1         -1       9    1   Gv5-1-Pl5
+
+# this stretch is to the Pl on the 3' side of the Gv
+stretch  0.0     1092.9  1.0000   -1         -1       9    1   Gv5-2-Pl5
+
+stretch   0.5    650.00  1.0000   -1         -1       9    1   Pl5-1-Pl5
+stretch   0.00   519.00  1.0000   -1         -1       9    1   Gv5-1-Gv5
+
+
+# These are the stretch terms for the two different Pl-Ss
+# interactions.  5 and 3 represent the 5' and 3' ends of the strand.
+
+pattern PAM5:5-Pl-Ss-3_r0            509.0
+pattern PAM5:5-Pl-Ss-3_ks             50.0
+
+pattern PAM5:5-Ss-Pl-3_r0            420.9
+pattern PAM5:5-Ss-Pl-3_ks             50.0
+
+
+#      ktheta      theta0  qual   bondName
+
+# bend   0.05442     88.000   9     Pl5-1-Ss5-1-Pl5
+bend   0.020       61.000   9     Ss5-1-Pl5-1-Ss5
+
+# bend to Pl on the 3' side of the Gv (the 5' bend is suppressed)
+bend   0.007       180.000   9     Gv5-1-Ss5-1-Pl5
+
+# 0.07684 aJ/rad^2 => 0.5 N/m equivalent stretching stiffness @ 61 degrees
+# 0.05442 aJ/rad^2 => 0.5 N/m equivalent stretching stiffness 2 88 degrees
+#                             should convert back to a modified Pl5-Pl5 stretch
+# mean Gv-Pl in 1NVN = 10.19 most in the range 9.4 - 11.1
+
+
+# This is the interaction between the two bridging Pl's in a
+# crossover.  Its labeled as a double bond (its not) to distinguish
+# it from the Pl5-1-Pl5 case above (which also is not a real bond).
+# Note that quadratic = 6 here, which tells GROMACS to not consider
+# this as a chemical bond for purposes of exclusion of non-bonded
+# interactions.  Otherwise, we'd end up excluding two diagonal Pl-Pl
+# interactions which we'd like to include.
+stretch  100.0    600.0  1.0000   -1         -1       9    6   Pl5-2-Pl5
+
+#### Non-bonded exclusions ####
+# If non-zero, exclude non-bonded interactions within the same
+# duplex.  Also adds an exclusion between bridging phosphates in a
+# crossover, so changing this requires changing the Pl5-2-Pl5 stretch
+# term as well.
+pattern enableExclusions               0
+
+###############################################################
+###########################################################
+
+# this is overridden by separate directional parameters below, but we
+# still need a max value for bond stretch indicators
+stretch   4.00  510.00  1.0000   -1         -1       9    1   Ss5-1-Pl5
+
+
+
+stretch   4.00  318.00  1.0000   -1         -1       9    1   Ax3-1-Ax3
+stretch   4.00  318.00  1.0000   -1         -1       9    1   Ax3-1-Ae3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Ax3-1-Ss3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Ax3-1-Sj3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Ax3-1-Se3
+stretch   4.00  318.00  1.0000   -1         -1       9    1   Ae3-1-Ax3
+stretch   4.00  318.00  1.0000   -1         -1       9    1   Ae3-1-Ae3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Ae3-1-Ss3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Ae3-1-Sj3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Ae3-1-Se3
+stretch   4.00  400.00  1.0000   -1         -1       9    1   Pl3-1-Sj3
+stretch   4.00  180.00  1.0000   -1         -1       9    1   H-1-Ax3
+stretch   4.00  200.00  1.0000   -1         -1       9    1   H-1-Ss3
+stretch   4.00  200.00  1.0000   -1         -1       9    1   H-1-Pl3
+stretch   4.00  200.00  1.0000   -1         -1       9    1   Ss3-1-Sh3
+stretch   4.00  357.00  1.0000   -1         -1       9    1   Se3-1-Hp3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Se3-1-Ae3
+stretch   4.00  200.00  1.0000   -1         -1       9    1   Sh3-1-Hp3
+stretch   4.00  200.00  1.0000   -1         -1       9    1   H-1-Hp3
+stretch   4.00  625.00  1.0000   -1         -1       9    1   Ss3-1-Ss3
+stretch   4.00  625.00  1.0000   -1         -1       9    1   Ss3-1-Sj3
+stretch   4.00  625.00  1.0000   -1         -1       9    1   Se3-1-Ss3
+stretch   4.00  625.00  1.0000   -1         -1       9    1   Ss3-1-Se3
+stretch  50.00  870.00  1.0000   -1         -1       9    1   Ss3-1-Ae3
+stretch   4.00  625.00  1.0000   -1         -1       9    1   Se3-1-Sj3
+stretch   4.00  670.00  1.0000   -1         -1       9    1   Sj3-1-Sj3
+
+# format for bend lines
+#
+# ktheta (double) in aJ / rad^2 (1e-18 J/rad^2)
+# theta0 (double) in radians
+#   qual (int)    quality of parameter (use of a parameter with quality < 5 produces a warning)
+#   name (string) symbol-bondOrder-symbol.hybridization-bondOrder-symbol
+#                        bondOrders are: (1, a, g, 2, 3)  a is aromatic, g is graphitic
+#                        atoms in group 3 have a default hybridization of sp2
+#                        other atoms have a default hybridization of sp3
+#                        an info line in the mmp file can change the hybridization
+#                        possible values are: (sp, sp2, sp2_g, sp3, sp3d)
+#                        sp2_g is graphitic, sp3d is not supported yet
+#
+#    ktheta          theta0  qual  bondName
+
+# PAM3 Bend Parameters ####################################3
+
+# 180 degree along Axis
+bend   0.18          180.000   9   Ax3-1-Ax3.sp3-1-Ax3
+#bend  0.18          180.000   9   H-1-Ax3.sp3-1-Ax3 #duplicate, H is sugar
+#bend  0.18          180.000   9   H-1-Ax3.sp3-1-Ae3 #duplicate, H is sugar
+bend   0.18          180.000   9   Ax3-1-Ax3.sp3-1-Ae3
+bend   0.18          180.000   9   Ae3-1-Ax3.sp3-1-Ae3
+
+# 90 degree Axis to Sugar
+bend   1.0            90.000   9   Ax3-1-Ax3.sp3-1-Ss3
+bend   1.0            90.000   9   Ax3-1-Ax3.sp3-1-Sj3
+bend   1.0            90.000   9   Ax3-1-Ax3.sp3-1-Se3
+bend   1.0            90.000   9   Ax3-1-Ae3.sp3-1-Ss3
+bend   1.0            90.000   9   Ax3-1-Ae3.sp3-1-Sj3
+bend   1.0            90.000   9   Ax3-1-Ae3.sp3-1-Se3
+bend   1.0            90.000   9   Ss3-1-Ax3.sp3-1-Ae3
+bend   1.0            90.000   9   Sj3-1-Ax3.sp3-1-Ae3
+bend   1.0            90.000   9   Ss3-1-Ae3.sp3-1-Ae3
+bend   1.0            90.000   9   Sj3-1-Ae3.sp3-1-Ae3
+bend   1.0            90.000   9   Ae3-1-Ax3.sp3-1-Se3
+bend   1.0            90.000   9   Ae3-1-Ae3.sp3-1-Se3
+#bend  1.0            90.000   9   H-1-Ax3.sp3-1-Ss3 #duplicate, H is sugar
+#bend  1.0            90.000   9   H-1-Ax3.sp3-1-Sj3 #duplicate, H is sugar
+#bend  1.0            90.000   9   H-1-Ax3.sp3-1-Se3 #duplicate, H is sugar
+bend   1.0            90.000   9   H-1-Ax3.sp3-1-Ax3
+bend   1.0            90.000   9   H-1-Ax3.sp3-1-Ae3
+bend   1.0            90.000   9   H-1-Ax3.sp3-1-H
+#bend  1.0            90.000   9   H-1-Ae3.sp3-1-Ss3 #duplicate, H is sugar
+#bend  1.0            90.000   9   H-1-Ae3.sp3-1-Sj3 #duplicate, H is sugar
+#bend  1.0            90.000   9   H-1-Ae3.sp3-1-Se3 #duplicate, H is sugar
+bend   1.0            90.000   9   H-1-Ae3.sp3-1-Ax3
+bend   1.0            90.000   9   H-1-Ae3.sp3-1-Ae3
+bend   1.0            90.000   9   H-1-Ae3.sp3-1-H
+
+# 133 degree minor groove
+bend   1.0           133.000   9   Ss3-1-Ax3.sp3-1-Ss3
+bend   1.0           133.000   9   Ss3-1-Ax3.sp3-1-Sj3
+bend   1.0           133.000   9   Ss3-1-Ax3.sp3-1-Se3
+bend   1.0           133.000   9   Sj3-1-Ax3.sp3-1-Sj3
+bend   1.0           133.000   9   H-1-Ax3.sp3-1-Ss3
+bend   1.0           133.000   9   H-1-Ax3.sp3-1-Sj3
+bend   1.0           133.000   9   H-1-Ax3.sp3-1-Se3
+bend   1.0           133.000   9   Ss3-1-Ae3.sp3-1-Ss3
+bend   1.0           133.000   9   Ss3-1-Ae3.sp3-1-Sj3
+bend   1.0           133.000   9   Ss3-1-Ae3.sp3-1-Se3
+bend   1.0           133.000   9   Sj3-1-Ae3.sp3-1-Sj3
+bend   1.0           133.000   9   H-1-Ae3.sp3-1-Ss3
+bend   1.0           133.000   9   H-1-Ae3.sp3-1-Sj3
+bend   1.0           133.000   9   H-1-Ae3.sp3-1-Se3
+
+# 74.58 degree Axis Sugar Sugar
+bend   0.04           74.580   9   Ax3-1-Ss3.sp3-1-Ss3
+bend   0.04           74.580   9   Ax3-1-Ss3.sp3-1-Se3
+bend   0.04           74.580   9   Ax3-1-Ss3.sp3-1-Sh3
+bend   0.04           74.580   9   H-1-Ss3.sp3-1-Ax3
+
+# 74.58 degree Axis-end Sugar Sugar
+bend   0.04           74.580   9   Ss3-1-Se3.sp3-1-Ae3
+bend   0.04           74.580   9   Ss3-1-Ss3.sp3-1-Ae3
+bend   0.04           74.580   9   Ae3-1-Ss3.sp3-1-Sh3
+bend   0.04           74.580   9   Ae3-1-Ss3.sp3-1-Se3
+bend   0.04           74.580   9   H-1-Ss3.sp3-1-Ae3
+
+# 108 degree for Axis JunctionSugar JunctionSugar
+bend   0.04          108.000   9   Ax3-1-Sj3.sp3-1-Sj3
+bend   0.04          108.000   9   Ae3-1-Sj3.sp3-1-Sj3
+
+# 149 degree Sugar Sugar Sugar
+bend   0.04          149.000   9   Ss3-1-Ss3.sp3-1-Ss3
+bend   0.04          149.000   9   Ss3-1-Ss3.sp3-1-Sj3
+bend   0.04          149.000   9   Ss3-1-Ss3.sp3-1-Se3
+bend   0.04          149.000   9   Ss3-1-Ss3.sp3-1-Sh3
+bend   0.04          149.000   9   Se3-1-Ss3.sp3-1-Se3
+bend   0.04          149.000   9   Se3-1-Ss3.sp3-1-Sh3
+bend   0.04          149.000   9   Sh3-1-Ss3.sp3-1-Sh3
+bend   0.04          149.000   9   H-1-Ss3.sp3-1-Ss3
+bend   0.04          149.000   9   H-1-Ss3.sp3-1-Sj3
+bend   0.04          149.000   9   H-1-Ss3.sp3-1-Se3
+bend   0.04          149.000   9   H-1-Ss3.sp3-1-Sh3
+bend   0.04          149.000   9   H-1-Ss3.sp3-1-H
+
+# 149 degree for Sugar JunctionSugar JunctionSugar
+bend   0.04          149.000   9   Ss3-1-Sj3.sp3-1-Sj3
+
+# 74.58 degree Axis JunctionSugar Sugar
+bend   0.04           74.580   9   Ax3-1-Sj3.sp3-1-Ss3
+bend   0.04           74.580   9   Ax3-1-Sj3.sp3-1-Se3
+bend   0.04           74.580   9   Ax3-1-Sj3.sp3-1-Sh3
+bend   0.04           74.580   9   H-1-Sj3.sp3-1-Ax3
+
+# 74.58 degree Axis-end JunctionSugar Sugar
+bend   0.04           74.580   9   Ae3-1-Sj3.sp3-1-Ss3
+bend   0.04           74.580   9   Ae3-1-Sj3.sp3-1-Se3
+bend   0.04           74.580   9   Ae3-1-Sj3.sp3-1-Sh3
+bend   0.04           74.580   9   H-1-Sj3.sp3-1-Ae3
+
+# 150 degree Sugar JunctionSugar Sugar
+bend   0.04          150.000    9   Ss3-1-Sj3.sp3-1-Ss3
+bend   0.04          150.000    9   H-1-Sj3.sp3-1-H
+
+# 150 degree Sugar JunctionSugar end (CHECK/FIX ANGLE)
+bend   0.04          150.000    9   Ss3-1-Sj3.sp3-1-Se3
+bend   0.04          150.000    9   Ss3-1-Sj3.sp3-1-Sh3
+bend   0.04          150.000    9   H-1-Sj3.sp3-1-Se3
+bend   0.04          150.000    9   H-1-Sj3.sp3-1-Sh3
+
+# 115.8 degree JunctionSugar Phosphate-link JunctionSugar
+bend   0.04          115.800    9   Sj3-1-Pl3.sp3-1-Sj3
+
+# 127 degree Sugar Hairpin Sugar (CHECK/FIX ANGLE)
+bend   0.04          127.000    9   Se3-1-Hp3.sp3-1-Se3
+bend   0.04          127.000    9   Se3-1-Hp3.sp3-1-Sh3
+bend   0.04          127.000    9   Sh3-1-Hp3.sp3-1-Sh3
+bend   0.04          127.000    9   H-1-Hp3.sp3-1-Se3
+bend   0.04          127.000    9   H-1-Hp3.sp3-1-Sh3
+bend   0.04          127.000    9   H-1-Hp3.sp3-1-H
+
+# parameters for pattern match routines
+
+# these two bends are not used by current code.
+#pattern PAM5:Ax-Ax-Ss_low_ktheta     1.0
+#pattern PAM5:Ax-Ax-Ss_low_theta0     85.000
+#pattern PAM5:Ax-Ax-Ss_high_ktheta    1.0
+#pattern PAM5:Ax-Ax-Ss_high_theta0    95.000
+
+################(( Pattern-stretches, Non-bonded exclusions flag copied from here ))################
+
+# For the PAM5-Stack pattern, two base pair planes are defined, each by
+# a pair of basis vectors from an Ax to an Ss pseudo-atom.  Since the
+# double helix can be viewed from either end (180 degree rotational
+# symmetry), each Ss is similar to the one diagonally opposite it,
+# across the minor groove.  Between the two stacked base pairs, the
+# minor groove rotates, so that one pair of similar Ss pseudo-atoms
+# will always be farther apart than the other.  The farther apart pair
+# we will call P, with the closer pair called Q.
+
+# One base pair is called A, the other B.  Each plane contains a set
+# of numbered virtual interaction sites, so vDa1 is the first site in
+# plane A.  The location of each site is defined as a linear
+# combination of the two basis vectors for that plane, with the basis
+# vectors labeled P and Q, corrosponding to the Ss at the tip of that
+# vector (the Ax is the tail for both).
+
+pattern PAM5:basis-x_o         0.4996
+pattern PAM5:basis-x_g         0.75075
+pattern PAM5:basis-y_m         0.53745
+
+#                                 upper ends            lower ends
+#              Ks(N/m) r0(pm)   X1 (nm)  Y1 (nm)      X2 (nm)  Y2 (nm)
+strut PAM5-1  1.69474  381.6   0.17941  0.53496     -0.22256  0.35814
+strut PAM5-1p 1.69474  381.6  -0.22256 -0.35814      0.17941 -0.53496
+strut PAM5-2  0.94669  416.3   0.33045 -0.24420      0.46175  0.16547
+strut PAM5-2p 0.94669  416.3   0.46175 -0.16547      0.33045  0.24420
+strut PAM5-3  1.04685  834.1  -0.05386  0.42674     -0.05386 -0.42674
+strut PAM5-4  0.57124  339.8  -0.20685  0.12986     -0.20685 -0.12986
+strut PAM5-5  0.38792  324.6  -0.47384  0.09686     -0.47384 -0.09686
+
+###############((( Stretching constants moved from here )))######################
+
+# Switching function to smoothly reduce Yukawa potential to zero.
+# Between RSwitch and RCutoff (both in nm), the non-bonded potential
+# function is multiplied by a function which smoothly reduces from 1.0
+# (for 0 < r < RSwitch) to 0.0 (for RCutoff < r).  The switching
+# function is disabled if RSwitch > RCutoff.
+ne1 YukawaRSwitch 2.0
+ne1 YukawaRCutoff 3.0
+
+# If true, yukawa(RCutoff) is subtracted from the potential (before
+# applying the switching function.  This reduces the work of the
+# switching function, but modifies the total energy of the system.
+ne1 YukawaShift True
+
+# Net charge of individual counterions in solution.  1 for Na, 2 for
+# Mg.  If you are using a mixture of counterions, you can average the
+# charges and molarities.  Note that the formula is the sum of
+# (molarity * charge^2).  You can adjust the single molarity and
+# charge terms available here to duplicate the results of any sum of
+# such terms.
+ne1 YukawaCounterionCharge 2.0
+
+# Concentration of counterions in solution.
+ne1 YukawaCounterionMolarity 0.02
+
+# Temperature of the solution
+ne1 YukawaTemperatureKelvin 298.0
+
+# Dielectric constant of the solution, not including the counterions.
+# Water is 78.5
+ne1 YukawaDielectric 78.5
+
+# The potential is multiplied by this fudge factor.
+ne1 YukawaConstantMultiple 1.0

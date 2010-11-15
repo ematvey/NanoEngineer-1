@@ -1,0 +1,58 @@
+mmpformat 050920 required; 070415 preferred
+kelvin 300
+group (View Data)
+info opengroup open = True
+csys (HomeView) (1.000000, 0.000000, 0.000000, 0.000000) (10.000000) (0.000000, 0.000000, 0.000000) (1.000000)
+csys (LastView) (0.834588, -0.085788, 0.195024, 0.508005) (7.106569) (-2.115855, 7.141500, -3.627500) (1.000000)
+egroup (View Data)
+group (l_glutamine_mm2_neutral)
+info opengroup open = True
+mol (l_glutamine_mm2_neutral.pdb) def
+atom 1 (7) (1637, -5998, 3746) def
+atom 2 (6) (2595, -6954, 3200) def
+bond1 1
+atom 3 (6) (2907, -8016, 4233) def
+info atom atomtype = sp2
+bond1 2
+atom 4 (8) (2790, -9184, 3975) def
+info atom atomtype = sp2
+bond2 3
+atom 5 (1) (1972, -5099, 4066) def
+bond1 1
+atom 6 (1) (2123, -7452, 2318) def
+bond1 2
+atom 7 (0) (984, -6223, 3983) def
+bond1 1
+atom 8 (0) (3100, -7764, 4937) def
+bond1 3
+atom 9 (6) (3913, -6294, 2682) def
+bond1 2
+atom 10 (1) (4558, -7066, 2263) def
+bond1 9
+atom 11 (1) (3676, -5614, 1864) def
+bond1 9
+atom 12 (6) (4691, -5512, 3788) def
+bond1 9
+atom 13 (1) (4035, -4771, 4243) def
+bond1 12
+atom 14 (1) (4989, -6192, 4584) def
+bond1 12
+atom 15 (6) (5956, -4797, 3226) def
+info atom atomtype = sp2
+bond1 12
+atom 16 (8) (6030, -3589, 3151) def
+info atom atomtype = sp2
+bond2 15
+atom 17 (7) (7104, -5664, 2772) def
+bond1 15
+atom 18 (1) (7291, -6415, 3431) def
+bond1 17
+atom 19 (1) (6930, -6051, 1849) def
+bond1 17
+info chunk hotspot = 8
+egroup (l_glutamine_mm2_neutral)
+end1
+group (Clipboard)
+info opengroup open = False
+egroup (Clipboard)
+end molecular machine part l_glutamine_mm2_neutral

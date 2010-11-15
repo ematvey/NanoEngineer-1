@@ -1,0 +1,273 @@
+mmpformat 050920 required; 070415 preferred
+kelvin 300
+group (View Data)
+info opengroup open = True
+csys (HomeView) (0.707107, 0.707107, 0.000000, 0.000000) (10.109820) (0.000000, 0.000000, 0.000000) (1.000000)
+csys (LastView) (0.693481, 0.708413, 0.082808, 0.101874) (10.109820) (0.140089, -1.779478, 0.857619) (1.000000)
+egroup (View Data)
+group (Moiety-Planet_Carrier)
+info opengroup open = True
+mol (MOIETY) def
+atom 1 (6) (326, 6876, -2066) def
+atom 2 (16) (2025, 6406, -2606) def
+bond1 1
+atom 3 (16) (-638, 6422, -3571) def
+bond1 1
+atom 4 (6) (-56, 5728, -1037) def
+bond1 1
+atom 5 (1) (-3516, 5651, -3793) def
+atom 6 (8) (698, 5575, 188) def
+bond1 4
+atom 7 (8) (-1428, 5584, -593) def
+bond1 4
+atom 8 (6) (1816, 4660, -2081) def
+bond1 2
+atom 9 (6) (-823, 4672, -3048) def
+bond1 3
+atom 10 (6) (-3519, 4672, -3322) def
+bond1 5
+atom 11 (6) (254, 4495, -1906) def
+bond1 4 8 9
+atom 12 (1) (123, 4418, 1864) def
+atom 13 (1) (-2088, 4427, 1049) def
+atom 14 (6) (82, 4369, 776) def
+bond1 6 12
+atom 15 (6) (-1352, 4375, 248) def
+bond1 7 13 14
+atom 16 (7) (2568, 4364, -767) def
+bond1 8
+atom 17 (7) (-2248, 4379, -2535) def
+bond1 9 10
+atom 18 (1) (-3535, 3926, -295) def
+atom 19 (8) (4148, 3531, -3178) def
+atom 20 (8) (1254, 3548, -4653) def
+atom 21 (8) (-1901, 3540, -5405) def
+atom 22 (14) (2374, 3387, -3263) def
+bond1 8 19 20
+atom 23 (14) (-494, 3398, -4315) def
+bond1 9 20 21
+atom 24 (14) (-3516, 3398, -4649) def
+bond1 10 21
+atom 25 (6) (661, 3075, 56) def
+bond1 14
+atom 26 (6) (-1334, 3082, -676) def
+bond1 15
+atom 27 (6) (-3535, 3015, -866) def
+bond1 18
+atom 28 (6) (2131, 3063, -119) def
+bond1 16 25
+atom 29 (6) (16, 3105, -1268) def
+bond1 11 25 26
+atom 30 (6) (-2339, 3077, -1762) def
+bond1 17 26 27
+atom 31 (6) (1919, 1811, -2346) def
+bond1 22
+atom 32 (6) (-741, 1821, -3324) def
+bond1 23
+atom 33 (6) (-3522, 1813, -3621) def
+bond1 24
+atom 34 (6) (2624, 1754, -870) def
+bond1 28 31
+atom 35 (6) (328, 1798, -2131) def
+bond1 29 31 32
+atom 36 (6) (-2234, 1769, -2657) def
+bond1 30 32 33
+atom 37 (8) (367, 1775, 2020) def
+atom 38 (8) (-2391, 1781, 1004) def
+atom 39 (6) (112, 1764, 624) def
+bond1 25 37
+atom 40 (6) (-1292, 1768, 107) def
+bond1 26 38 39
+atom 41 (6) (-3542, 1768, 111) def
+bond1 27 38
+atom 42 (6) (658, 458, -18) def
+bond1 39
+atom 43 (6) (-1297, 464, -737) def
+bond1 40
+atom 44 (6) (-3540, 456, -770) def
+bond1 41
+atom 45 (6) (2126, 425, -101) def
+bond1 34 42
+atom 46 (6) (42, 443, -1361) def
+bond1 35 42 43
+atom 47 (6) (-2359, 438, -1752) def
+bond1 36 43 44
+atom 48 (14) (2411, 315, -3328) def
+bond1 31
+atom 49 (14) (-490, 325, -4394) def
+bond1 32
+atom 50 (14) (-3521, 321, -4733) def
+bond1 33
+atom 51 (8) (4193, 220, -3249) def
+bond1 48
+atom 52 (8) (1276, 232, -4726) def
+bond1 48 49
+atom 53 (8) (-1899, 248, -5493) def
+bond1 49 50
+atom 54 (1) (-3567, -749, 3714) def
+atom 55 (7) (203, -731, 2119) def
+atom 56 (7) (-2345, -725, 1179) def
+atom 57 (6) (72, -796, 673) def
+bond1 42 55
+atom 58 (6) (-1307, -793, 165) def
+bond1 43 56 57
+atom 59 (6) (-3548, -761, 295) def
+bond1 44 56
+atom 60 (6) (2571, -952, -781) def
+bond1 45
+atom 61 (6) (308, -939, -2092) def
+bond1 46
+atom 62 (6) (-2263, -938, -2563) def
+bond1 47
+atom 63 (6) (1882, -1062, -2252) def
+bond1 48 60 61
+atom 64 (6) (-786, -1055, -3235) def
+bond1 49 61 62
+atom 65 (6) (-3529, -1046, -3505) def
+bond1 50 62
+atom 66 (6) (-3566, -1714, 3210) def
+bond1 54
+atom 67 (6) (-594, -1810, 2843) def
+bond1 55
+atom 68 (6) (-2214, -1807, 2245) def
+bond1 56 66 67
+atom 69 (1) (2158, -1996, -2740) def
+bond1 63
+atom 70 (1) (-684, -1987, -3788) def
+bond1 64
+atom 71 (1) (-3527, -1987, -4054) def
+bond1 65
+atom 72 (8) (-2413, -2658, 5265) def
+atom 73 (0) (326, 7649, -2024) def
+bond1 1
+atom 74 (6) (583, -2140, 85) def
+bond1 57
+atom 75 (6) (-1319, -2135, -615) def
+bond1 58
+atom 76 (6) (-3545, -2080, -571) def
+bond1 59
+atom 77 (6) (2033, -2160, 59) def
+bond1 60 74
+atom 78 (6) (2, -2190, -1268) def
+bond1 61 74 75
+atom 79 (6) (-2404, -2149, -1576) def
+bond1 62 75 76
+atom 80 (6) (-3574, -2846, 4295) def
+bond1 66 72
+atom 81 (1) (2382, -3106, -360) def
+bond1 77
+atom 82 (1) (193, -3128, -1795) def
+bond1 78
+atom 83 (1) (-2400, -3093, -2125) def
+bond1 79
+atom 84 (6) (-6, -3196, 2357) def
+bond1 67
+atom 85 (6) (-2351, -3190, 1491) def
+bond1 68
+atom 86 (6) (-2, -3365, 836) def
+bond1 74 84
+atom 87 (6) (-1366, -3362, 332) def
+bond1 75 85 86
+atom 88 (6) (-3553, -3243, 576) def
+bond1 76 85
+atom 89 (6) (-3572, -4228, 3560) def
+bond1 80
+atom 90 (1) (474, -4295, 511) def
+bond1 86
+atom 91 (1) (-1521, -4290, -224) def
+bond1 87
+atom 92 (1) (-3553, -4213, 72) def
+bond1 88
+atom 93 (6) (-778, -4334, 3149) def
+bond1 84
+atom 94 (6) (-2284, -4331, 2592) def
+bond1 85 89 93
+atom 95 (8) (-2504, -5374, 5493) def
+atom 96 (6) (-3578, -5446, 4508) def
+bond1 89 95
+atom 97 (8) (-226, -5623, 2702) def
+bond1 93
+atom 98 (8) (-2416, -5618, 1893) def
+bond1 94
+atom 99 (6) (-861, -6807, 3299) def
+bond1 97
+atom 100 (6) (-2327, -6804, 2757) def
+bond1 98 99
+atom 101 (6) (-3577, -6770, 3713) def
+bond1 96 100
+atom 102 (1) (-340, -7649, 2845) def
+bond1 99
+atom 103 (1) (-2429, -7645, 2072) def
+bond1 100
+atom 104 (1) (-3582, -7631, 4380) def
+bond1 101
+atom 105 (0) (-4170, 4526, -2929) def
+bond1 10
+atom 106 (0) (931, -751, 2172) def
+bond1 55
+atom 107 (0) (2142, -2126, 825) def
+bond1 77
+atom 108 (0) (-4151, -5406, 5022) def
+bond1 96
+atom 109 (0) (2257, 434, 661) def
+bond1 45
+atom 110 (0) (-4187, -6784, 3236) def
+bond1 101
+atom 111 (0) (-4150, 3050, -1336) def
+bond1 27
+atom 112 (0) (4463, 247, -2659) def
+bond1 51
+atom 113 (0) (-4175, -3214, 1039) def
+bond1 88
+atom 114 (0) (-4148, 1795, -3163) def
+bond1 33
+atom 115 (0) (3341, -1008, -728) def
+bond1 60
+atom 116 (0) (1052, 1767, 2051) def
+bond1 37
+atom 117 (0) (-4122, -2113, -1088) def
+bond1 76
+atom 118 (0) (3277, 4502, -657) def
+bond1 16
+atom 119 (0) (-4131, 449, -1271) def
+bond1 44
+atom 120 (0) (764, -3225, 2401) def
+bond1 84
+atom 121 (0) (4419, 3475, -2590) def
+bond1 19
+atom 122 (0) (-4191, -1756, 2754) def
+bond1 66
+atom 123 (0) (3396, 1772, -820) def
+bond1 34
+atom 124 (0) (-4456, 3484, -5099) def
+bond1 24
+atom 125 (0) (-4154, 1777, 578) def
+bond1 41
+atom 126 (0) (-4165, -2749, 4779) def
+bond1 80
+atom 127 (0) (-4154, -991, -3050) def
+bond1 65
+atom 128 (0) (-4176, -740, 747) def
+bond1 59
+atom 129 (0) (2301, 3030, 634) def
+bond1 28
+atom 130 (0) (-4463, 284, -5186) def
+bond1 50
+atom 131 (0) (-4185, -4275, 3089) def
+bond1 89
+atom 132 (0) (-407, -1769, 3594) def
+bond1 67
+atom 133 (0) (-1818, -5409, 5470) def
+bond1 95
+atom 134 (0) (-701, -6791, 4057) def
+bond1 99
+atom 135 (0) (-1731, -2744, 5272) def
+bond1 72
+atom 136 (0) (-611, -4286, 3904) def
+bond1 93
+egroup (Moiety-Planet_Carrier)
+end1
+group (Clipboard)
+info opengroup open = True
+egroup (Clipboard)
+end molecular machine part Moiety-Planet_Carrier
