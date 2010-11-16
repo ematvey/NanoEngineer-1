@@ -7,7 +7,7 @@ B{Partlib mode}. It lists the parts in the partlib and also shows the
 current selected part in its 'Preview' box. 
 
 @author: Ninad
-@version: $Id: PartLibPropertyManager.py 12452 2008-04-10 18:04:01Z tommoore $
+@version: $Id: PartLibPropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
 
 History: 
@@ -49,25 +49,24 @@ class PartLibPropertyManager(PastePropertyManager):
     # The relative path to the PNG file that appears in the header
     iconPath = "ui/actions/Insert/Part_Library.png"
     
-    def __init__(self, parentMode):
+    def __init__(self, command):
         """
         Constructor for the PartLibProperty Manager. 
         
-        @param parentMode: The parent mode where this Property Manager is used
-        @type  parentMode: L{PartLibPropertyManager} 
+        @param command: The parent mode where this Property Manager is used
+        @type  command: L{PartLibPropertyManager} 
         """
         self.partLibGroupBox = None
         
-        PastePropertyManager.__init__(self, parentMode)
+        PastePropertyManager.__init__(self, command)
         self.updateMessage(
         """The part library contains structures and molecules
         that can be added to a project by selecting from the directory
-        and double clicking in the 3D graphics area."""
-        )
-    
-    def model_changed(self):
+        and double clicking in the 3D graphics area.""")
+        
+    def _update_UI_do_updates(self):
         """
-        Overrides BuildAtomsPropertyManager.model_changed. 
+        @see: Command_PropertyManager._update_UI_do_updates()
         """
         #This does nothing in this propMGr at present. 
         return
@@ -88,7 +87,7 @@ class PartLibPropertyManager(PastePropertyManager):
         
         elementViewer = self.previewGroupBox.elementViewer
         self.partLibGroupBox = PM_PartLib(self, 
-                                          win = self.parentMode.w,
+                                          win = self.command.w,
                                           elementViewer = elementViewer)
         
         

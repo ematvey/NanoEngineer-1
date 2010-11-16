@@ -1,15 +1,8 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_DnaFlyout.py 13022 2008-06-02 03:12:00Z ninadsathaye $
-
-TODO: 
-- Does the parentWidget for the DnaFlyout always needs to be a propertyManager
-  The parentWidget is the propertyManager object of the currentCommand on the 
-  commandSequencer. What if the currentCommand doesn't have a PM but it wants 
-  its own commandToolbar?  Use the mainWindow as its parentWidget? 
-- The implementation may change after Command Manager (Command toolbar) code 
-  cleanup. The implementation as of 2007-12-20 is an attempt to define 
-  flyouttoolbar object in the 'Command.
+@author: Urmi
+@copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
+@version $Id: Ui_ProteinFlyout.py 14382 2008-09-30 17:52:29Z ninadsathaye $
 
 piotr 080713: Added editRotamers action.
 
@@ -73,10 +66,6 @@ class ProteinFlyout:
         #including the subcontrolArea actions. 
         allActionsList = []
 
-        self.subControlActionGroup = QtGui.QActionGroup(self.parentWidget)
-        self.subControlActionGroup.setExclusive(False)   
-        self.subControlActionGroup.addAction(self.buildPeptideAction)
-        self.subControlActionGroup.addAction(self.displayProteinStyleAction)
 
         #Action List for  subcontrol Area buttons. 
         subControlAreaActionList = []
@@ -87,6 +76,7 @@ class ProteinFlyout:
         subControlAreaActionList.append(self.buildPeptideAction)        
         subControlAreaActionList.append(self.editRotamersAction)        
         subControlAreaActionList.append(self.editResiduesAction)        
+        subControlAreaActionList.append(self.compareProteinsAction)        
         subControlAreaActionList.append(self.displayProteinStyleAction)
         allActionsList.extend(subControlAreaActionList)
 
@@ -114,21 +104,25 @@ class ProteinFlyout:
         self.buildPeptideAction.setText("Peptide")
         self.buildPeptideAction.setCheckable(True)  
         self.buildPeptideAction.setIcon(
-            geticon("ui/actions/Tools/Build Structures/Peptide.png"))
-
-        
+            geticon("ui/actions/Command Toolbar/BuildProtein/Peptide.png"))
 
         self.editRotamersAction = NE1_QWidgetAction(parentWidget, win = self.win)
         self.editRotamersAction.setText("Rotamers")
         self.editRotamersAction.setCheckable(True)  
         self.editRotamersAction.setIcon(
-            geticon("ui/actions/Tools/Build Structures/Rotamer.png"))
+            geticon("ui/actions/Command Toolbar/BuildProtein/Rotamers.png"))
         
         self.editResiduesAction = NE1_QWidgetAction(parentWidget, win = self.win)
         self.editResiduesAction.setText("Residues")
         self.editResiduesAction.setCheckable(True)  
         self.editResiduesAction.setIcon(
-            geticon("ui/actions/Tools/Build Structures/Rotamer.png"))
+            geticon("ui/actions/Command Toolbar/BuildProtein/Residues.png"))
+        
+        self.compareProteinsAction = NE1_QWidgetAction(parentWidget, win = self.win)
+        self.compareProteinsAction.setText("Compare")
+        self.compareProteinsAction.setCheckable(True)  
+        self.compareProteinsAction.setIcon(
+            geticon("ui/actions/Command Toolbar/BuildProtein/Compare.png"))
         
         self.displayProteinStyleAction = NE1_QWidgetAction(parentWidget, 
                                                            win = self.win)
@@ -136,7 +130,13 @@ class ProteinFlyout:
         self.displayProteinStyleAction.setText("Edit Style")
         self.displayProteinStyleAction.setCheckable(True)        
         self.displayProteinStyleAction.setIcon(
-            geticon("ui/actions/Edit/EditProteinDisplayStyle.png"))
+            geticon("ui/actions/Command Toolbar/BuildProtein/EditProteinDisplayStyle.png"))
+        
+        self.subControlActionGroup = QtGui.QActionGroup(self.parentWidget)
+        self.subControlActionGroup.setExclusive(False)   
+        self.subControlActionGroup.addAction(self.buildPeptideAction)
+        self.subControlActionGroup.addAction(self.displayProteinStyleAction)
+        
 
     def _addWhatsThisText(self):
         """
@@ -175,7 +175,7 @@ class ProteinFlyout:
 
         change_connect(self.buildPeptideAction, 
                        SIGNAL("triggered(bool)"),
-                       self.activateInsertPeptide_EditCommand)
+                       self.activateBuildPeptide_EditCommand)
 
         change_connect(self.editRotamersAction, 
                        SIGNAL("triggered(bool)"),
@@ -184,6 +184,10 @@ class ProteinFlyout:
         change_connect(self.editResiduesAction, 
                        SIGNAL("triggered(bool)"),
                        self.activateEditResidues_EditCommand)
+
+        change_connect(self.compareProteinsAction, 
+                       SIGNAL("triggered(bool)"),
+                       self.activateCompareProteins_EditCommand)
 
         change_connect(self.displayProteinStyleAction, 
                        SIGNAL("triggered(bool)"),
@@ -230,7 +234,7 @@ class ProteinFlyout:
         unchecks all the actions EXCEPT the ExitDnaAction
         @see: self.deActivateFlyoutToolbar()
         @see: self.activateBreakStrands_Command() 
-        @see: BuildDna_EditCommand.resume_gui()
+        @see: baseCommand.command_update_flyout()
         """
 
         #Uncheck all the actions in the flyout toolbar (subcontrol area)
@@ -248,7 +252,7 @@ class ProteinFlyout:
             if not isChecked:
                 self.parentWidget.ok_btn_clicked()
 
-    def activateInsertPeptide_EditCommand(self, isChecked):
+    def activateBuildPeptide_EditCommand(self, isChecked):
         """
         Slot for B{Duplex} action.
         """
@@ -281,6 +285,17 @@ class ProteinFlyout:
 
         for action in self.subControlActionGroup.actions():
             if action is not self.editResiduesAction and action.isChecked():
+                action.setChecked(False)
+
+    def activateCompareProteins_EditCommand(self, isChecked):
+        """
+        Slot for B{CompareProteins} action.
+        """
+
+        self.win.enterCompareProteinsCommand(isChecked)
+
+        for action in self.subControlActionGroup.actions():
+            if action is not self.compareProteinsAction and action.isChecked():
                 action.setChecked(False)
 
     def activateProteinDisplayStyle_Command(self, isChecked):

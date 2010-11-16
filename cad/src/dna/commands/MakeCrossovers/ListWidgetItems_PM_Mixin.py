@@ -3,7 +3,7 @@
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: ListWidgetItems_PM_Mixin.py 13071 2008-06-04 05:23:42Z ninadsathaye $
+@version:$Id: ListWidgetItems_PM_Mixin.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 
 History:
 
@@ -69,7 +69,7 @@ class ListWidgetItems_PM_Mixin:
     
     def listWidgetHasFocus(self):
         """
-        Checkes if the list widget that lists dnasegments (that will undergo 
+        Checks if the list widget that lists dnasegments (that will undergo 
         special operations such as 'resizing them at once or making 
         crossovers between the segments etc) has the 
         Qt focus. This is used to just remove items from the list widget 
@@ -89,13 +89,19 @@ class ListWidgetItems_PM_Mixin:
         Update the list of segments shown in the segments list widget
         @see: self.updateListWidgets, self.updateStrandListWidget
         """
+        
         segmentList = []
         
-        segmentList = self.command.getSegmentList()                        
-               
-        self.segmentListWidget.insertItems(
-            row = 0,
-            items = segmentList)
+        segmentList = self.command.getSegmentList()   
+        
+        
+        if segmentList:
+            self.segmentListWidget.insertItems(
+                row = 0,
+                items = segmentList)
+        else:
+            self.segmentListWidget.clear()
+            
         
 
     def isAddSegmentsToolActive(self): 

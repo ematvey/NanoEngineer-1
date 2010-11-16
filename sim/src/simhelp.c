@@ -2,7 +2,7 @@
 /**
  * C helper file for sim.pyx
  *
- * $Id: simhelp.c 13014 2008-05-30 19:46:30Z ericmessick $
+ * $Id: simhelp.c 14256 2008-09-17 03:59:27Z ericmessick $
  *
  * CHANGES  (reverse chronological order, use CVS log for details)
  *
@@ -31,7 +31,7 @@ char __author__[] = "Will";
 
 // #define WWDEBUG
 
-static char const rcsid[] = "$Id: simhelp.c 13014 2008-05-30 19:46:30Z ericmessick $";
+static char const rcsid[] = "$Id: simhelp.c 14256 2008-09-17 03:59:27Z ericmessick $";
 /* rcsid strings for several *.h files */
 static char const rcsid2[] = MULTIPLE_RCSID_STRING;
 
@@ -321,6 +321,7 @@ pyrexInitBondTable(void)
     return finish_python_call(Py_None);
 }
 
+/*
 static PyObject *
 dumpPart(void)
 {
@@ -328,6 +329,7 @@ dumpPart(void)
     printPart(stdout, part);
     return finish_python_call(Py_None);
 }
+*/
 
 static PyObject *
 everythingElse(void) // WARNING: this duplicates some code from simulator.c
@@ -369,6 +371,10 @@ everythingElse(void) // WARNING: this duplicates some code from simulator.c
     createPatterns();
     matchPartToAllPatterns(part);
     PYBAIL();
+
+    if (TypeFeedback) {
+        return finish_python_call(Py_None);
+    }
 
     // ##e should print options set before run, but it's too early to do that in this code
 

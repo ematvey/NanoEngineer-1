@@ -2,7 +2,7 @@
 #ifndef PATTERN_H_INCLUDED
 #define PATTERN_H_INCLUDED
 
-#define RCSID_PATTERN_H  "$Id: pattern.h 12652 2008-05-02 04:16:49Z ericmessick $"
+#define RCSID_PATTERN_H  "$Id: pattern.h 14287 2008-09-18 19:41:28Z ericmessick $"
 
 struct compiledPatternAtom
 {
@@ -14,7 +14,7 @@ struct compiledPatternTraversal
 {
   struct compiledPatternAtom *a;
   struct compiledPatternAtom *b;
-  char bondOrder;
+  char bondOrder[4];
 };
 
 struct patternMatch 
@@ -33,6 +33,10 @@ struct compiledPattern
   void (*matchFunction)(struct patternMatch *match);
   int numberOfAtoms;
   int numberOfTraversals;
+
+  // non-zero if pattern is allowed to match same atoms more than one way
+  int allowDuplicates;
+  
   struct compiledPatternTraversal **traversals;
 };
 
@@ -44,9 +48,11 @@ extern int atomIsType(struct atom *a, struct atomType *type);
 
 extern struct compiledPatternAtom *makePatternAtom(int id, char *type);
 
+extern struct compiledPatternTraversal *makeTraversal2(struct compiledPatternAtom *a, struct compiledPatternAtom *b, char *bondOrders);
+
 extern struct compiledPatternTraversal *makeTraversal(struct compiledPatternAtom *a, struct compiledPatternAtom *b, char bondOrder);
 
-extern void makePattern(char *name, void (*matchFunction)(struct patternMatch *match), int numAtoms, int numTraversals, struct compiledPatternTraversal **traversals);
+extern struct compiledPattern *makePattern(char *name, void (*matchFunction)(struct patternMatch *match), int numAtoms, int numTraversals, struct compiledPatternTraversal **traversals);
 
 extern void matchPartToAllPatterns(struct part *part);
 

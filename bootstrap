@@ -5,8 +5,11 @@ set -e
 #if test -f Makefile; then
 #  make distclean
 #fi
-rm -rf *.cache config.guess config.log \
-    config.status config.sub depcomp ltmain.sh
+rm -rf config.guess config.log config.h config.h.in config.h.in~ install-sh compile \
+    config.status config.sub depcomp ltmain.sh missing aclocal.m4 \
+		m4/ltoptions.m4 m4/ltsugar.m4 m4/lt~obsolete.m4 m4/ltversion.m4 m4/libtool.m4 \
+		autom4te.cache configure
+
 touch NEWS README AUTHORS ChangeLog
 
 #cat ./ac_utils.m4 > ./acinclude.m4

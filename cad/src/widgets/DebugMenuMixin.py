@@ -2,7 +2,7 @@
 """
 Mixin class to help some of our widgets offer a debug menu.
 
-@version: $Id: DebugMenuMixin.py 12967 2008-05-28 23:46:31Z ericmessick $
+@version: $Id: DebugMenuMixin.py 14432 2008-10-16 00:55:49Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Needs refactoring:  [bruce 080104]
@@ -44,7 +44,9 @@ from utilities.debug import debug_timing_test_pycode_from_a_dialog
 from utilities.debug import debug_run_command
 from utilities.constants import debugModifiers
 from utilities.constants import noop
-
+from time import clock
+from utilities.debug import profile, doProfile
+from widgets.simple_dialogs import grab_text_line_using_dialog
 
 # enable the undocumented debug menu by default [bruce 040920]
 # (moved here from GLPane, now applies to all widgets using DebugMenuMixin [bruce 050112])
@@ -105,9 +107,12 @@ class DebugMenuMixin:
         # make the menu -- now done each time it's needed
         return
 
-    def makemenu(self, menu_spec, menu = None): # bruce 050304 added this, so subclasses no longer have to
+    def makemenu(self, menu_spec, menu = None):
         """
         Make and return a menu object for use in this widget, from the given menu_spec.
+        If menu is provided (should be a QMenu), append to it instead.
+        For more info see docstring of widgets.menu_helpers.makemenu_helper.
+        
         [This can be overridden by a subclass, but probably never needs to be,
         unless it needs to make *all* menus differently (thus we do use the overridden
         version if one is present) or unless it uses it independently from this mixin
@@ -177,6 +182,13 @@ class DebugMenuMixin:
             res.extend( [
                 ('measure graphics performance', self._debug_do_benchmark),
             ] )
+            
+        #command entered profiling
+        res.extend( [
+            ('Profile entering a command...',
+             self._debug_command_entered_profiling),
+        ] )
+            
 
         if debug_flags.atom_debug: # since it's a dangerous command
             res.extend( [
@@ -280,7 +292,7 @@ class DebugMenuMixin:
         Linux: <cntrl><shift><alt><left click>
         Windows: probably same as linux
         """
-        # In constants.py: debugModifiers = cntlButton | shiftButton | altButton
+        # In constants.py: debugModifiers = cntlModifier | shiftModifier | altModifier
         # On the mac, this really means command-shift-alt [alt == option].
         if debug_menu_enabled and permit_debug_menu_popup and \
            int(event.modifiers() & debugModifiers) == debugModifiers:
@@ -344,7 +356,6 @@ class DebugMenuMixin:
     def _debug_do_benchmark(self):
         # simple graphics benchmark, piotr 080311
         from time import clock
-        from utilities.debug import profile
         print "Entering graphics benchmark. Drawing 100 frames... please wait."
         win = self._debug_win
         self.win.resize(1024,768) # resize the window to a constant size
@@ -356,6 +367,54 @@ class DebugMenuMixin:
         profile(self._draw_hundred_frames, self, None)
         tm1 = clock()
         print "Benchmark complete. FPS = ", 100.0/(tm1-tm0)
+        
+    def _debug_command_entered_profiling(self):
+        """
+        Debug option for profiling code to enter BuildAtoms command. 
+        """      
+        #Note: To profile other commands, simply repalce call to 
+        #'toolsBuildAtoms' with the appropriate method. Other option is 
+        #to just do "win.commandSequencer.userEnterCommand('COMMAND_NAME')"
+        # -- Ninad 2008-10-03
+        
+        ALLOWED_COMMAND_NAMES = ('DEPOSIT', 
+                                 'BUILD_DNA', 
+                                 'DNA_SEGMENT', 
+                                 'DNA_STRAND',
+                                 'CRYSTAL', 
+                                 'BUILD_NANOTUBE', 
+                                 'NANOTUBE_SEGMENT',
+                                 'EXTRUDE', 
+                                 'MODIFY',
+                                 'MOVIE'
+                                 )
+        
+        ok, commandName =  grab_text_line_using_dialog(
+            title = "profile entering given command", 
+            label = "Enter the command.commandName e.g. 'BUILD_DNA' , 'DEPOSIT'"
+        )
+        if not ok:
+            print "No command name entered , returning"
+            return
+        
+        commandName = str(commandName)
+        commandName = commandName.upper()
+        if not commandName in ALLOWED_COMMAND_NAMES:
+            print "Invalid command name %s. Returning."%(commandName)
+            return 
+        
+        print "Profiling command enter for %s"%(commandName)
+                 
+        win = self._debug_win
+        meth = self.win.commandSequencer.userEnterCommand
+        doProfile(True)
+        tm0 = clock()
+        profile(meth, commandName)
+        tm1 = clock()
+        print "Profiling complete. Total time to enter %s = %s" % \
+              (commandName, (tm1 - tm0))
+        doProfile(False)
+        return
 
     def debug_menu_source_name(self): #bruce 050112
         """

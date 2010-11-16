@@ -8,7 +8,7 @@ for widgets in the NE1 Main Window, except widgets in Property Managers.
 Edit WhatsThisText_for_PropertyManagers.py to set "What's This" and tooltip
 text for widgets in the NE1 Property Managers.
 
-@version: $Id: WhatsThisText_for_MainWindow.py 13378 2008-07-10 01:50:20Z marksims $
+@version: $Id: WhatsThisText_for_MainWindow.py 14453 2008-11-14 02:48:15Z  $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Note: bruce 080210 split whatsthis_utilities.py out of this file
@@ -122,6 +122,18 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "</p>"
 
     win.fileInsertPdbAction.setWhatsThis( fileInsertPdbActionText )
+    
+    # Import AMBER .in file
+
+    fileInsertInActionText = \
+        "<b> AMBER .in file fragment</b>"\
+        "<p>"\
+        "Inserts a fragment of an AMBER .in file into the current part.<p>"\
+        "The fragment should just contain the lines defining the actual z-matrix.  "\
+        "Loop closure bonds are not created, nor are bond orders inferred."\
+        "</p>"
+
+    win.fileInsertInAction.setWhatsThis( fileInsertInActionText )
     
     # Export Protein Data Bank File
 
@@ -367,9 +379,9 @@ def createWhatsThisTextForMainWindowWidgets(win):
         Style</b> is set to <i>Protein</i>.
         </p>""") 
    
-    #Rename
+    #Rename (deprecated by Rename Selection)
     EditrenameActionText = \
-        "<u><b>Rename Chunk</b></u> "\
+        "<u><b>Rename</b></u> "\
         "<p>"\
         "<img source=\"ui/actions/Edit/Rename.png\">"\
         "<br> "\
@@ -378,25 +390,29 @@ def createWhatsThisTextForMainWindowWidgets(win):
      
     win.editRenameAction.setWhatsThis( EditrenameActionText )
     
-    #Rename Object
-    EditrenameobjectsActionText = \
-        "<u><b>Rename Object</b></u> "\
+    #Rename selection
+    _text = \
+        "<u><b>Rename Selection</b></u> "\
         "<p>"\
-        "<img source=\"ui/actions/Edit/Rename_Objects\">"\
+        "<img source=\"ui/actions/Edit/Rename.png\">"\
         "<br> "\
-        "Allows the user to rename the selected object "\
+        "Rename the selected object(s). Only leaf nodes in the model tree are "\
+        "renamed. Specifically, group nodes are not renamed, even if they are "\
+        "selected)."\
+        "</p>"\
+        "To uniquely name multiple objects, include the <b>#</b> character "\
+        "at the end of the name. This (re)numbers the selected objects."\
         "</p>"
      
-    win.editRenameObjectsAction.setWhatsThis( EditrenameobjectsActionText )
+    win.editRenameSelectionAction.setWhatsThis( _text )
     
     #editAddSuffixAction
     EditeditAddSuffixActionActionText = \
         "<u><b>Add Suffix</b></u> "\
         "<p>"\
-        "<img source=\"ui/actions/Edit/Add_Suffix\">"\
+        "<img source=\"ui/actions/Edit/Add_Suffix.png\">"\
         "<br> "\
-        "Allows the user to add a suffix to the name of the selected object "\
-        "or objects"\
+        "Add suffix to the name of the selected object(s)."\
         "</p>"
      
     win.editAddSuffixAction.setWhatsThis( EditeditAddSuffixActionActionText )
@@ -445,6 +461,28 @@ def createWhatsThisTextForMainWindowWidgets(win):
 
     win.editDeleteAction.setWhatsThis( editDeleteText )
 
+    
+    # Color Scheme
+    
+    _text = \
+        "<u><b>Color Scheme</b></u>"\
+        "<p>"\
+        "<img source=\"ui/actions/View/ColorScheme.png\"><br> "\
+        "Edit and save/restore favorite NanoEngineer-1 color schemes "\
+        "including background color, selection/highlight color, etc."\
+        "</p>"
+    win.colorSchemeAction.setWhatsThis( _text )
+    
+    # Lighting Scheme
+    
+    _text = \
+        "<u><b>Lighting Scheme</b></u>"\
+        "<p>"\
+        "<img source=\"ui/actions/View/LightingScheme.png\"><br> "\
+        "Edit and save/restore favorite NanoEngineer-1 lighting schemes."\
+        "</p>"
+    win.lightingSchemeAction.setWhatsThis( _text )
+    
     #Preferences Dialog
 
     editPrefsText = \
@@ -455,14 +493,6 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "lighting, background color, window position and"\
         "size, plugins etc. </p>"
     win.editPrefsAction.setWhatsThis( editPrefsText )
-    
-    colorSchemeText = \
-        "<b>Color Scheme Property Manager</b>"\
-        "<p>"\
-        "Allows you to edit various color schemes "\
-        "such as changing background color, "\
-        "chunk selection color etc. </p>"
-    win.colorSchemeAction.setWhatsThis( colorSchemeText )
     
     #
     # View Toolbar
@@ -519,6 +549,9 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "The area is specified by holding down the left button, "\
         "dragging the mouse, and then releasing the mouse button."\
         "</p>"\
+        "Pressing the <b>Escape</b> key exits Zoom to Area and returns to the"\
+        "previous command."\
+        "</p>"\
         "<p>A mouse with a mouse wheel can also be used to "\
         "zoom in/out."\
         "</p>"\
@@ -574,6 +607,9 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "<img source=\"ui/actions/View/Modify/Pan.png\"><br> "\
         "Allows X-Y panning using the left mouse button."\
         "</p>"\
+        "Pressing the <b>Escape</b> key exits Pan Tool and returns to the"\
+        "previous command."\
+        "</p>"\
         "<p>Users with a 3-button mouse can pan the model at "\
         "any time by pressing the middle mouse button while "\
         "holding down the Shift key."\
@@ -588,6 +624,11 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "<p>"\
         "<img source=\"ui/actions/View/Modify/Rotate.png\"><br> "\
         "Allows free rotation using the left mouse button."\
+        "</p>"\
+        "<p>Holding down the <b>A</b> key activates auto-rotation, which will "\
+        "continue rotation after releasing the mouse button (try it!)."\
+        "Pressing the <b>Escape</b> key exits Rotate Tool and returns to the"\
+        "previous command."\
         "</p>"\
         "<p>Users with a 3-button mouse can rotate the "\
         "model at any time by pressing "\
@@ -909,24 +950,8 @@ def createWhatsThisTextForMainWindowWidgets(win):
 
     win.insertGrapheneAction.setWhatsThis(insertGrapheneActionText )
 
-    # Nanotube Generator (old)
-
-    _text = \
-        "<u><b>Nanotube Generator</b></u>"\
-        "<p>"\
-        "<img source=\"ui/actions/Tools/Build Structures/Nanotube.png\"> <br>"\
-        "Inserts a carbon nanotube in "\
-        "the model based on the current parameters in "\
-        "the Property Manager. To preview the structure "\
-        "based on the current parameters, click the "\
-        "Preview button located at the top of the "\
-        "Property Manager :<br> "\
-        "<img source=\"ui/actions/Properties Manager/Preview.png\"> "\
-        "</p>"
-
-    win.nanotubeGeneratorAction.setWhatsThis( _text )
-    
-    # Build Nanotube (new)
+        
+    # Build Nanotube 
 
     _text = \
         "<u><b>Build Nanotube</b></u>"\
@@ -1558,19 +1583,19 @@ def createWhatsThisTextForMainWindowWidgets(win):
     win.toolsSelectMoleculesAction.setWhatsThis\
        ( toolsSelectMoleculesActionText )
 
-    # Build Chunks
+    # Build Atoms
 
     toolsDepositAtomActionText = \
-        "<u><b>Build Chunks</b></u><!-- [[Feature:Build Chunks]] -->"\
+        "<u><b>Build Atoms</b></u><!-- [[Feature:Build Atoms]] -->"\
         "<p>"\
         "<img source=\"ui/actions/Tools/Build Structures/Atoms.png\"><br> "\
-        "<b>Build Chunks</b> provides an interactive molecular modeler "\
+        "<b>Build Atoms</b> provides an interactive molecular modeler "\
         "that allows the user to easily build molecular structures one "\
         "atom at a time.</p>"
 
     win.toolsDepositAtomAction.setWhatsThis( toolsDepositAtomActionText )
 
-    # Build Crystal (was Cookie Cutter Mode)
+    # Build Crystal 
 
     toolsCookieCutActionText = \
         "<u><b>Build Crystal</b></u><!-- [[Feature:Build Crystal Mode]] -->"\
@@ -1581,7 +1606,7 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "out multi-layered shapes from slabs of diamond "\
         "or lonsdaleite lattice.</p>"
 
-    win.toolsCookieCutAction.setWhatsThis( toolsCookieCutActionText )
+    win.buildCrystalAction.setWhatsThis( toolsCookieCutActionText )
 
     # Tools > Extrude
 
@@ -1669,7 +1694,15 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "configuration that the atoms will settle "\
         "into if lowered to zero Kelvin. </p>"
 
-    win. simMinimizeEnergyAction.setWhatsThis( simMinimizeEnergyActionText )
+    win.simMinimizeEnergyAction.setWhatsThis( simMinimizeEnergyActionText )
+
+    checkAtomTypesActionText = \
+        "<u><b>Check AMBER AtomTypes</b></u>"\
+        "<p>"\
+        "Shows which AtomTypes will be assigned to each atom when the AMBER force field is in use."\
+        "</p>"
+
+    win.checkAtomTypesAction.setWhatsThis( checkAtomTypesActionText )
 
     # Change Chunk Color
     
@@ -1744,23 +1777,7 @@ def createWhatsThisTextForMainWindowWidgets(win):
         "</p>"
 
     win. simPlotToolAction.setWhatsThis( simPlotToolActionText )
-
-    #
-    # Dashboard Buttons
-    #
-
-    # Done
-
-    toolsDoneActionText = \
-        "<u><b>Done</b></u>"\
-        "<p>"\
-        "<img source=\"ui/actions/Properties Manager/Done.png\"><br> "\
-        "Completes the current operation and enters the "\
-        "default mode."\
-        "</p>"
-
-    win.toolsDoneAction.setWhatsThis( toolsDoneActionText )
-
+    
     #
     # Jigs
     #
@@ -2102,5 +2119,36 @@ def create_whats_this_descriptions_for_NanoHive_dialog(w):
                      "Potential Plane Plugin"
 
     w.MPQC_ESP_checkbox.setToolTip(MPQCESPTipText)
+
+def whats_this_text_for_glpane():
+    """
+    Return a What's This description for a GLPane.
+    """
+    #bruce 080912 moved this here from part of a method in class GLPane
+    import sys
+    if sys.platform == "darwin":
+        ctrl_or_cmd = "Cmd"
+    else:
+        ctrl_or_cmd = "Ctrl"
+
+    glpaneText = \
+               "<u><b>Graphics Area</b></u><br> "\
+               "<br>This is where the action is."\
+               "<p><b>Mouse Button Commands :</b><br> "\
+               "<br> "\
+               "<b>Left Mouse Button (LMB)</b> - Select<br> "\
+               "<b>LMB + Shift</b> - add to current selection <br> "\
+               "<b>LMB + " + ctrl_or_cmd + "</b> - remove from current selection <br> "\
+               "<b>LMB + Shift + " + ctrl_or_cmd + "</b> - delete highlighted object <br> "\
+               "<br> "\
+               "<b>Middle Mouse Button (MMB)</b> - Rotate view <br> "\
+               "<b>MMB + Shift</b> - Pan view <br> "\
+               "<b>MMB + " + ctrl_or_cmd + "</b> - Rotate view around the point of view (POV) <br> "\
+               "<br> "\
+               "<b>Right Mouse Button (RMB)</b> - Display context-sensitive menus <br>"\
+               "<br> "\
+               "<b>Mouse Wheel</b> - Zoom in/out (configurable from Preference settings)"\
+               "</p>"
+    return glpaneText
 
 # end

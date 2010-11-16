@@ -3,7 +3,7 @@
 cursors.py - load all the custom cursors needed by NE1
 
 @author: Mark
-@version: $Id: cursors.py 13323 2008-07-03 04:25:19Z marksims $
+@version: $Id: cursors.py 14434 2008-10-26 19:10:55Z  $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 
 mark 060427 - loadCursors() moved from MWsemantics.py.
@@ -163,8 +163,21 @@ def loadCursors(w):
                            offsetX = 12, offsetY = 0)
     
     # View Zoom, Pan, Rotate cursors
-    w.ZoomCursor = QCursor(getCursorPixmap("ZoomCursor.png"), 0, 0)
-    w.ZoomInOutCursor = QCursor(getCursorPixmap("ZoomInOutCursor.png"), 0, 0)
+    
+    # The zoom cursor(s). One is for a dark background, the other for a light bg.
+    # See GLPane.setCursor() for more details about this list.
+    w.ZoomCursor = []
+    _cursor = QCursor(getCursorPixmap("darkbg/ZoomCursor.png"), 0, 0)
+    w.ZoomCursor.append(_cursor)
+    _cursor = QCursor(getCursorPixmap("litebg/ZoomCursor.png"), 0, 0)
+    w.ZoomCursor.append(_cursor)
+    
+    w.ZoomInOutCursor = []
+    _cursor = QCursor(getCursorPixmap("darkbg/ZoomCursor.png"), 0, 0)
+    w.ZoomInOutCursor.append(_cursor)
+    _cursor = QCursor(getCursorPixmap("litebg/ZoomCursor.png"), 0, 0)
+    w.ZoomInOutCursor.append(_cursor)
+    
     w.PanViewCursor = QCursor(getCursorPixmap("PanViewCursor.png"), 0, 0)
     w.RotateViewCursor = QCursor(getCursorPixmap("RotateViewCursor.png"), 0, 0)
 
@@ -208,6 +221,9 @@ def loadCursors(w):
     
     w.specifyPlaneCursor = \
      QCursor(getCursorPixmap("SpecifyPlaneCursor.png"), 0, 0)
+    
+    w.clickToJoinStrandsCursor = QCursor(getCursorPixmap(
+        "ClickToJoinStrands_Cursor.png"), 0, 0)
     
     return # from loadCursors
 

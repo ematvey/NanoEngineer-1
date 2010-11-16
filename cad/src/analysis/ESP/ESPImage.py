@@ -7,7 +7,7 @@ since it's also our only working Node for directly displaying an image in
 the 3d model space.
 
 @author: Huaicai, Bruce
-@version: $Id: ESPImage.py 13381 2008-07-10 04:12:49Z brucesmith $
+@version: $Id: ESPImage.py 14272 2008-09-18 00:36:43Z brucesmith $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 
 History: 
@@ -306,8 +306,7 @@ class ESPImage(RectGadget):
         #bruce 060403 changes: force Build, not Select Atoms as before; only do this if current mode is not Build.
         # (But why do we need to force it into any particular mode? I don't know. [bruce 070608])
         commandSequencer = self.assy.w.commandSequencer #bruce 071008
-        if commandSequencer.currentCommand.commandName != 'DEPOSIT':
-            commandSequencer.userEnterCommand('DEPOSIT')
+        commandSequencer.userEnterCommand('DEPOSIT')
         Jig.edit(self)
 
     def make_selobj_cmenu_items(self, menu_spec):
@@ -361,13 +360,13 @@ class ESPImage(RectGadget):
                                 dispdef, 
                                 pickCheckOnly = False):
         """
-        For ESPImage class, this does all the drawing. (does it after main
-        drawing code is finished drawing) . This method ensures that the 
+        For ESPImage class, this does all the drawing. (Does it after main
+        drawing code is finished drawing.) This method ensures that the 
         ESP image jig gets selected even when you click inside the 
-        rectangular box (i.e. not just along the edgets of the box)
+        rectangular box (i.e. not just along the edges of the box).
         @see: GraphicsMode.Draw_after_highlighting()
         @see: Node.draw_after_highlighting()
-        @see:Plane.draw_after_highlighting()
+        @see: Plane.draw_after_highlighting()
         """
         anythingDrawn = False
         if self.hidden:

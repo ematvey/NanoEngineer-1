@@ -3,7 +3,7 @@
 assembly.py -- provides class Assembly, for everything stored in one mmp file,
 including one main part and zero or more clipboard items; see also part.py.
 
-@version: $Id: assembly.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: assembly.py 14443 2008-11-07 05:22:52Z  $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 ==
@@ -106,18 +106,6 @@ from model.prefsTree import MainPrefsGroupPart
 import foundation.undo_manager as undo_manager
 from files.mmp.files_mmp_writing import writemmpfile_assy
 
-# kluge for register_classname -- should use a
-# registration scheme: [bruce 080115]
-#update, bruce 080310: extending this list is
-# deprecated and it will be removed soon --
-# see comments in register_classname.
-from dna.model.DnaGroup import DnaGroup
-from dna.model.Block import Block
-from dna.model.DnaSegment import DnaSegment
-from dna.model.DnaStrand import DnaStrand
-from cnt.model.NanotubeGroup import NanotubeGroup # --mark 2008-03-09
-from cnt.model.NanotubeSegment import NanotubeSegment # --mark 2008-03-09
-
 # ==
 
 debug_assy_changes = 0 #bruce 050429
@@ -144,18 +132,17 @@ class Assembly( StateMixin, Assembly_API):
     # (e.g. isinstance( node, assy.DnaGroup)) and also as arguments
     # to Node.parent_node_of_class. Using them can avoid import cycles
     # (compared to other code importing these classes directly)
-    # and avoids the need for registering and passing their names
-    # as strings (in register_classname and parent_node_of_class).
-    # Once existing code is converted to use this, register_classname
-    # (and the toplevel imports of these classes) can be removed.
-    #
+    # 
     # Note that these imports must not be moved to toplevel,
-    # and are not redundant with toplevel imports if they exist. [bruce 080310]
+    # and are not redundant with toplevel imports of the same symbols,
+    # if they exist. [bruce 080310]
     from foundation.Group import Group
     from model.chunk      import Chunk
     from model.chem       import Atom
     from model.jigs       import Jig
     from model.Plane      import Plane
+    
+    from foundation.Utility import Node
     
     from dna.model.Block  import Block
     from dna.model.DnaGroup   import DnaGroup
@@ -180,25 +167,98 @@ class Assembly( StateMixin, Assembly_API):
     # (includes all structural changes and many display changes)
     # (note that a few changes are saved but don't mark it as needing save, like "last view" (always equals current view))
     
-    _model_change_counter = 0 #bruce 060121-23; sometimes altered by self.changed() (even if self._modified already set)
-        #bruce 060227 renamed this from _change_counter to _model_change_counter, but don't plan to rename self.changed()
+    _model_change_indicator = 0 #bruce 060121-23; sometimes altered by self.changed() (even if self._modified already set)
+        #bruce 060227 renamed this from _change_indicator to
+        # _model_change_indicator, but don't plan to rename self.changed().
+        #
+        # maybe: add a separate change counter for drag changes vs other kinds
+        # of changes (less frequent), to help optimize some PM updates;
+        # not necessary unless we notice drag being too slow due to PM updates
+        # (or diffs which prevent them but take time), which this would fix
+        # [bruce 080808 comment]
 
-    _selection_change_counter = 0
+    _selection_change_indicator = 0
     
-    _view_change_counter = 0 # also includes changing current part, glpane display mode [mostly nim as of 060228]
+    _view_change_indicator = 0 # also includes changing current part, glpane display mode
+        # [mostly nim as of 060228, 080805]
 
-    def all_change_counters(self): #bruce 060227; 071116 added guarantees to docstring
+    def all_change_indicators(self): #bruce 060227; 071116 & 080805, revised docstring  ### TODO: fix docstring after tests
         """
-        Return a tuple of all our change counters, suitable for later passing
-        to self.reset_changed_for_undo(). The order is guaranteed to be:
+        Return a tuple of all our change indicators which relate to undoable
+        state, suitable for later passing to self.reset_changed_for_undo().
 
-        (model_change_counter, selection_change_counter, view_change_counter)
+        (Presently, this means all of our change indicators except the
+        one returned by command_stack_change_indicator.) 
+
+        The order is guaranteed to be:
+
+        (model_change_indicator, selection_change_indicator, view_change_indicator)
 
         and if we add new elements, we guarantee we'll add them at the end
         (so indices of old elements won't change).
-        """
-        return self._model_change_counter, self._selection_change_counter, self._view_change_counter
 
+        @note: view_change_indicator is mostly NIM (as of 080805)
+
+        @note: these are not really "counters" -- they might increase by more
+               than 1 for one change, or only once for several changes,
+               or decrease after Undo. All the numbers mean is that, if they
+               don't differ, no change occurred in the corresponding state.
+               They might be renamed to "change indicators" to reflect this.
+
+        @note: model_change_indicator only changes when assy.changed() is called,
+               and at most once per potential undoable operation. For example,
+               during a drag, some model component's position changes many times,
+               but model_change_indicator only changes once during that time,
+               when the user operation that does the drag happens to call
+               assy.changed() for the first time during that undoable operation.
+
+        @note: I don't know whether model_change_indicator works properly when
+               automatic Undo checkpointing is turned off -- needs review.
+               (The issue is whether it changes at most once during any one
+               *potential* or *actual* undoable operation.) This relates to
+               whether env.change_counter_checkpoint() is called when Undo
+               checkpointing is turned off. I am planning to try a fix to this
+               today [080805], and also to the "changing only once during drag"
+               issue noted above, by adding a call to that function sometime
+               during every user event -- probably after all ui updaters are called.
+
+        @see: self.command_stack_change_indicator (not included in our return value)
+        """
+        return self._model_change_indicator, self._selection_change_indicator, self._view_change_indicator
+
+    def model_change_indicator(self): #bruce 080731
+        """
+        @see: all_change_indicators
+        """
+        # todo: ensure it's up to date
+        return self._model_change_indicator
+
+    def selection_change_indicator(self): #bruce 080731
+        """
+        @see: all_change_indicators
+        """
+        # todo: ensure it's up to date
+        return self._selection_change_indicator
+
+    def view_change_indicator(self): #bruce 080731
+        """
+        NOT YET IMPLEMENTED
+        
+        @see: all_change_indicators
+        """
+        # todo: ensure it's up to date
+        assert 0, "don't use this yet, the counter attr is mostly NIM" #bruce 080805
+        return self._view_change_indicator
+    
+    def command_stack_change_indicator(self): #bruce 080903
+        """
+        @see: same-named method in class CommandSequencer.
+
+        @note: this is intentionally not included in the value of
+               self.all_change_indicators().
+        """
+        return self.commandSequencer.command_stack_change_indicator()
+    
     # state declarations:
     # (the change counters above should not have ordinary state decls -- for now, they should have none)
     
@@ -236,10 +296,13 @@ class Assembly( StateMixin, Assembly_API):
         # Not yet implemented in all updaters. Implemented in dna updater.
         # [bruce 080314]
     
-    def __init__(self, win,
+    def __init__(self,
+                 win,
                  name = None,
                  own_window_UI = False,
-                 run_updaters = False ):
+                 run_updaters = False,
+                 commandSequencerClass = None
+                 ):
         """
         @type win: MWsemantics or None
         """
@@ -402,26 +465,6 @@ class Assembly( StateMixin, Assembly_API):
             # See its docstring for details.]
             pass
 
-        self._classnames = {}
-
-        if 'kluge, should be a registration scheme': #bruce 080115
-            # note: as of 080115, of these, only DnaSegment is needed externally;
-            # see also files_mmp._GROUP_CLASSIFICATIONS (unclear if it would be a good
-            # idea to incorporate that directly or use it instead -- probably not)
-            #update, bruce 080310: we also import these directly into the class
-            # definition namespace to support isinstance( object, assy.classname),
-            # which may make register_classname unnecessary at some point.
-            # So extending this list is
-            # deprecated and it will be removed soon.
-            # See also the comments in register_classname.
-            self.register_classname('DnaGroup',   DnaGroup)
-            self.register_classname('Block',      Block)
-            self.register_classname('DnaSegment', DnaSegment)
-            self.register_classname('DnaStrand',  DnaStrand)
-            # Experimental CNT groups. --mark 2008-03-09.
-            self.register_classname('NanotubeGroup',   NanotubeGroup)
-            self.register_classname('NanotubeSegment', NanotubeSegment)
-
         # could remove these when they work, but no need:
         # test node_depth method: [bruce 080116]
         assert self.root.node_depth() == 0
@@ -430,8 +473,31 @@ class Assembly( StateMixin, Assembly_API):
 
         self._init_glselect_name_dict()
 
+        assert bool(commandSequencerClass) == bool(own_window_UI)
+            # since own_window_UI determines whether external code
+            # expects us to have self.commandSequencer accessible
+        if commandSequencerClass: #bruce 080813
+            # make and own a command sequencer of the given class
+            
+            # Note: importing the usual class directly causes import cycle
+            # problems, for legitimate or at least hard-to-avoid reasons --
+            # it knows a lot of command classes, and some of them know how
+            # to construct Assemblies (albeit ones that don't need command
+            #  sequencers, as it happens for now, but that might not be
+            #  fundamental). So we make the caller tell us, to avoid that,
+            # and since it makes perfect sense.
+            
+            # Review: is class Assembly not the ideal object to own a
+            # command sequencer?? Other candidates: partwindow; or a
+            # specialized subclass of Assembly.
+            # The same question might apply to our undo manager.
+            # Related Q: is finding commandSequencer via assy legitimate?
+            # [bruce 080813 questions]
+
+            self.commandSequencer = commandSequencerClass(self) #bruce 080813
+
         self.assy_valid = True
-                
+                        
         return # from Assembly.__init__
 
     # ==
@@ -505,12 +571,14 @@ class Assembly( StateMixin, Assembly_API):
     def close_assy(self): #bruce 080314
         """
         self is no longer being actively used, and never will be again.
-        Record this state, and do (or permit by recording it)
-        various optimizations and safety changes for closed assys.
+        (I.e. it's being discarded.)
+        
+        Record this state in self, and do (or permit later code to do,
+        by recording it) various optimizations and safety changes for
+        closed assys.
 
         @note: doesn't yet do most of what it ought to do (e.g. destroy atoms).
         """
-        # print "\nfyi: close_assy(%r)" % self # works
         self.assy_closed = True
         self.permanently_disable_updaters = True
         return
@@ -521,8 +589,14 @@ class Assembly( StateMixin, Assembly_API):
     
     def _init_glselect_name_dict(self): #bruce 080220
         if 0:
-            # use this code as soon as all users of env.py *glselect_name funcs/attrs
-            # are replaced with calls of our replacement methods below. [bruce 080220]
+            # use this code as soon as:
+            # - all users of env.py *glselect_name funcs/attrs
+            #   are replaced with calls of our replacement methods below.
+            # - moving a Node to a new assy, if it can happen, reallocates its glname
+            #   or can store the same one in the new assy.
+            #   (or decide that makes no sense and retain this shared dict?)
+            # - destroyed bonds (etc) can figure out how to call dealloc_my_glselect_name
+            # [bruce 080220/080917]
             from graphics.drawing.glselect_name_dict import glselect_name_dict
             self._glselect_name_dict = glselect_name_dict()
             # todo: clear this when we are destroyed, and make sure accesses to it
@@ -559,23 +633,20 @@ class Assembly( StateMixin, Assembly_API):
         which was allocated for obj using self.alloc_my_glselect_name.
 
         @return: the object we find, or None if none is found.
-        
-        @see: glselect_name_dict.obj_with_glselect_name (attr) for details.
+
+        @note: old code used env.obj_with_glselect_name.get for this;
+               a cleanup which replaces that with access to this method
+               was partly done as of 080220, and is perhaps being completed
+               on 080917. (Note the spelling differences:
+               obj vs object and with vs for.)
         """
         # (I don't know if the following test for self._glselect_name_dict
-        #  already existing is needed.)
+        #  already existing is needed. Maybe only after we're destroyed (nim)?)
         return self._glselect_name_dict and \
                self._glselect_name_dict.object_for_glselect_name(name)
 
     # ==
 
-    def register_classname(self, classname, class1):
-        """
-        [MIGHT BE DEPRECATED; if possible, use class-level imports
-         and assy attrs instead -- bruce 080310]
-        """
-        self._classnames[classname] = class1
-        
     def kluge_patch_toplevel_groups(self, assert_this_was_not_needed = False): #bruce 050109
         #bruce 071026 moved this here from helper function kluge_patch_assy_toplevel_groups in Utility.py
         """
@@ -641,33 +712,6 @@ class Assembly( StateMixin, Assembly_API):
 
     # ==
 
-    def class_or_classname_to_class(self, class_or_classname): #bruce 071206, revised 080115
-        """
-        If class_or_classname is a class, return it.
-
-        If it's a string, it should be a model class nickname registered with
-        self via register_classname; return the corresponding class.
-        (As of 080115, only a few classnames are registered that way,
-         by hardcoding in self.__init__.)
-        """
-        try:
-            # handle registered classnames
-            res = self._classnames[class_or_classname]
-        except KeyError:
-            pass
-        else:
-            #bruce 080310 deprecated this and removed all known uses
-            print_compact_stack( "\n*** DEPRECATED: use of string classname %r: " % class_or_classname)
-            return res
-        assert type(class_or_classname) != type(""), \
-               "bug: class_or_classname_to_class: " \
-               "classname %r not registered" % (class_or_classname,)
-        # maybe: assert that class_or_classname is a class?
-        assert callable(class_or_classname)
-        return class_or_classname
-
-    # ==
-    
     #bruce 051031: keep counter of selection commands in assy (the model object), not Part,
     # to avoid any chance of confusion when atoms (which will record this as their selection time)
     # move between Parts (though in theory, they should be deselected then, so this might not matter).
@@ -685,7 +729,7 @@ class Assembly( StateMixin, Assembly_API):
         ## print_compact_stack( "set_selwhat to %r: " % (selwhat,))
         assert selwhat in (SELWHAT_ATOMS, SELWHAT_CHUNKS)
         if not self._last_set_selwhat == self.selwhat: # compare last officially set one to last actual one
-            if debug_flags.atom_debug: # condition is because cookiemode will do this, for now
+            if debug_flags.atom_debug: # condition is because BuildCrystal_Command will do this, for now
                 print_compact_stack( "atom_debug: bug: this failed to call set_selwhat, but set it directly, to %r:\n " \
                                      % (self.selwhat,) )
         self.selwhat = selwhat
@@ -1454,13 +1498,13 @@ class Assembly( StateMixin, Assembly_API):
         # see also same-named Node method
         if self._suspend_noticing_changes:
             return
-        self._selection_change_counter = env.change_counter_for_changed_objects()
+        self._selection_change_indicator = env.change_counter_for_changed_objects()
         return
 
     def changed_view(self): #bruce 060129 ###@@@ not yet called enough
         if self._suspend_noticing_changes:
             return
-        self._view_change_counter = env.change_counter_for_changed_objects()
+        self._view_change_indicator = env.change_counter_for_changed_objects()
         return
     
     # == change-tracking [needs to be extended to be per-part or per-node, and for Undo]
@@ -1507,16 +1551,16 @@ class Assembly( StateMixin, Assembly_API):
         newc = env.change_counter_for_changed_objects() #bruce 060123
         
         if debug_assy_changes:
-            oldc = self._model_change_counter
+            oldc = self._model_change_indicator
             print
             self.modflag_asserts()
             if oldc == newc:
-                print "debug_assy_changes: self._model_change_counter remains", oldc
+                print "debug_assy_changes: self._model_change_indicator remains", oldc
             else:
-                print_compact_stack("debug_assy_changes: self._model_change_counter %d -> %d: " % (oldc, newc) )
+                print_compact_stack("debug_assy_changes: self._model_change_indicator %d -> %d: " % (oldc, newc) )
             pass
         
-        self._model_change_counter = newc
+        self._model_change_indicator = newc
             ###e should optimize by feeding new value from changed children (mainly Nodes) only when needed
             ##e will also change this in some other routine which is run for changes that are undoable but won't set _modified flag
 
@@ -1550,11 +1594,11 @@ class Assembly( StateMixin, Assembly_API):
         check invariants related to self._modified
         """
         if 1: ###@@@ maybe should be: if debug_flags.atom_debug:
-            hopetrue = ( (not self._modified) == (self._model_change_counter == self._change_counter_when_reset_changed) )
+            hopetrue = ( (not self._modified) == (self._model_change_indicator == self._change_indicator_when_reset_changed) )
             if not hopetrue:
                 print_compact_stack(
                     "bug? (%r.modflag_asserts() failed; %r %r %r): " % \
-                      (self, self._modified, self._model_change_counter, self._change_counter_when_reset_changed)
+                      (self, self._modified, self._model_change_indicator, self._change_indicator_when_reset_changed)
                 )
         return
 
@@ -1605,7 +1649,7 @@ class Assembly( StateMixin, Assembly_API):
         self._modified = oldmod
         return
 
-    _change_counter_when_reset_changed = -1 #bruce 060123 for Undo; as of 060125 it should no longer matter whether the value is even
+    _change_indicator_when_reset_changed = -1 #bruce 060123 for Undo; as of 060125 it should no longer matter whether the value is even
     
     def reset_changed(self): # bruce 050107
         """
@@ -1622,11 +1666,11 @@ class Assembly( StateMixin, Assembly_API):
         #e should this call self.w.update_mainwindow_caption(changed = False),
         # or fulfill a subs to do that?? [bruce question 060123]
 
-        self._change_counter_when_reset_changed = self._model_change_counter #bruce 060125 (eve) revised this; related to bugs 1387, 1388??
+        self._change_indicator_when_reset_changed = self._model_change_indicator #bruce 060125 (eve) revised this; related to bugs 1387, 1388??
             ## = env.change_counter_checkpoint() #bruce 060123 for Undo
             ##k not sure it's right to call change_counter_checkpoint and not subsequently call change_counter_for_changed_objects,
             # but i bet it's ok... more problematic is calling change_counter_checkpoint at all! #######@@@@@@@
-            # the issue is, this is not actually a change to our data, so why are we changing self._model_change_counter??
+            # the issue is, this is not actually a change to our data, so why are we changing self._model_change_indicator??
             # OTOH, if just before saving we always changed our data just for fun, the effect would be the same, right?
             # Well, not sure -- what about when we Undo before... if we use this as a vers, maybe no diffs will link at it...
             # but why would they not? this is not running inside undo, but from an op that does changes like anything else does
@@ -1638,7 +1682,7 @@ class Assembly( StateMixin, Assembly_API):
             # changing counter even if they wouldn't... call checkpoint here even if not using value?!?!?!? #####@@@@@ 060124 230pm
         #bruce 060201 update for bug 1425: if you call self.changed() right after this, you'll asfail unless we
         # call env.change_counter_checkpoint() now (discarding result is ok), for a good reason -- once we "used up"
-        # the current value of _model_change_counter in _change_counter_when_reset_changed, we better use a different value
+        # the current value of _model_change_indicator in _change_indicator_when_reset_changed, we better use a different value
         # for the next real change (so it looks like a change)! This would be needed (to make sure checkpoints notice the change)
         # even if the asserts were not being done. So the following now seems correct and required:
         env.change_counter_checkpoint() #bruce 060201 fix bug 1425
@@ -1646,22 +1690,22 @@ class Assembly( StateMixin, Assembly_API):
 
     def reset_changed_for_undo(self, change_counters ): #bruce 060123 guess; needs cleanup
         """
-        External code (doing an Undo or Redo) has made our state like it was when self.all_change_counters() was as given.
-        Set all self._xxx_change_counter attrs to match that tuple,
-        and update self._modified to match (using self._change_counter_when_reset_changed without changing it).
+        External code (doing an Undo or Redo) has made our state like it was when self.all_change_indicators() was as given.
+        Set all self._xxx_change_indicator attrs to match that tuple,
+        and update self._modified to match (using self._change_indicator_when_reset_changed without changing it).
            Note that modified flag is false if no model changes happened, even if selection or structural changes happened.
         Thus if we redo or undo past sel or view changes alone, modified flag won't change.
         """
-        # in other words, treat self.all_change_counters() as a varid_vers for our current state... ###@@@
-        model_cc, sel_cc, view_cc = change_counters # order must match self.all_change_counters() retval
-        modflag = (self._change_counter_when_reset_changed != model_cc)
+        # in other words, treat self.all_change_indicators() as a varid_vers for our current state... ###@@@
+        model_cc, sel_cc, view_cc = change_counters # order must match self.all_change_indicators() retval
+        modflag = (self._change_indicator_when_reset_changed != model_cc)
         if debug_assy_changes:
             print_compact_stack( "debug_assy_changes for %r: reset_changed_for_undo(%r), modflag %r: " % \
                                  (self, change_counters, modflag) )
         self._modified = modflag
-        self._model_change_counter = model_cc
-        self._selection_change_counter = sel_cc
-        self._view_change_counter = view_cc
+        self._model_change_indicator = model_cc
+        self._selection_change_indicator = sel_cc
+        self._view_change_indicator = view_cc
         self.modflag_asserts()
         #####@@@@@ need any other side effects of assy.changed()??
         if self.w:
@@ -1765,7 +1809,7 @@ class Assembly( StateMixin, Assembly_API):
         self.tree.apply2all(func)
         self.shelf.apply2all(func)
         return res
-    
+        
     def get_part_files_directory(self): # Mark 060703.
         """
         Returns the Part Files directory for this Assembly, even if it doesn't exist.

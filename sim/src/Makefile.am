@@ -1,6 +1,6 @@
 
 INCLUDES = -I@PYTHON_BASE@/include/python${PYTHON_VERSION}
-AM_CFLAGS = $(shell python distutils_compile_options.py compiler_so)
+CFLAGS = $(shell python distutils_compile_options.py compiler_so)
 
 ne1bindir = $(bindir)/NanoEngineer-$(PACKAGE_VERSION).app/bin
 ne1bin_LTLIBRARIES = sim.la

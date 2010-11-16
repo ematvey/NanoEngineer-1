@@ -13,7 +13,7 @@ For example:
   and the code is still clean, *and* no command-half subclass needs
   to override them).
 
-@version: $Id: Select_Command.py 13383 2008-07-10 17:30:29Z ninadsathaye $
+@version: $Id: Select_Command.py 14356 2008-09-25 21:52:21Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 
 
@@ -50,13 +50,16 @@ class Select_basicCommand(basicCommand):
           this is implemented.
     @see: B{Select_GraphicsMode}, B{Select_basicGraphicsMode}
     @see: B{Select_Command}, B{selectMode}
-    @see: B{SelectChunks_basicCommand}, B{SelectAtoms_basicCommand}
+    @see: B{SelectChunks_Command}, B{SelectAtoms_basicCommand}
           which inherits this class
 
     """
-    hover_highlighting_enabled = True
-    # Set this to False if you want to disable hover highlighting.
+    # class constants
+    
+    from utilities.constants import CL_ABSTRACT
+    command_level = CL_ABSTRACT
 
+    
     # Don't highlight singlets. (This attribute is set to True in
     # SelectAtoms_Command)
     highlight_singlets = False
@@ -75,26 +78,14 @@ class Select_basicCommand(basicCommand):
         #  to have it for clarity, especially if there is more than one
         #  superclass.)
         return
-
-    def init_gui(self):
-        """
-        Handles all the GUI display when entering a command
-        Subclasses should override this method
-        """
-        pass
-
+    
     def connect_or_disconnect_signals(self, connect):
         """
         Subclasses should override this method
         """
         pass
 
-    def restore_gui(self):
-        """
-        Handles all the GUI display when leaving a command
-        Subclasses should override this method
-        """
-        pass
+    
 
     def makeMenus(self):
         """
@@ -221,7 +212,6 @@ class Select_Command(Select_basicCommand):
     def __init__(self, commandSequencer):
         Select_basicCommand.__init__(self, commandSequencer)
         self._create_GraphicsMode()
-        self._post_init_modify_GraphicsMode()
         return
 
     def _create_GraphicsMode(self):
@@ -231,8 +221,4 @@ class Select_Command(Select_basicCommand):
         kws = {}
         self.graphicsMode = GM_class(*args, **kws)
         pass
-
-    def _post_init_modify_GraphicsMode(self):
-        pass
-
 

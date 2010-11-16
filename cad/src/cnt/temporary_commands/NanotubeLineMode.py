@@ -2,7 +2,7 @@
 """
 @author:    Ninad, Mark
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
-@version:   $Id: NanotubeLineMode.py 13386 2008-07-10 19:59:15Z ninadsathaye $
+@version:   $Id: NanotubeLineMode.py 14120 2008-09-04 20:29:35Z ninadsathaye $
 @license:   GPL
 
 TODO:
@@ -10,7 +10,8 @@ TODO:
 """
 
 
-from temporary_commands.LineMode import LineMode
+from temporary_commands.LineMode.Line_Command import Line_Command
+from temporary_commands.LineMode.Line_GraphicsMode import Line_GraphicsMode
 
 from graphics.drawing.drawNanotubeLadder import drawNanotubeLadder
 
@@ -19,7 +20,7 @@ from utilities.constants import gray, black, darkred, blue, white
 
 # == GraphicsMode part
 
-class NanotubeLine_GM( LineMode.GraphicsMode_class ):
+class NanotubeLine_GM( Line_GraphicsMode ):
     """
     Custom GraphicsMode for use as a component of NanotubeLineMode.
     @see: L{NanotubeLineMode} for more comments. 
@@ -28,17 +29,13 @@ class NanotubeLine_GM( LineMode.GraphicsMode_class ):
           implementation  of self.command (see class NanotubeLineMode)          
     """    
     # The following valuse are used in drawing the 'sphere' that represent the 
-    #first endpoint of the line. See LineMode.Draw for details. 
+    #first endpoint of the line. See Line_GraphicsMode.Draw for details. 
     endPoint1_sphereColor = white 
     endPoint1_sphereOpacity = 1.0
     
     text = ''
     
-    def __init__(self, command):
-        """
-        """
-        LineMode.GraphicsMode_class.__init__(self, command)
-    
+        
     def leftUp(self, event):
         """
         Left up method
@@ -67,7 +64,7 @@ class NanotubeLine_GM( LineMode.GraphicsMode_class ):
         """
                 
         if self.command.callbackForSnapEnabled() == 1:
-            endPoint2  = LineMode.GraphicsMode_class.snapLineEndPoint(self)
+            endPoint2  = Line_GraphicsMode.snapLineEndPoint(self)
         else:
             endPoint2 = self.endPoint2
             
@@ -78,7 +75,7 @@ class NanotubeLine_GM( LineMode.GraphicsMode_class ):
         """
         Draw the Nanotube rubberband line (a ladder representation)
         """
-        LineMode.GraphicsMode_class.Draw(self)        
+        Line_GraphicsMode.Draw(self)        
         if self.endPoint2 is not None and \
            self.endPoint1 is not None: 
             
@@ -93,20 +90,11 @@ class NanotubeLine_GM( LineMode.GraphicsMode_class ):
                            ) 
 
 # == Command part
-class NanotubeLineMode(LineMode): 
+class NanotubeLineMode(Line_Command): # not used as of 080111, see docstring
     """
-    Encapsulates the LineMode functionality.
-    Example:
-    User is working in selectMolsMode, Now he enters a temporary mode 
-    called CntLine mode, where, he clicks two points in the 3Dworkspace 
-    and expects to create a CNT using the points he clicked as endpoints. 
-    Internally, the program returns to the previous mode after two clicks. 
-    The temporary mode sends this information to the method defined in 
-    the previous mode called acceptParamsFromTemporaryMode and then the
-    previous mode (selectMolsMode) can use it further to create a dna 
-    @see: L{LineMode}
-    @see: selectMolsMode.provideParamsForTemporaryMode comments for 
-          related  TODOs.
+    [no longer used as of 080111, see details below]
+    Encapsulates the Line_Command functionality.
+    @see: L{Line_Command}
     @see: InsertNanotube_EditCommand.getCursorText()
     
     NOTE: [2008-01-11]
@@ -125,9 +113,10 @@ class NanotubeLineMode(LineMode):
     commandName = 'NANOTUBE_LINE_MODE'    
     featurename = "Nanotube Line Mode"
         # (This featurename is sometimes user-visible,
-        #  but is probably not useful. See comments in LineMode
+        #  but is probably not useful. See comments in Line_Command
         #  for more info and how to fix. [bruce 071227])
-    
+    from utilities.constants import CL_UNUSED
+    command_level = CL_UNUSED
             
     GraphicsMode_class = NanotubeLine_GM
         

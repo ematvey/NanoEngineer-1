@@ -3,7 +3,7 @@
 PM_ColorComboBox.py
 
 @author: Mark
-@version: $Id: PM_ColorComboBox.py 13481 2008-07-16 15:44:55Z marksims $
+@version: $Id: PM_ColorComboBox.py 14042 2008-08-26 16:42:38Z ninadsathaye $
 @copyright: 2006-2008 Nanorex, Inc.  All rights reserved.
 
 To do:
@@ -144,16 +144,17 @@ class PM_ColorComboBox( PM_ComboBox ):
         self.setIconSize(QSize(12, 12)) # Default is 16x16.
         self.setColor(color) # Sets current index.
         
-        self.connect(self, SIGNAL("activated(QString)"), self._setColorFromIndex)
+        self.connect(self, SIGNAL("activated(QString)"), self._setColorFromName)
         
         return
+
     
-    def _setColorFromIndex(self, colorName):
+    def _setColorFromName(self, colorName):
         """
         Set the color using the color index.
         
-        @param colorIndex: The color index.
-        @type  colorIndex: int
+        @param colorName: The color name string.
+        @type  colorName: str
         """
         if colorName == "Other color...":
             self.openColorChooserDialog() # Sets self.color

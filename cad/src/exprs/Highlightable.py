@@ -3,7 +3,7 @@
 Highlightable.py - general-purpose expr for mouse-responsive drawable objects
 
 @author: Bruce
-@version: $Id: Highlightable.py 13062 2008-06-04 00:19:35Z russfish $
+@version: $Id: Highlightable.py 14429 2008-10-15 19:27:49Z brucesmith $
 @copyright: 2006-2008 Nanorex, Inc.  See LICENSE file for details.
 
 This will start out as just a straight port of class Highlightable from cad/src/testdraw.py,
@@ -99,7 +99,7 @@ def PopName(glname, drawenv = 'fake'):
 
 # ==
 
-#e refile recycle_glselect_name in cad/src/env.py, next to alloc_my_glselect_name, or merge this with it somehow
+# maybe todo: refile recycle_glselect_name next to alloc_my_glselect_name (assy method), or merge this with it somehow
 # (and maybe change all that into a gl-displist-context-specific data structure, accessed via a glpane)
 
 def recycle_glselect_name(glpane, glname, newobj): #e refile (see above)
@@ -108,20 +108,21 @@ def recycle_glselect_name(glpane, glname, newobj): #e refile (see above)
     # requires new API (could be optional) in objs that call alloc_my_glselect_name. ##e
     # 2. If the old obj is the glpane's selobj, change that to point to the new obj. [#e might need improvement, see comment]
     # 3. register the new object for this glname.
-    import foundation.env as env
-    oldobj = env.obj_with_glselect_name.get(glname, None) #e should be an attr of the glpane (or of one it shares displaylists with)
+    oldobj = glpane.object_for_glselect_name(glname, None)
     if oldobj is not None and glpane.selobj is oldobj:
         glpane.selobj = None ###### normally newobj -- SEE IF THIS HELPs THE BUG 061120 956p
         printnim("glpane.selobj = None ###### normally newobj") # worse, i suspect logic bug in the idea of reusing the glname....
             ###k we might need to call some update routine instead, like glpane.set_selobj(newobj),
             # but I'm not sure its main side effect (env.history.statusbar_msg(msg)) is a good idea here,
             # so don't do it for now.
-    env.obj_with_glselect_name[glname] = newobj
+    ## env.obj_with_glselect_name[glname] = newobj
+    glpane.assy._glselect_name_dict.obj_with_glselect_name[glname] #bruce 080917 revised; ### TODO: fix private access, by
+        # moving this method into class GLPane and/or class Assembly & class glselect_name_dict
     return
 
-def selobj_for_glname(glname):#e use above? nah, it also has to store into here
-    import foundation.env as env
-    return env.obj_with_glselect_name.get(glname, None)
+##def selobj_for_glname(glname):#e use above? nah, it also has to store into here
+##    import foundation.env as env
+##    return env.obj_with_glselect_name.get(glname, None)
 
 # ==
 
@@ -628,15 +629,17 @@ class Highlightable(_CoordsysHolder, DelegatingMixin, DragHandler_API, Selobj_AP
         # [and be sure we define necessary methods in self or the new obj]
         glname_handler = self # self may not be the best object to register here, though it works for now
 
+        glpane = self.env.glpane
         if self.glpane_state.glname is None or 'TRY ALLOCATING A NEW NAME EACH TIME 061120 958p':
             # allocate a new glname for the first time (specific to this ipath)
-            import foundation.env as env
-            self.glpane_state.glname = env.alloc_my_glselect_name( glname_handler)
+            glname = glpane.alloc_my_glselect_name( glname_handler) #bruce 080917 revised
+            self.glpane_state.glname = glname
         else:
             # reuse old glname for new self
             if 0:
                 # when we never reused glname for new self, we could do this:
-                self.glpane_state.glname = env.alloc_my_glselect_name( glname_handler)
+                glname = glpane.alloc_my_glselect_name( glname_handler)
+                self.glpane_state.glname = glname
                     #e if we might never be drawn, we could optim by only doing this on demand
             else:
                 # but now that we might be recreated and want to reuse the same glname for a new self, we have to do this:
@@ -760,7 +763,8 @@ class Highlightable(_CoordsysHolder, DelegatingMixin, DragHandler_API, Selobj_AP
             #061120 see if this helps -- do we still own this glname?
             our_selobj = self
             glname = self.glname
-            owner = selobj_for_glname(glname)
+##            owner = selobj_for_glname(glname)
+            owner = glpane.assy.object_for_glselect_name(glname) #bruce 080917 revised
             if owner is not our_selobj:
                 res = False
                 # owner might be None, in theory, but is probably a replacement of self at same ipath
@@ -891,11 +895,11 @@ class Highlightable(_CoordsysHolder, DelegatingMixin, DragHandler_API, Selobj_AP
         self.inval(mode) #k needed? (done in two places per method, guess is neither is needed)
         return
 
-    def leftDouble(self, event, mode):
+    def leftDouble(self, event, graphicsMode):
         # print "fyi: Highlightable %r got leftDouble" % self
         # Note: if something (this code, or its on_doubleclick option)
-        # decides to do on_press sometimes, it ought to reset the flag mode.ignore_next_leftUp_event
-        # (assuming mode is the graphicsMode, as I think it probably is & should be -- bruce 071022)
+        # decides to do on_press sometimes, it ought to reset the flag graphicsMode.ignore_next_leftUp_event
+        # (assuming graphicsMode is indeed the graphicsMode, as I think it probably is & should be -- bruce 071022)
         # which was just set by testmode.leftDouble, which otherwise prevents calling self.ReleasedOn.
         # But if that something is the contents of on_doubleclick, how is that possible?!?
         # The only solution I can think of is for on_drag and on_release to get replaced by on_double_drag and
@@ -1065,7 +1069,8 @@ def _setup_UNKNOWN_SELOBJ_on_graphicsMode(graphicsMode): #061218, revised 071010
     #   fixes "highlight sync bug" in which click on checkbox, then rapid motion away from it,
     #   then click again, could falsely click the same checkbox twice.
     # I can't recall exactly how that fix worked. About how glpane.selobj ever becomes equal to this,
-    # there is code in selectAtomsMode and selectMolsMode which does that, in update_selobj.
+    # there is code in SelectAtoms_GraphicsMode and SelectChunks_GraphicsMode
+    # which does that, in update_selobj.
     # TODO: document how this works sometime, and figure out whether it should be set up
     # per-Command or per-graphicsMode. Either way we'll need a class constant to request it,
     # since right now nothing can set it up except in testmode. For now I'll treat it as per-command

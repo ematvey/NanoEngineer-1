@@ -3,7 +3,7 @@
 InsertNanotube_PropertyManager.py
 
 @author: Mark Sims
-@version: $Id: InsertNanotube_PropertyManager.py 13488 2008-07-16 16:58:53Z marksims $
+@version: $Id: InsertNanotube_PropertyManager.py 14278 2008-09-18 15:00:47Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Mark 2008-03-09:
@@ -66,7 +66,7 @@ class InsertNanotube_PropertyManager( DnaOrCnt_PropertyManager):
     pmName        =  title
     iconPath      =  "ui/actions/Tools/Build Structures/InsertNanotube.png"
 
-    def __init__( self, win, editCommand ):
+    def __init__( self, command ):
         """
         Constructor for the Nanotube property manager.
         """
@@ -75,9 +75,7 @@ class InsertNanotube_PropertyManager( DnaOrCnt_PropertyManager):
 
         self.nanotube = Nanotube() # A 5x5 CNT.
 
-        _superclass.__init__( self,
-                                 win,
-                                 editCommand)
+        _superclass.__init__( self, command)
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_CANCEL_BUTTON | \
@@ -121,24 +119,14 @@ class InsertNanotube_PropertyManager( DnaOrCnt_PropertyManager):
                        SIGNAL('stateChanged(int)'),
                        self._update_state_of_cursorTextGroupBox)
 
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """
-        if self.editCommand:
-            self.editCommand.preview_or_finalize_structure(previewing = False)
-            ##env.history.message(self.editCommand.logMessage)
-        self.win.toolsDone()
-
-    def cancel_btn_clicked(self):
-        """
-        Slot for the Cancel button.
-        """
-        if self.editCommand:
-            self.editCommand.cancelStructure()
-        self.win.toolsCancel()
-
-
+    
+    def show(self):
+        _superclass.show(self)
+        self.updateMessage("Specify two points in the 3D Graphics " \
+                                   "Area to define the endpoints of the "\
+                                   "nanotube.")
+    
+    
     def _update_widgets_in_PM_before_show(self):
         """
         Update various widgets in this Property manager.
@@ -151,48 +139,6 @@ class InsertNanotube_PropertyManager( DnaOrCnt_PropertyManager):
         @see: self.show where it is called.
         """
         pass
-
-    def getFlyoutActionList(self):
-        """
-        Returns custom actionlist that will be used in a specific mode
-        or editing a feature etc Example: while in movie mode,
-        the _createFlyoutToolBar method calls this.
-        """
-        #'allActionsList' returns all actions in the flyout toolbar
-        #including the subcontrolArea actions
-        allActionsList = []
-
-        #Action List for  subcontrol Area buttons.
-        #In this mode there is really no subcontrol area.
-        #We will treat subcontrol area same as 'command area'
-        #(subcontrol area buttons will have an empty list as their command area
-        #list). We will set  the Comamnd Area palette background color to the
-        #subcontrol area.
-
-        subControlAreaActionList =[]
-
-        self.exitEditCommandAction.setChecked(True)
-        subControlAreaActionList.append(self.exitEditCommandAction)
-
-        separator = QAction(self.w)
-        separator.setSeparator(True)
-        subControlAreaActionList.append(separator)
-
-
-        allActionsList.extend(subControlAreaActionList)
-
-        #Empty actionlist for the 'Command Area'
-        commandActionLists = []
-
-        #Append empty 'lists' in 'commandActionLists equal to the
-        #number of actions in subControlArea
-        for i in range(len(subControlAreaActionList)):
-            lst = []
-            commandActionLists.append(lst)
-
-        params = (subControlAreaActionList, commandActionLists, allActionsList)
-
-        return params
 
     def _addGroupBoxes( self ):
         """
@@ -536,7 +482,6 @@ class InsertNanotube_PropertyManager( DnaOrCnt_PropertyManager):
         @type  inIndex: int
         """
         self.nanotube.setType(str(type))
-        print "Bond Length =", self.nanotube.getBondLength()
         self.bondLengthDoubleSpinBox.setValue(self.nanotube.getBondLength())
         #self.bondLengthDoubleSpinBox.setValue(ntBondLengths[inIndex])
 
@@ -557,17 +502,18 @@ class InsertNanotube_PropertyManager( DnaOrCnt_PropertyManager):
                                  signal. It is not used. We just want to know
                                  that the spinbox value has changed.
         @type  spinBoxValueJunk: double or None
+        @see: PM_SpinBox.setValue() for a note about blockSignals. 
         """
         _n, _m = self.nanotube.setChirality(self.chiralityNSpinBox.value(),
                                             self.chiralityMSpinBox.value())
 
         #self.n, self.m = self.nanotube.getChirality()
-
-        self.connect_or_disconnect_signals(isConnect = False)
-        self.chiralityNSpinBox.setValue(_n)
-        self.chiralityMSpinBox.setValue(_m)
-        self.connect_or_disconnect_signals(isConnect = True)
-
+        
+        #QSpinBox.setValue emits valueChanged signal. We don't want that here. 
+        #so temporarily blockSignal by passing the blockSignals flag. 
+        self.chiralityNSpinBox.setValue(_n, blockSignals = True)
+        self.chiralityMSpinBox.setValue(_m, blockSignals = True)
+        
         self.updateNanotubeDiameter()
 
     def updateNanotubeDiameter(self):

@@ -3,7 +3,7 @@
 ops_rechunk.py -- operations for changing the way atoms are divided
 into chunks, without altering the atoms or bonds themselves.
 
-@version: $Id: ops_rechunk.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: ops_rechunk.py 14197 2008-09-11 04:52:29Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -91,7 +91,7 @@ class ops_rechunk_Mixin:
                     # leave the moved atoms picked, so still visible
                     a.hopmol(numol)
             if numol.atoms:
-                numol.setDisplay(mol.display) # Fixed bug 391.  Mark 050710
+                numol.setDisplayStyle(mol.display) # Fixed bug 391.  Mark 050710
                 numol.setcolor(mol.color, repaint_in_MT = False)
                     #bruce 070425, fix Extrude bug 2331 (also good for Separate in general), "nice to have" for A9
                 self.addmol(numol) ###e move it to just after the one it was made from? or, end of same group??

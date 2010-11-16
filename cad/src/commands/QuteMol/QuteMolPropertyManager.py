@@ -6,7 +6,7 @@ A Property Manager command supporting external rendering by QuteMolX.
 
 @author: Mark
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
-@version: $Id: QuteMolPropertyManager.py 13151 2008-06-09 17:26:26Z marksims $
+@version: $Id: QuteMolPropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 
 History:
 
@@ -19,10 +19,7 @@ from PyQt4.Qt import Qt
 from PM.PM_GroupBox      import PM_GroupBox
 from PM.PM_ComboBox      import PM_ComboBox
 from PM.PM_ToolButton    import PM_ToolButton
-from PM.PM_CheckBox      import PM_CheckBox
-from PM.PM_Dialog        import PM_Dialog
-
-from PM.PM_Constants     import PM_RESTORE_DEFAULTS_BUTTON, PM_PREVIEW_BUTTON
+from PM.PM_Constants     import PM_DONE_BUTTON, PM_WHATS_THIS_BUTTON
 
 import foundation.env as env
 
@@ -32,7 +29,10 @@ from files.pdb.files_pdb import EXCLUDE_HIDDEN_ATOMS
 from files.pdb.files_pdb import EXCLUDE_DNA_AXIS_BONDS
 from files.pdb.files_pdb import EXCLUDE_DNA_AXIS_ATOMS
 
-class QuteMolPropertyManager(PM_Dialog):
+from command_support.Command_PropertyManager import Command_PropertyManager
+
+_superclass = Command_PropertyManager
+class QuteMolPropertyManager(Command_PropertyManager):
     """
     The QuteMolPropertyManager class provides a Property Manager for 
     QuteMolX, allowing its launch for external rendering of the model.
@@ -59,27 +59,22 @@ class QuteMolPropertyManager(PM_Dialog):
     _axesFlags  = EXCLUDE_HIDDEN_ATOMS
     _basesFlags = EXCLUDE_HIDDEN_ATOMS
     
-    def __init__(self, win):
+    def __init__( self, command ):
         """
-        Construct the QuteMolX Property Manager.
-        
-        @param win: The main window.
-        @type  win: QMainWindow
+        Constructor for the property manager.
         """
-        self.win = win
-        self.pw  = None
+
+        _superclass.__init__(self, command)
         
-        PM_Dialog.__init__( self, self.pmName, self.iconPath, self.title )
+        self.showTopRowButtons( PM_DONE_BUTTON | \
+                                PM_WHATS_THIS_BUTTON)
         
-        msg = "Select a QuteMolX rendering style and click the \
-        <b>Launch QuteMolX</b> button when ready."
+        msg = "Select a QuteMolX rendering style and click the "\
+        "<b>Launch QuteMolX</b> button when ready."
         
         # This causes the "Message" box to be displayed as well.
         self.updateMessage(msg)
         
-        # Hide Preview and Restore defaults button for Alpha9.
-        self.hideTopRowButtons(PM_RESTORE_DEFAULTS_BUTTON | PM_PREVIEW_BUTTON)
-
     def _addGroupBoxes(self):
         """
         Add the 1st group box to the Property Manager.
@@ -145,69 +140,7 @@ class QuteMolPropertyManager(PM_Dialog):
         from ne1_ui.ToolTipText_for_PropertyManagers import ToolTip_QuteMolPropertyManager
         ToolTip_QuteMolPropertyManager(self)
     
-    def show(self):
-        """
-        Shows the Property Manager. Overrides PM_Dialog.show)
-        """
-        if self.isVisible(): # Fixes bug 2680. --Mark 2008-03-19
-            return
-        PM_Dialog.show(self)
-        self.connect_or_disconnect_signals(isConnect = True)
-
-    def close(self):
-        """
-        Closes the Property Manager. Overrides PM_Dialog.close.
-        """   
-        #First exit temporary modes (e.g. Pan mode) if any.
-        currentCommand = self.win.commandSequencer.currentCommand 
-        if not currentCommand.command_has_its_own_gui:
-            currentCommand.Done()
-        self.connect_or_disconnect_signals(isConnect = False)
-        PM_Dialog.close(self) 
-        
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """
-        self.accept() 
-        self.close() # Close the property manager.        
-
-        # The following reopens the property manager of the mode after 
-        # when the PM of the reference geometry is closed. -- Ninad 20070603 
-        # Note: the value of self.modePropertyManager can be None
-        # @see: anyMode.propMgr
-        #
-        # (Note: once we have a real command sequencer, it will be
-        #  handling this kind of thing itself, and the situation
-        #  in which the currentCommand does not correspond to
-        #  the current PM (as is true here while this separate PM
-        #  is open, since it's not currentCommand.propMgr)
-        #  will be deprecated or impossible. [bruce 071011 comment])
-        self.modePropertyManager = self.win.currentCommand.propMgr
-
-        if self.modePropertyManager:
-            # (re)open the PM of the current command (i.e. "Build > Atoms").
-            self.open(self.modePropertyManager)
-        return
-    
-    def cancel_btn_clicked(self):
-        """
-        Slot for the Cancel button.
-        """
-        self.reject() 
-        self.close() 
-
-        # The following reopens the property manager of the command after
-        # the PM of the reference geometry editCommand (i.e. Plane) is closed.
-        # Note: the value of self.modePropertyManager can be None.
-        # See anyMode.propMgr
-        # (See similar code in ok_btn_clicked [bruce 071011 comment])
-        self.modePropertyManager = self.win.currentCommand.propMgr
-
-        if self.modePropertyManager:
-            # (re)open the PM of the current command (i.e. "Build > Atoms").
-            self.open(self.modePropertyManager)
-        return
+  
     
     def connect_or_disconnect_signals(self, isConnect):
         """

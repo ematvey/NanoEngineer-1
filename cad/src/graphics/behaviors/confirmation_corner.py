@@ -4,7 +4,7 @@ confirmation_corner.py -- helpers for modes with a confirmation corner
 (or other overlay widgets).
 
 @author: Bruce
-@version: $Id: confirmation_corner.py 12147 2008-03-24 23:08:32Z marksims $
+@version: $Id: confirmation_corner.py 14143 2008-09-06 01:26:56Z brucesmith $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Note: confirmation corners make use of two methods added to the "GraphicsMode API"
@@ -15,8 +15,9 @@ to handle all kinds of overlays, in principle, but the current implem and
 some API details may be just barely general enough for the confirmation
 corner.
 
-Those method implems assume that Command subclasses (whose instances are
-found in graphicsMode.command) override want_confirmation_corner_type
+Those method implems assume that Command subclasses (at least those which
+can be found by GraphicsMode.draw_overlay -- namely, those which supply their
+own PM, as of 080905) override want_confirmation_corner_type
 to return the kind of confirmation corner they want at a given moment.
 """
 
@@ -183,7 +184,7 @@ TransientDoneBig_Pressed.png""".split()
 
 # ==
 
-class cc_MouseEventHandler(MouseEventHandler_API): #e rename # an instance can be returned from find_or_make
+class cc_MouseEventHandler(MouseEventHandler_API): #e rename # an instance can be returned from find_or_make_confcorner_instance
     """
     ###doc
     """
@@ -228,8 +229,12 @@ class cc_MouseEventHandler(MouseEventHandler_API): #e rename # an instance can b
         
         Set self._button_codes correctly for cctype and command,
         also saving those in attrs of self of related names.
+
+        self.command is used later for:
+        - finding PM buttons for doing actions
+        - finding the icon for the Done button, from the PM
         """
-        self.command = command # used to find buttons for doing actions; not cross-checked with passed or found modes...
+        self.command = command
         if self._cctype != cctype:
             # note: no point in updating drawing here if cctype changes,
             # since we're only called within glpane calling graphicsMode.draw_overlay.
@@ -416,7 +421,7 @@ class cc_MouseEventHandler(MouseEventHandler_API): #e rename # an instance can b
             # We want to set a cursor which indicates that we'll do nothing.
             # Modes won't tell us that cursor, but they'll set it as a side
             # effect of graphicsMode.update_cursor_for_no_MB().
-            # Actually, they may set the wrong cursor then (e.g. cookieMode, 
+            # Actually, they may set the wrong cursor then (e.g. BuildCrystal_Command, 
             # which looks at glpane.modkeys, but if we're here with modkeys
             # we're going to ignore them). If that proves to be misleading,
             # we'll revise this.
@@ -546,23 +551,18 @@ class cc_MouseEventHandler(MouseEventHandler_API): #e rename # an instance can b
 
 # ==
 
-def find_or_make(cctype, graphicsMode):
+def find_or_make_confcorner_instance(cctype, command):
     """
-    Return a confirmation corner instance for graphicsMode, of the given cctype.
-    [Public; called from basicMode.draw_overlay]
+    Return a confirmation corner instance for command, of the given cctype.
+    [Public; called from basicGraphicsMode.draw_overlay]
     """
-    command = graphicsMode.command #bruce 071015 to fix bug 2565
-        # This means we cache this on the Command, not on the GraphicsMode.
-        # I'm not sure that's best, though since the whole thing seems to assume
-        # they have a 1-1 correspondence, it may not matter much.
-        # But in the future if weird GraphicsModes needed their own
-        # conf. corner styles or implems, it might need revision.
     try:
         command._confirmation_corner__cached_meh
     except AttributeError:
         command._confirmation_corner__cached_meh = cc_MouseEventHandler(command.glpane)
     res = command._confirmation_corner__cached_meh
-    res._f_advise_find_args(cctype, command) # in case it wants to store these (especially since it's shared for different values of them)
+    res._f_advise_find_args(cctype, command) # in case it wants to store these
+        # (especially since it's shared for different values of them)
     return res
     # see also exprs/cc_scratch.py
 

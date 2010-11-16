@@ -1,7 +1,7 @@
 # Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author:    Urmi
-@version:   $Id: LightingScheme_Command.py 12835 2008-05-19 18:58:51Z urmim $
+@version:   $Id: LightingScheme_Command.py 14380 2008-09-30 17:30:40Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -29,47 +29,18 @@ class LightingScheme_Command(EditCommand):
     """
     
     """
-    # class constants
-    
-    # not sure which class should it inherit
+    # class constants    
+       
+    #@TODO: may be it should inherit Select_Command. Check. 
     
     commandName = 'LIGHTING_SCHEME'
-    default_mode_status_text = ""
     featurename = "Lighting Scheme"
+    from utilities.constants import CL_GLOBAL_PROPERTIES
+    command_level = CL_GLOBAL_PROPERTIES
          
-    hover_highlighting_enabled = True
     GraphicsMode_class = LightingScheme_GraphicsMode
-   
     
-    command_can_be_suspended = False
+    PM_class = LightingScheme_PropertyManager
+   
     command_should_resume_prevMode = True 
-    command_has_its_own_gui = True
-    
-    flyoutToolbar = None
-
-    def init_gui(self):
-        """
-        Initialize GUI for this mode 
-        """
-        
-        
-        if self.propMgr is None:
-            self.propMgr = LightingScheme_PropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494.
-            #This bug is mitigated as propMgr object no longer gets recreated
-            #for modes -- niand 2007-08-29
-            changes.keep_forever(self.propMgr)  
-            
-        self.propMgr.show()
-            
-        
-    def restore_gui(self):
-        """
-        Restore the GUI 
-        """
-            
-        if self.propMgr is not None:
-            self.propMgr.close()
-    
-   
-    
+    command_has_its_own_PM = True    

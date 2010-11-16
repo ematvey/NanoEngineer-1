@@ -12,7 +12,7 @@ For example:
 - Key bindings or context menu
 
 
-@version: $Id: SelectChunks_GraphicsMode.py 13359 2008-07-09 02:24:08Z marksims $
+@version: $Id: SelectChunks_GraphicsMode.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 
@@ -63,13 +63,14 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
     #A list of movables that will be moved while dragging.
     #@seeself.getMovablesForLeftDragging()
     _leftDrag_movables = []
+    
+    
 
     def Enter_GraphicsMode(self):
         """
         Things needed while entering the GraphicsMode (e.g. updating cursor,
         setting some attributes etc).
-        This method is called in self.command.Enter
-        @see: B{SelectChunks_basicCommand.Enter}, B{basicCommand.Enter}
+        This method is called in self.command.command_entered()
         """
         _superclass.Enter_GraphicsMode(self) #also calls self.reset_drag_vars()
                                              #etc
@@ -220,7 +221,7 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         chunk..typically pick or unpick the chunk(s) or do nothing.
 
         If an object left down happens, the left down method of that object
-        calls this method (chunkLeftDown) as it is the 'selectMolsMode' which
+        calls this method (chunkLeftDown) as it is the 'SelectChunks_GraphicsMode' which
         is supposed to select Chunk of the object clicked
         @param a_chunk: The chunk of the object clicked (example, if the  object
                       is an atom, then it is atom.molecule
@@ -245,29 +246,19 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         #method self.end_selection_from_GLPane() (which is also called in this
         #method.) Needs cleanup -- Ninad 2008-04-17
 
-        if self._is_dnaGroup_highlighting_enabled():
-            #If this graphicsmode highlights the whole DnaGroup,
-            #pick that whole dna group when leftDown event occurs.
-            dnaGroup = a_chunk.getDnaGroup()
-            if dnaGroup is not None:
-                m = dnaGroup
-        else:
-            #Fixed bug 2661 (see also similar code in self.chunkLeftUp() )
-            #Select the whole parent DnaStrand or DnaSegment group (used when Dna
-            # updater is enabled) instead of the chunk.
-            #Note that this will be effective only in graphics modes where the
-            #whole DnaGroup highlighting is disabled. (i.e. where the
-            #highlighting of individual strands and segments is allowed)
-            #-- Ninad 2008-03-14
-            strandOrSegment = a_chunk.parent_node_of_class(
-                self.win.assy.DnaStrandOrSegment)
-            if 0:
-                print "debug fyi: chunk %r .picked %r is in DnaStrandOrSegment %r .picked %r" % \
-                  (a_chunk, a_chunk.picked,
-                   strandOrSegment, strandOrSegment.picked) ###### @@@@@@ bruce 080430 debug code
-                        ##### for 'rapid click selects subset of strand chunks' bug
-            if strandOrSegment is not None:
-                m = strandOrSegment
+        #Fixed bug 2661 (see also similar code in self.chunkLeftUp() )
+        #Select the whole parent DnaStrand or DnaSegment group 
+        #instead of the chunk.
+        #-- Ninad 2008-03-14
+        strandOrSegment = a_chunk.parent_node_of_class(
+            self.win.assy.DnaStrandOrSegment)
+        if 0:
+            print "debug fyi: chunk %r .picked %r is in DnaStrandOrSegment %r .picked %r" % \
+              (a_chunk, a_chunk.picked,
+               strandOrSegment, strandOrSegment.picked) ###### @@@@@@ bruce 080430 debug code
+                    ##### for 'rapid click selects subset of strand chunks' bug
+        if strandOrSegment is not None:
+            m = strandOrSegment
 
         if not m.picked and self.o.modkeys is None:
             self.o.assy.unpickall_in_GLPane()
@@ -325,9 +316,9 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         if not self.current_obj_clicked:
             if debug_flags.atom_debug:
                 print_compact_stack("Note: self.current_obj_clicked is False "
-                "and still selectMolsMode.chunkLeftUp is called. Make sure to "
+                "and still SelectChunks_GraphicsMode.chunkLeftUp is called. Make sure to "
                 "call selectMode.objectSpecificLeftUp before calling "
-                "selectMolsMode.chunkLeftUp: ")
+                "SelectChunks_GraphicsMode.chunkLeftUp: ")
             return
 
         #Don't select anything if the selection is locked.
@@ -344,23 +335,13 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         #method self.end_selection_from_GLPane() (which is also called in this
         #method.) Needs cleanup -- Ninad 2008-04-17
 
-        if self._is_dnaGroup_highlighting_enabled():
-            #If this graphicsmode highlights the whole DnaGroup,
-            #pick that whole dna group when leftDown event occurs.
-            dnaGroup = a_chunk.getDnaGroup()
-            if dnaGroup is not None:
-                m = dnaGroup
-        else:
-            #Fixed bug 2661 (see also similar code in self.chunkLeftDown() )
-            #Select the whole parent DnaStrand or DnaSegment group (used when Dna
-            # updater is enabled) instead of the chunk.
-            #Note that this will be effective only in graphics modes where the
-            #whole DnaGroup highlighting is disabled. (i.e. where the
-            #highlighting of individual strands and segments is allowed)
-            #-- Ninad 2008-03-14
-            strandOrSegment = a_chunk.parent_node_of_class(self.win.assy.DnaStrandOrSegment)
-            if strandOrSegment is not None:
-                m = strandOrSegment
+        #Fixed bug 2661 (see also similar code in self.chunkLeftDown() )
+        #Select the whole parent DnaStrand or DnaSegment group 
+        #instead of the chunk.
+        #-- Ninad 2008-03-14
+        strandOrSegment = a_chunk.parent_node_of_class(self.win.assy.DnaStrandOrSegment)
+        if strandOrSegment is not None:
+            m = strandOrSegment
 
         if self.o.modkeys is None:
             self.o.assy.unpickall_in_GLPane()
@@ -469,37 +450,23 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
             self.chunkLeftDown(chunk1, event)
             return
 
-        if self._is_dnaGroup_highlighting_enabled():
-            dnaGroup1 = chunk1.getDnaGroup()
-            dnaGroup2 = chunk2.getDnaGroup()
+        #@TODO Fixes part of bug 2749. Method needs refactoring
+        #-- Ninad 2008-04-07
+        dnaStrandOrSegment1 = chunk1.parent_node_of_class(
+            self.win.assy.DnaStrandOrSegment)
+        dnaStrandOrSegment2 = chunk2.parent_node_of_class(
+            self.win.assy.DnaStrandOrSegment)
 
-            if dnaGroup1 is not None and dnaGroup1 is dnaGroup2:
-                self.chunkLeftDown(chunk1, event)
-                return
+        if dnaStrandOrSegment1 is not None and \
+           dnaStrandOrSegment1 is dnaStrandOrSegment2:
+            self.chunkLeftDown(chunk1, event)
+            return
 
-            if dnaGroup1 is not None:
-                chunk1 = dnaGroup1
+        if dnaStrandOrSegment1 is not None:
+            chunk1 = dnaStrandOrSegment1
 
-            if dnaGroup2 is not None:
-                chunk2 = dnaGroup2
-        else:
-            #@TODO Fixes part of bug 2749. Method needs refactoring
-            #-- Ninad 2008-04-07
-            dnaStrandOrSegment1 = chunk1.parent_node_of_class(
-                self.win.assy.DnaStrandOrSegment)
-            dnaStrandOrSegment2 = chunk2.parent_node_of_class(
-                self.win.assy.DnaStrandOrSegment)
-
-            if dnaStrandOrSegment1 is not None and \
-               dnaStrandOrSegment1 is dnaStrandOrSegment2:
-                self.chunkLeftDown(chunk1, event)
-                return
-
-            if dnaStrandOrSegment1 is not None:
-                chunk1 = dnaStrandOrSegment1
-
-            if dnaStrandOrSegment2 is not None:
-                chunk2 = dnaStrandOrSegment2
+        if dnaStrandOrSegment2 is not None:
+            chunk2 = dnaStrandOrSegment2
 
         if self.o.modkeys is None:
             if chunk1.picked and chunk2.picked:
@@ -547,9 +514,9 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         #to be on a safer side and prints a warning.
         if not self.current_obj_clicked:
             print_compact_stack("Note: self.current_obj_clicked is False "
-            "and still selectMolsMode.bondLeftUp is called. Make sure to "
+            "and still SelectChunks_GraphicsMode.bondLeftUp is called. Make sure to "
             "call selectMode.objectSpecificLeftUp before calling "
-            "selectMolsMode.bondLeftUp: ")
+            "SelectChunks_GraphicsMode.bondLeftUp: ")
             return
 
         if self.selection_locked():
@@ -562,44 +529,30 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
             self.chunkLeftUp(chunk1, event)
             return
 
-        if self._is_dnaGroup_highlighting_enabled():
-            dnaGroup1 = chunk1.getDnaGroup()
-            dnaGroup2 = chunk2.getDnaGroup()
+        #@TODO Fixes part of bug 2749. Method needs refactoring
+        #-- Ninad 2008-04-07
+        dnaStrandOrSegment1 = chunk1.parent_node_of_class(
+            self.win.assy.DnaStrandOrSegment)
+        dnaStrandOrSegment2 = chunk2.parent_node_of_class(
+            self.win.assy.DnaStrandOrSegment)
 
-            if dnaGroup1 is not None and dnaGroup1 is dnaGroup2:
+        if dnaStrandOrSegment1 is not None and \
+           dnaStrandOrSegment1 is dnaStrandOrSegment2:
+            if self.o.modkeys != 'Shift+Control':
                 self.chunkLeftDown(chunk1, event)
-                return
-
-            if dnaGroup1 is not None:
-                chunk1 = dnaGroup1
-
-            if dnaGroup2 is not None:
-                chunk2 = dnaGroup2
-        else:
-            #@TODO Fixes part of bug 2749. Method needs refactoring
-            #-- Ninad 2008-04-07
-            dnaStrandOrSegment1 = chunk1.parent_node_of_class(
-                self.win.assy.DnaStrandOrSegment)
-            dnaStrandOrSegment2 = chunk2.parent_node_of_class(
-                self.win.assy.DnaStrandOrSegment)
-
-            if dnaStrandOrSegment1 is not None and \
-               dnaStrandOrSegment1 is dnaStrandOrSegment2:
-                if self.o.modkeys != 'Shift+Control':
-                    self.chunkLeftDown(chunk1, event)
-                else:
-                    self.leftShiftCntlUp(event,
-                                         parentNodesOfObjUnderMouse = (chunk1))
-                return
+            else:
+                self.leftShiftCntlUp(event,
+                                     parentNodesOfObjUnderMouse = (chunk1))
+            return
 
 
-            if dnaStrandOrSegment1 is not None:
-                chunk1 = dnaStrandOrSegment1
+        if dnaStrandOrSegment1 is not None:
+            chunk1 = dnaStrandOrSegment1
 
-            if dnaStrandOrSegment2 is not None:
-                chunk2 = dnaStrandOrSegment2
+        if dnaStrandOrSegment2 is not None:
+            chunk2 = dnaStrandOrSegment2
 
-            pass
+            
 
         if self.o.modkeys is None:
             self.o.assy.unpickall_in_GLPane()
@@ -631,9 +584,9 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         """
         Event handler for all LMB press events.
         """
-        # Note: the code of selectAtomsMode and selectMolsMode .leftDown methods
+        # Note: the code of SelectAtoms_GraphicsMode and SelectChunks_GraphicsMode .leftDown methods
         # is very similar, so I'm removing the redundant comments from
-        # this one (selectMolsMode); see selectAtomsMode to find them.
+        # this one (SelectChunks_GraphicsMode); see SelectAtoms_GraphicsMode to find them.
         # [bruce 071022]
 
         self.set_cmdname('ChunkClick')
@@ -654,7 +607,7 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
 
         method = getattr(obj, 'leftClick', None)
         if method:
-            # This looks identical to the code from selectAtomsMode.leftDown
+            # This looks identical to the code from SelectAtoms_GraphicsMode.leftDown
             # which I just split into a separate method call_leftClick_method,
             # so I will shortly move that into our common superclass and
             # call it here instead of duplicating that code.
@@ -686,7 +639,7 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
 
         self.w.win_update()
 
-        return # from selectMolsMode.leftDown
+        return # from SelectChunks_GraphicsMode.leftDown
 
 
     def leftDrag(self, event):
@@ -698,13 +651,13 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
           (free drag translate). This is called 'pseudo move mode'
           for convenience.
 
-        Note that NE1 still remains in the selectMolsMode while doing this.
+        Note that NE1 still remains in the SelectChunks_GraphicsMode while doing this.
         It calls separate method for objects that implement drag handler API
 
         @param  event: mouse left drag event
         @see : selectMode.leftDrag
-        @see : selectMolsMode._leftDown_preparation_for_dragging
-        @see : selectMolsMode.leftDragTranslation
+        @see : SelectChunks_GraphicsMode._leftDown_preparation_for_dragging
+        @see : SelectChunks_GraphicsMode.leftDragTranslation
 
         """
 
@@ -713,10 +666,10 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
 
         self.current_obj_clicked = False
 
-        # Copying some drag_handler checker code from selectAtomsMode (with some
+        # Copying some drag_handler checker code from SelectAtoms_GraphicsMode (with some
         # modifications) -- Ninad20070601
         # [bruce 071022 removed some comments redundant with the
-        #  leftDrag method of selectAtomsMode]
+        #  leftDrag method of SelectAtoms_GraphicsMode]
 
 
         if self.cursor_over_when_LMB_pressed == 'Empty Space':
@@ -786,10 +739,10 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
 
         @param  event: mouse left drag event.
         @see: self.leftDrag
-        @see: modifyMode.leftDrag
+        @see: TranslateChunks_GraphicsMode.leftDrag
         #@see: self.getMovablesForLeftDragging()
         @note : This method uses some duplicate code (free drag translate code)
-        from modifyMode.leftDrag
+        from TranslateChunks_GraphicsMode.leftDrag
 
         """
         self._leftDragFreeTranslation(event)
@@ -813,7 +766,8 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         # This will be turned ON again in leftUp method.
         # [update, bruce 071121: it looks like it's turned back on
         #  in bareMotion instead.]
-        self.hover_highlighting_enabled = False
+        
+        self._suppress_highlighting = True
 
         # This flag is required in various leftUp methods. It helps them
         # decide what to do upon left up. The flag value is set in
@@ -860,13 +814,6 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
             return
 
 
-        #Enable the highlighting which might be turned off during left drag
-        #@warning: When we add the chunk highlighting to the preferences,
-        #the following should set the user preferences value instead of
-        #setting this to 'True' -- ninad 20070720
-        ##if not self.hover_highlighting_enabled:
-            ##self.hover_highlighting_enabled = True
-
         if self.cursor_over_when_LMB_pressed == 'Empty Space':
             self.emptySpaceLeftUp(event)
             return
@@ -891,7 +838,7 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         self.doObjectSpecificLeftUp(obj, event)
 
         self.w.win_update()
-        return # from selectMolsMode.leftUp
+        return # from SelectChunks_GraphicsMode.leftUp
 
     def reset_drag_vars(self):
         """
@@ -928,7 +875,7 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         #sure that the object is not highlighted. The value of elapsed time
         #is selected as 2.0 seconds arbitrarily. Based on some tests, this value
         #seems OK. Following fixes bug 2536. Note, another fix would be to
-        #set self.hover_highlighting_enabled to False. But this fix looks more
+        #set self._suppress_highlighting to True. But this fix looks more
         #appropriate at the moment -- Ninad 2007-09-19
         #
         # Note: I think 2.0 is too long -- this should probably be more like 0.5.
@@ -968,10 +915,14 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
                           (self, time_since_wheel_event)
                 return True
 
-        if not self.hover_highlighting_enabled:
-            self.hover_highlighting_enabled = True
+        #Turn the highlighting back on if it was suppressed during, 
+        #for example, leftDrag
+        if self._suppress_highlighting:
+            self._suppress_highlighting = False
 
         _superclass.bareMotion(self, event)
+            ### REVIEW: why do we now return False, rather than whatever this returns?
+            # Needs explanation. [bruce 081002 question]
 
         return False
 
@@ -980,7 +931,7 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         Update the cursor for Select mode (Default implementation).
         """
 
-        # print "selectMolsMode.update_cursor_for_no_MB(): button=",\
+        # print "SelectChunks_GraphicsMode.update_cursor_for_no_MB(): button=",\
         #  self.o.button,"modkeys=",self.o.modkeys
 
         if self.o.modkeys is None:
@@ -1016,11 +967,10 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
                  (usually, this is just whether we drew something)
         @rtype: boolean
         @see: self._get_objects_to_highlight()
-        @see: self._is_dnaGroup_highlighting_enabled()
         @see : self.drawHighlightedObjectUnderMouse()
         """
         # Ninad 070214 wrote this in GLPane; bruce 071008 moved it into
-        # selectMolsMode and slightly revised it (including, adding the return
+        # SelectChunks_GraphicsMode and slightly revised it (including, adding the return
         # value).
         # Bruce 080217 formalized hicolor2 as an arg (was hardcoded orange).
         assert hicolor is not None #bruce 070919
@@ -1065,7 +1015,6 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
         - may be hiColors should be in a list to make it more general
         @return: dictionary of objects to be highlighted.
         @rtype: dict
-        @see: self._is_dnaGroup_highlighting_enabled()
         @see: self.drawHighlightedChunk()
         @see : self.drawHighlightedObjectUnderMouse()
         """
@@ -1123,46 +1072,12 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
                         chunkList.append(c)
                 colorList = [hiColor1, hiColor2]
 
-        if self._is_dnaGroup_highlighting_enabled():
-            for c in chunkList:
-                i = chunkList.index(c)
-                dnaGroup = c.getDnaGroup()
-                if dnaGroup is not None:
-                    if not objectDict.has_key(dnaGroup):
-                        objectDict[dnaGroup] = colorList[i]
-                else:
-                    objectDict[c] = colorList[i]
-        else:
-            for c in chunkList:
-                i = chunkList.index(c)
-                objectDict[c] = colorList[i]
+        for c in chunkList:
+            i = chunkList.index(c)
+            objectDict[c] = colorList[i]
 
         return objectDict
-
-    def _is_dnaGroup_highlighting_enabled(self):
-        """
-        NOTE: TO BE DEPRECATED: 2008-04-07 onwards, the whole DnaGroup will never be highlighted
-        So this flag will always returns True in this class and in subclasses
-        See bug Bug 2749 for implementation change details. post FNANO, this
-        method and its calls can be removed (provided implementation doesn't
-        change). Returning 'False' is as good as not using this feature in the
-        UI so no problem.
-
-        Returns a boolean that decides whether to highlight the whole
-        DnaGroup or just the chunk of the glpane.selobj.
-        Example: In default mode (SelectChunks_graphicsMode) if the cursor is
-        over an atom or a bond which belongs to a DnaGroup, the whole
-        DnaGroup is highlighted. But if you are in buildDna mode, the
-        individual strand and axis chunks will be highlighted in this case.
-        Therefore, subclasses of SelectChunks_graphicsMode should override this
-        method to enable or disable the DnaGroup highlighting. (the Default
-        implementation returns True)
-        @see: self._get_objects_to_highlight()
-        @see: self.drawHighlightedChunk()
-        @see : self.drawHighlightedObjectUnderMouse()
-        """
-        return False
-
+    
     def drawHighlightedObjectUnderMouse(self, glpane, selobj, hicolor):
         """
         [overrides superclass method]
@@ -1172,7 +1087,7 @@ class SelectChunks_basicGraphicsMode(Select_basicGraphicsMode):
 
         """
         # Ninad 070214 wrote this in GLPane; bruce 071008 moved it into
-        # selectMolsMode and slightly revised it.
+        # SelectChunks_GraphicsMode and slightly revised it.
         ## hicolor2 = orange # intended to visually differ from hicolor
         HHColor = env.prefs[hoverHighlightingColor_prefs_key]
         hicolor2 = ave_colors(0.5, HHColor, orange)
@@ -1238,14 +1153,3 @@ class SelectChunks_GraphicsMode(SelectChunks_basicGraphicsMode):
     def set_cmdname(self, name):
         self.command.set_cmdname(name)
         return
-
-    def _get_hover_highlighting_enabled(self):
-        return self.command.hover_highlighting_enabled
-
-    def _set_hover_highlighting_enabled(self, val):
-        self.command.hover_highlighting_enabled = val
-
-    hover_highlighting_enabled = property(_get_hover_highlighting_enabled,
-                                          _set_hover_highlighting_enabled)
-
-

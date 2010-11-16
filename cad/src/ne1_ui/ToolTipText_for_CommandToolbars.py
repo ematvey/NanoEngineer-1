@@ -6,7 +6,7 @@ This file provides functions for setting the "Tooltip" text
 for widgets (typically QActions) in the Command Toolbar.
 
 @author: Mark
-@version:$Id: ToolTipText_for_CommandToolbars.py 12525 2008-04-13 19:42:40Z marksims $
+@version:$Id: ToolTipText_for_CommandToolbars.py 14019 2008-08-22 19:16:12Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -46,7 +46,7 @@ def toolTipTextForNanotubeCommandToolbar(commandToolbar):
 
 def toolTipTextForCrystalCommandToolbar(commandToolbar):
     """
-    "Tool Tip" text for widgets in the Build Crystal (Cookie) Command Toolbar.
+    "Tool Tip" text for widgets in the Build Crystal Command Toolbar.
     """
     return
 

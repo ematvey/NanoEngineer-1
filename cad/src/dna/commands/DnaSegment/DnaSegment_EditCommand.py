@@ -24,7 +24,7 @@ While in this command, user can
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: DnaSegment_EditCommand.py 13371 2008-07-09 20:54:59Z ninadsathaye $
+@version: $Id: DnaSegment_EditCommand.py 14438 2008-11-03 18:56:55Z  $
 
 History:
 Ninad 2008-01-18: Created
@@ -37,7 +37,7 @@ TODO:
 
 import foundation.env as env
 from command_support.EditCommand       import EditCommand 
-from command_support.GeneratorBaseClass import PluginBug, UserError
+from utilities.exception_classes import PluginBug, UserError
 
 from geometry.VQT import V, Veq, vlen
 from geometry.VQT import cross, norm
@@ -45,7 +45,7 @@ from Numeric import dot
 
 from utilities.constants  import gensym
 from utilities.Log        import redmsg
-from prototype.test_connectWithState import State_preMixin
+from exprs.State_preMixin import State_preMixin
 
 from exprs.attr_decl_macros import Instance, State
 from exprs.__Symbols__      import _self
@@ -58,9 +58,9 @@ from model.chunk import Chunk
 from model.chem import Atom
 from model.bonds import Bond
 
-
 from utilities.constants   import noop
 from utilities.constants    import black, applegreen
+from utilities.Comparison import same_vals
 
 from graphics.drawables.RotationHandle  import RotationHandle
 
@@ -69,8 +69,8 @@ from dna.model.Dna_Constants        import getDuplexRise
 from dna.model.Dna_Constants        import getNumberOfBasePairsFromDuplexLength
 from dna.model.Dna_Constants        import getDuplexLength
 
-from dna.commands.BuildDuplex.DnaDuplex import B_Dna_PAM3
-from dna.commands.BuildDuplex.DnaDuplex import B_Dna_PAM5
+from dna.generators.B_Dna_PAM3_Generator import B_Dna_PAM3_Generator
+from dna.generators.B_Dna_PAM5_Generator import B_Dna_PAM5_Generator
 from dna.commands.DnaSegment.DnaSegment_ResizeHandle import DnaSegment_ResizeHandle
 from dna.commands.DnaSegment.DnaSegment_GraphicsMode import DnaSegment_GraphicsMode
 
@@ -80,7 +80,10 @@ from utilities.prefs_constants import dnaSegmentEditCommand_showCursorTextCheckB
 from utilities.prefs_constants import dnaSegmentEditCommand_cursorTextCheckBox_changedBasePairs_prefs_key
 from utilities.prefs_constants import dnaSegmentResizeHandle_discRadius_prefs_key
 from utilities.prefs_constants import dnaSegmentResizeHandle_discThickness_prefs_key
+from utilities.prefs_constants import cursorTextColor_prefs_key
 from dna.model.Dna_Constants import getDuplexLength
+
+from dna.commands.DnaSegment.DnaSegment_PropertyManager import DnaSegment_PropertyManager
 
 CYLINDER_WIDTH_DEFAULT_VALUE = 0.0
 HANDLE_RADIUS_DEFAULT_VALUE = 1.2
@@ -90,6 +93,7 @@ ORIGIN = V(0,0,0)
 #display and computation while in DnaSegment_EditCommand
 DEBUG_ROTATION_HANDLES = False
 
+_superclass = EditCommand
 
 class DnaSegment_EditCommand(State_preMixin, EditCommand):
     """
@@ -100,26 +104,35 @@ class DnaSegment_EditCommand(State_preMixin, EditCommand):
     and shows the property manager with its widgets showing the properties of 
     selected segment.
     """
+   
+    #Graphics Mode 
+    GraphicsMode_class = DnaSegment_GraphicsMode
+    
+    #Property Manager
+    PM_class = DnaSegment_PropertyManager
+    
+    
     cmd              =  'Dna Segment'
-    sponsor_keyword  =  'DNA'
     prefix           =  'Segment '   # used for gensym
     cmdname          = "DNA_SEGMENT"
+    
     commandName       = 'DNA_SEGMENT'
-    featurename       = 'Edit Dna Segment'
+    featurename       = "Edit Dna Segment"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_DNA'
 
 
     command_should_resume_prevMode = True
-    command_has_its_own_gui = True
-    command_can_be_suspended = False
-
+    command_has_its_own_PM = True
+    
     # Generators for DNA, nanotubes and graphene have their MT name 
     # generated (in GeneratorBaseClass) from the prefix.
     create_name_from_prefix  =  True 
 
     call_makeMenus_for_each_event = True 
 
-    #Graphics Mode 
-    GraphicsMode_class = DnaSegment_GraphicsMode
+    
 
     #This is set to BuildDna_EditCommand.flyoutToolbar (as of 2008-01-14, 
     #it only uses 
@@ -202,74 +215,75 @@ class DnaSegment_EditCommand(State_preMixin, EditCommand):
         ))
 
 
-    def __init__(self, commandSequencer, struct = None):
+    def __init__(self, commandSequencer):
         """
         Constructor for DnaDuplex_EditCommand
         """
+        #used by self.command_update_internal_state()
+        self._previous_model_change_indicator = None
 
-        glpane = commandSequencer
+        glpane = commandSequencer.assy.glpane
         State_preMixin.__init__(self, glpane)        
         EditCommand.__init__(self, commandSequencer)
-        self.struct = struct
-
+        
         #Graphics handles for editing the structure . 
         self.handles = []        
         self.grabbedHandle = None
-
-
-    def init_gui(self):
+        
+        
+    #New Command API method -- implemented on 2008-08-27
+     
+    def command_update_internal_state(self):
         """
-        Initialize gui. 
-        """
-
-        #Note that DnaSegment_EditCommand only act as an edit command for an 
-        #existing structure. The call to self.propMgr.show() is done only during
-        #the call to self.editStructure ..i .e. only after self.struct is 
-        #updated. This is done because of the following reason:
-        # - self.init_gui is called immediately after entering the command. 
-        # - self.init_gui in turn, initialized propMgr object and may also 
-        #  show the property manager. The self.propMgr.show routine calls 
-        #  an update widget method just before the show. This update method 
-        #  updates the widgets based on the parameters from the existing 
-        #  structure of the command (self.editCommand.struct)
-        #  Although, it checks whether this structure exists, the editCommand
-        #  could still have a self.struct attr from a previous run. (Note that 
-        #  EditCommand API was written before the command sequencer API and 
-        #  it has some loose ends like this. ) -- Ninad 2008-01-22
-        self.create_and_or_show_PM_if_wanted(showPropMgr = False)
-
-    def model_changed(self):
+        Extends the superclass method.
+        @see:baseCommand.command_update_internal_state() for documentation
+        """   
+        
+        #NOTE 2008-09-02: This method is called too often. It should exit early
+        #if , for example , model_change_indicator didn't change. Need to 
+        #review and test to see if its okay to do so. [-- Ninad comment]
+        
+        _superclass.command_update_internal_state(self)
+        
         #This MAY HAVE BUG. WHEN --
         #debug pref 'call model_changed only when needed' is ON
         #See related bug 2729 for details. 
 
         #The following code that updates te handle positions and the strand 
         #sequence fixes bugs like 2745 and updating the handle positions
-        #updating handle positions in model_changed instead of in 
+        #updating handle positions in command_update_UI instead of in 
         #self.graphicsMode._draw_handles() is also a minor optimization
         #This can be further optimized by debug pref 
-        #'call model_changed only when needed' but its NOT done because of an 
-        # issue menitoned in bug 2729   - Ninad 2008-04-07
-        EditCommand.model_changed(self) #This also calls the 
-                                        #propMgr.model_changed 
-
+        #'call command_update_UI only when needed' but its NOT done because of
+        #an issue mentioned in bug 2729   - Ninad 2008-04-07
         if self.grabbedHandle is not None:
             return
-
-        #For Rattlesnake, PAM5 segment resizing  is not supported. 
+        
+        current_model_change_indicator = self.assy.model_change_indicator()
+        
+        #This should be OK even when a subclass calls this method. 
+        #(the model change indicator is updated globally , using self.assy. )
+        if same_vals(current_model_change_indicator, 
+                     self._previous_model_change_indicator):
+            return 
+        
+        self._previous_model_change_indicator = current_model_change_indicator
+        
+        #PAM5 segment resizing  is not supported. 
         #@see: self.hasResizableStructure()
-        if self.hasValidStructure():
-            isStructResizable, why_not = self.hasResizableStructure()
-            if not isStructResizable:
-                self.handles = []
-                return
-            elif len(self.handles) == 0:
-                self._updateHandleList()
+        if not self.hasValidStructure():
+            return
+        
+        isStructResizable, why_not = self.hasResizableStructure()
+        if not isStructResizable:
+            self.handles = []
+            return
+        elif len(self.handles) == 0:
+            self._updateHandleList()
 
-            self.updateHandlePositions()  
+        self.updateHandlePositions()  
 
-            self._update_previousParams_in_model_changed()
-
+        self._update_previousParams_in_model_changed()
 
     def _update_previousParams_in_model_changed(self):
         #The following fixes bug 2802. The bug comment has details of what
@@ -289,7 +303,6 @@ class DnaSegment_EditCommand(State_preMixin, EditCommand):
             if new_numberOfBasePairs != self.previousParams[0]:
                 self.propMgr.numberOfBasePairsSpinBox.setValue(new_numberOfBasePairs)
                 self.previousParams = self.propMgr.getParameters()
-
 
 
     def editStructure(self, struct = None):
@@ -561,15 +574,7 @@ class DnaSegment_EditCommand(State_preMixin, EditCommand):
         self._resizeHandle_stopper_length = - total_length + two_bases_length
 
 
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr
-        propMgr = self.win.createDnaSegmentPropMgr_if_needed(self)
-        return propMgr
-
+    
     def _gatherParameters(self):
         """
         Return the parameters from the property manager UI.
@@ -633,9 +638,9 @@ class DnaSegment_EditCommand(State_preMixin, EditCommand):
 
         if dnaForm == 'B-DNA':
             if dnaModel == 'PAM3':
-                dna = B_Dna_PAM3()
+                dna = B_Dna_PAM3_Generator()
             elif dnaModel == 'PAM5':
-                dna = B_Dna_PAM5()
+                dna = B_Dna_PAM5_Generator()
             else:
                 print "bug: unknown dnaModel type: ", dnaModel
         else:
@@ -715,7 +720,7 @@ class DnaSegment_EditCommand(State_preMixin, EditCommand):
         """                
         assert self.struct        
 
-        self.dna = B_Dna_PAM3()
+        self.dna = B_Dna_PAM3_Generator()
 
         number_of_basePairs_from_struct,\
                                        numberOfBases, \
@@ -863,27 +868,22 @@ class DnaSegment_EditCommand(State_preMixin, EditCommand):
         else:
             numberOfBasePairsToAddOrRemove = raw_numberOfBasePairsToAddOrRemove
 
-        ##############
-
         current_numberOfBasePairs = self.struct.getNumberOfBasePairs()
-
+      
         numberOfBasePairs = current_numberOfBasePairs + numberOfBasePairsToAddOrRemove
-        #@TODO: The following updates the PM as the cursor moves. 
-        #Need to rename this method so that you that it also does more things 
-        #than just to return a textString -- Ninad 2007-12-20
-        self.propMgr.numberOfBasePairsSpinBox.setValue(numberOfBasePairs)
+        
+        if hasattr(self.propMgr, 'numberOfBasePairsSpinBox'):            
+            #@TODO: The following updates the PM as the cursor moves. 
+            #Need to rename this method so that you that it also does more things 
+            #than just to return a textString -- Ninad 2007-12-20
+            self.propMgr.numberOfBasePairsSpinBox.setValue(numberOfBasePairs)
 
-        #Note: for Rattlesnake rc2, the text color is green when bases are added
-        #, red when subtracted black when no change. But this implementation is 
-        #changed based on Mark's user experience. The text is now always shown
-        #in black color. -- Ninad 2008-04-17
-        textColor = black  
-
-        text = "" 
+        
+        text = ""
+        textColor = env.prefs[cursorTextColor_prefs_key] # Mark 2008-08-28
 
         if not env.prefs[dnaSegmentEditCommand_showCursorTextCheckBox_prefs_key]:
-            return '', black
-        
+            return text, textColor
                 
         #@@TODO: refactor. 
         #this duplex length canculation fixes bug 2906

@@ -3,7 +3,7 @@
 ops_files.py - provides fileSlotsMixin for MWsemantics,
 with file slot methods and related helper methods.
 
-@version: $Id: ops_files.py 13479 2008-07-16 13:58:30Z marksims $
+@version: $Id: ops_files.py 14375 2008-09-30 04:14:50Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Note: most other ops_*.py files provide mixin classes for Part,
@@ -44,10 +44,11 @@ from simulation.runSim import readGromacsCoordinates
 from files.pdb.files_pdb import insertpdb, writepdb
 from files.pdb.files_pdb import EXCLUDE_BONDPOINTS, EXCLUDE_HIDDEN_ATOMS
 from files.mmp.files_mmp import readmmp, insertmmp, fix_assy_and_glpane_views_after_readmmp
-from  files.ios.files_ios import exportToIOSFormat,importFromIOSFile
+from files.amber_in.files_in import insertin
+from files.ios.files_ios import exportToIOSFormat,importFromIOSFile
 
-from graphics.rendering.fileIO import writepovfile
-from graphics.rendering.fileIO import writemdlfile
+from graphics.rendering.povray.writepovfile import writepovfile
+from graphics.rendering.mdl.writemdlfile import writemdlfile
 from graphics.rendering.qutemol.qutemol import write_qutemol_pdb_file
 
 
@@ -70,6 +71,7 @@ from utilities.constants import str_or_unicode
 from ne1_ui.FetchPDBDialog import FetchPDBDialog
 from PyQt4.Qt import SIGNAL
 from urllib import urlopen
+
 debug_babel = False   # DO NOT COMMIT with True
 
 def set_waitcursor(on_or_off):
@@ -188,6 +190,13 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
     """
     #UM 20080702: required for fetching pdb files from the internet
     _pdbCode = ''
+
+    currentOpenBabelImportDirectory = None
+    currentImportDirectory = None
+    currentPDBSaveDirectory = None
+    currentFileInsertDirectory = None
+    currentFileOpenDirectory = None
+
     
     def getCurrentFilename(self, extension = False):
         """
@@ -289,10 +298,12 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
             "ViewMol (*.vmol);;"\
             "XYZ cartesian coordinates (*.xyz);;"\
             "YASARA YOB (*.yob);;")
-        
+
+        if (self.currentOpenBabelImportDirectory == None):
+            self.currentOpenBabelImportDirectory = self.currentWorkingDirectory
         import_filename = QFileDialog.getOpenFileName(self, 
                                  "Open Babel Import", 
-                                 self.currentWorkingDirectory, 
+                                 self.currentOpenBabelImportDirectory, 
                                  formats
                                  ) 
         
@@ -362,11 +373,9 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
             self.glpane.gl_update()
             self.mt.mt_update()
             
-            #@ Bad idea. Maybe we should have "LastImportDirectory" and "LastExportDirectory" 
-            #@  prefs stored in the prefs db. Marked for removal. Mark 2007-06-05
-            # Update the current working directory (CWD).
-            #dir, fil = os.path.split(import_filename)
-            #self.setCurrentWorkingDirectory(dir)
+            dir, fil = os.path.split(import_filename)
+            self.currentOpenBabelImportDirectory = dir
+            self.setCurrentWorkingDirectory(dir)
             
     def fileIOSImport(self): #Urmi 20080618
         """
@@ -400,10 +409,12 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
         
         formats = \
             "Extensive Markup Language (*.xml);;"
-        
+
+        if (self.currentImportDirectory == None) :
+            self.currentImportDirectory = currentWorkingDirectory
         import_filename = QFileDialog.getOpenFileName(self, 
                                  "IOS Import", 
-                                 self.currentWorkingDirectory, 
+                                 self.currentImportDirectory, 
                                  formats
                                  ) 
         if not import_filename:
@@ -413,6 +424,10 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
         success = importFromIOSFile(self.assy, import_filename)
         if success:
             env.history.message(cmd + "Successfully imported optimized strands from " + import_filename)
+            
+            dir, fil = os.path.split(import_filename)
+            self.currentImportDirectory = dir
+            self.setCurrentWorkingDirectory(dir)
         else:
             env.history.message(cmd + redmsg("Cannot import " + import_filename))
         return 
@@ -866,7 +881,9 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
         # Save this file
         formats = \
                 "Protein Data BanK (*.pdb);;"
-        directory = self.currentWorkingDirectory
+        if (self.currentPDBSaveDirectory == None):
+            self.currentPDBSaveDirectory = self.currentWorkingDirectory
+        directory = self.currentPDBSaveDirectory
         fileName = code + ".pdb"
         currentFilename = directory + '/' + fileName
         sfilter = QString("Protein Data Bank (*.pdb)")
@@ -891,6 +908,7 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
         fileObject1.close()
         fileObject2.close()
         dir, fil = os.path.split(str(fn))
+        self.currentPDBSaveDirectory = dir
         self.setCurrentWorkingDirectory(dir)
         env.history.message( "PDB file saved: [ " + os.path.normpath(str(fn)) + " ]")
         
@@ -935,6 +953,15 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
                 "All Files (*.*)"
         self.fileInsert(formats)
     
+    def fileInsertIn(self):
+        """
+        Slot method for 'Insert > AMBER .in file fragment...'.
+        """
+        formats = \
+                "AMBER internal coordinates file fragment (*.in_frag);;"\
+                "All Files (*.*)"
+        self.fileInsert(formats)
+    
     def fileInsert(self, formats):
         """
         Inserts a file in the current part.
@@ -945,9 +972,11 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
         
         env.history.message(greenmsg("Insert File:"))
         
+        if (self.currentFileInsertDirectory == None):
+            self.currentFileInsertDirectory = self.currentWorkingDirectory
         fn = QFileDialog.getOpenFileName(self, 
                                          "Insert File", 
-                                         self.currentWorkingDirectory, 
+                                         self.currentFileInsertDirectory, 
                                          formats)
                         
         if not fn:
@@ -984,6 +1013,19 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
                 else:
                     self.assy.changed() # The file and the part are not the same.
                     env.history.message( "PDB file inserted: [ " + os.path.normpath(fn) + " ]" )
+
+            if fn[-7:] == "in_frag":
+                try:
+                    success_code = insertin(self.assy, fn)
+                except:
+                    print_compact_traceback( "MWsemantics.py: fileInsert(): error inserting IN_FRAG file [%s]: " % fn )
+                    env.history.message( redmsg( "Internal error while inserting IN_FRAG file: [ " + fn+" ]") )
+                else:
+                    ###TODO: needs history message to depend on success_code
+                    # (since Insert can be cancelled or see a syntax error or
+                    #  read error). [bruce 080606 comment]
+                    self.assy.changed() # The file and the part are not the same.
+                    env.history.message( "IN file inserted: [ " + os.path.normpath(fn) + " ]" )# fix bug 453 item. ninad060721
             
             self.glpane.scale = self.assy.bbox.scale()
             self.glpane.gl_update()
@@ -991,17 +1033,28 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
             
             # Update the current working directory (CWD). Mark 060729.
             dir, fil = os.path.split(fn)
+            self.currentFileInsertDirectory = dir
             self.setCurrentWorkingDirectory(dir)
 
     def fileOpen(self, recentFile = None):
         """
         Slot method for 'File > Open'.
-        By default, users open a file through 'Open File' dialog. If <recentFile> is provided, it means user
-        is opening a file named <recentFile> through the 'Recent Files' menu list. The file may or may not exist.
+        
+        By default, we assume user wants to specify file to open
+        through 'Open File' dialog.
+
+        @param recentFile: if provided, specifies file to open,
+                           assumed to come from the 'Recent Files' menu list;
+                           no Open File dialog will be used.
+                           The file may or may not exist.
+        @type recentFile: string
         """
-        
         env.history.message(greenmsg("Open File:"))
-        
+
+        warn_about_abandoned_changes = True
+            # note: this is turned off later if the user explicitly agrees
+            # to discard unsaved changes [bruce 080909]
+
         if self.assy.has_changed():
             ret = QMessageBox.warning( self, "Warning!",
                 "The part contains unsaved changes.\n"
@@ -1010,19 +1063,25 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
                 0,      # Enter == button 0
                 2 )     # Escape == button 2
             
-            if ret == 0: # Save clicked or Alt+S pressed or Enter pressed.
-                ##Huaicai 1/6/05: If user canceled save operation, return 
-                ## without letting user open another file
+            if ret == 0:
+                # Save clicked or Alt+S pressed or Enter pressed.
+                #Huaicai 1/6/05: If user now cancels save operation, return 
+                # without letting user open another file
                 if not self.fileSave():
                     return
-                
-            ## Huaicai 12/06/04. Don't clear it, user may cancel the file open action    
             elif ret == 1:
-                pass ## self.__clear() 
-            
-            elif ret == 2: 
+                # Discard
+                warn_about_abandoned_changes = False
+                    # note: this is about *subsequent* discards on same old
+                    # model, if any (related to exit_is_forced)
+                #Huaicai 12/06/04: don't clear assy, since user may cancel the file open action below
+                pass ## self._make_and_init_assy()
+            elif ret == 2:
+                # Cancel clicked or Alt+C pressed or Escape pressed
                 env.history.message("Cancelled.")              
-                return # Cancel clicked or Alt+C pressed or Escape pressed
+                return
+            else:
+                assert 0 #bruce 080909
 
         if recentFile:
             if not os.path.exists(recentFile):
@@ -1042,9 +1101,11 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
                     "GROMACS Coordinates (*.gro);;"\
                     "All Files (*.*)"
             
+            if (self.currentFileOpenDirectory == None):
+                self.currentFileOpenDirectory = self.currentWorkingDirectory
             fn = QFileDialog.getOpenFileName(self,
                                              "Open File",
-                                             self.currentWorkingDirectory,
+                                             self.currentFileOpenDirectory,
                                              formats)
                     
             if not fn:
@@ -1055,10 +1116,10 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
             start = begin_timing("File..Open")
             self.updateRecentFileList(fn)
 
-            self.__clear() # this resets self.assy to a new, empty Assembly object
-
-            self.commandSequencer.start_using_mode( '$DEFAULT_MODE') #bruce 050911 [now needed here, to open files in default mode]
-                
+            self._make_and_init_assy('$DEFAULT_MODE',
+                   warn_about_abandoned_changes = warn_about_abandoned_changes )
+                # resets self.assy to a new, empty Assembly object
+            
             self.assy.clear_undo_stack()
                 # important optimization -- the first call of clear_undo_stack
                 # (for a given value of self.assy) does two initial checkpoints,
@@ -1071,7 +1132,7 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
                 # once rather than twice. The speedup from this has been
                 # verified. [bruce & ericm 080225/082229]
             
-            fn = str(fn)
+            fn = str_or_unicode(fn)
             if not os.path.exists(fn):
                 return
                 #k Can that return ever happen? Does it need an error message?
@@ -1175,6 +1236,9 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
             env.history.message(_openmsg)
             QApplication.restoreOverrideCursor() # Restore the cursor
             end_timing(start, "File..Open")
+
+            dir, fil = os.path.split(fn)
+            self.currentFileOpenDirectory = dir
             
         self.setCurrentWorkingDirectory()
         
@@ -1405,7 +1469,7 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
         # [bruce question: when and why can this differ from fn?]
         # IIRC, fileparse() doesn't (or didn't) handle QString types. 
         # mark 2008-01-23
-        fn = str(fn)
+        fn = str_or_unicode(fn)
         dir, fil, ext2 = _fileparse(fn)
         del fn #bruce 050927
         ext = str(sfilter[-5:-1]) 
@@ -1899,6 +1963,7 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
         env.history.message(greenmsg("Close File:"))
         
         isFileSaved = True
+        warn_about_abandoned_changes = True # see similar code in fileOpen
         if self.assy.has_changed():
             ret = QMessageBox.warning( self, "Warning!" ,
                 "The model contains unsaved changes.\n"
@@ -1908,19 +1973,26 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
                 0,      # Enter == button 0
                 2 )     # Escape == button 2
             
-            if ret == 0: isFileSaved = self.fileSave() # Save clicked or Alt+S pressed or Enter pressed.
+            if ret == 0:
+                # Save clicked or Alt+S pressed or Enter pressed
+                isFileSaved = self.fileSave()
             elif ret == 1:
+                # Discard
                 env.history.message("Changes discarded.")
-            elif ret == 2: 
+                warn_about_abandoned_changes = False
+            elif ret == 2:
+                # Cancel clicked or Alt+C pressed or Escape pressed
                 env.history.message("Cancelled.")
-                return # Cancel clicked or Alt+C pressed or Escape pressed
+                return
+            else:
+                assert 0 #bruce 080909
         
-        if isFileSaved: 
-                self.__clear()
-                self.commandSequencer.start_using_mode( '$STARTUP_MODE') #bruce 050911: File->Clear sets same mode as app startup does
-                self.assy.reset_changed() #bruce 050429, part of fixing bug 413
-                self.assy.clear_undo_stack() #bruce 060126, maybe not needed, or might fix an unreported bug related to 1398
-                self.win_update()
+        if isFileSaved:
+            self._make_and_init_assy('$STARTUP_MODE',
+                   warn_about_abandoned_changes = warn_about_abandoned_changes )
+            self.assy.reset_changed() #bruce 050429, part of fixing bug 413
+            self.assy.clear_undo_stack() #bruce 060126, maybe not needed, or might fix an unreported bug related to 1398
+            self.win_update()
         return
 
     def fileSetWorkingDirectory(self):
@@ -1987,43 +2059,79 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
             msg = "[" + workdir + "] is not a directory. Working directory was not changed."
             env.history.message( redmsg(msg))
         return
-                
-    def __clear(self):
-        #bruce 050907 comment: this is only called from two file ops in this mixin, so I moved it here from MWsemantics
-        # even though its name-mangled name was thereby changed. It should really be given a normal name.
-        # Some comments in other files still call it MWsemantics.__clear. [See also the 060127 kluge below.]
+    
+    def _make_and_init_assy(self,
+                            initial_mode_symbol = None,
+                            warn_about_abandoned_changes = True ):
+        """
+        [private; as of 080812, called only from fileOpen and fileClose]
 
-        # see also MWsemantics.__init__, which contains similar code.
+        Close current self.assy, make a new assy and reinit commandsequencer
+        for it (in glpane.setAssy), tell new assy about our model tree and
+        glpane (and vice versa), update mainwindow caption.
 
-        if self.assy:
-            # print "\nfyi: closing old assy %r in __clear" % self.assy # works
-            self.assy.close_assy() #bruce 080314
+        @param initial_mode_symbol: if provided, initialize the command
+                                    sequencer to that mode; otherwise,
+                                    to nullMode. All current calls provide
+                                    this as a "symbolic mode name".
+
+        @param warn_about_abandoned_changes: passed to exit_all_commands method in
+                                             self.assy.commandSequencer; see that
+                                             method in class CommandSequencer for
+                                             documentation
+        @type warn_about_abandoned_changes: boolean
+                                          
+        @note: MWsemantics.__init__ doesn't call this, but contains similar
+               code, not all in one place. It's not clear whether it could
+               be made to call this.
+
+        @note: certain things are done shortly after this call by all callers,
+               and by the similar MWsemantics.__init__ code, but since various
+               things intervene it's not clear whether they could be pulled
+               into a single method. These include assy.clear_undo_stack.
+        """
+        #bruce 080812 renamed this from __clear (which is very old).
+        # REVIEW: should all or part of this method be moved back into
+        # class MWsemantics (which mixes it in)?
         
-        self.assy = Assembly(self, "Untitled",
-                             own_window_UI = True, # own_window_UI is required for this assy to support Undo
-                             run_updaters = True
-                            )
-            #bruce 060127 added own_window_UI flag to help fix bug 1403
-            #bruce 080403 added run_updaters = True (to preserve current
-            # behavior) -- I don't know whether it's needed
+        if self.assy:
+            cseq = self.assy.commandSequencer
+            cseq.exit_all_commands( warn_about_abandoned_changes = \
+                                    warn_about_abandoned_changes )            
+                #bruce 080909 new features:
+                # 1. exit all commands here, rather than (or in addition to)
+                # when initing new assy.
+                # 2. but tell that not to warn about abandoning changes
+                # stored in commands, if user already said to discard changes
+                # stored in assy (according to caller passing False for warn_about_abandoned_changes).
+                # This should fix an old bug in which redundant warnings
+                # would be given if both kinds of changes existed.
+            self.assy.close_assy() # bruce 080314
+        
+        self.assy = self._make_a_main_assy()
         self.update_mainwindow_caption()
-        self.glpane.setAssy(self.assy) # leaves currentCommand as nullmode
-            # does that call assy.set_glpane?
+        self.glpane.setAssy(self.assy)
+            # notes: this calls assy.set_glpane, and _reinit_modes
+            # (which leaves currentCommand as nullmode)
+            # (even after USE_COMMAND_STACK).
+            ### TODO: move _reinit_modes out of that, do it somewhere else.
         self.assy.set_modelTree(self.mt)
         
         ### Hack by Huaicai 2/1 to fix bug 369
-        self.mt.resetAssy_and_clear() 
+        self.mt.resetAssy_and_clear()
+
+        if initial_mode_symbol:
+            #bruce 080812 pulled this code in from just after both calls
+            self.commandSequencer.start_using_initial_mode( initial_mode_symbol)
         
         return
-
-    _MWsemantics__clear = __clear #bruce 060127 kluge so it can be called as __clear from inside class MWsemantics itself.
 
     def openRecentFile(self, idx):
         """
         Slot method for the "Open Recent File" menu, 
         a submenu of the "File" menu.
         """
-        text = str(idx.text())
+        text = str_or_unicode(idx.text())
         selectedFile = text[text.index("  ") + 2:] 
             # Warning: Potential bug if number of recent files >= 10
             # (i.e. LIST_CAPACITY >= 10)
@@ -2037,8 +2145,11 @@ class fileSlotsMixin: #bruce 050907 moved these methods out of class MWsemantics
 ## Test code -- By cleaning the recent files list of QSettings
 if __name__ == '__main__':
     prefs = QSettings()
+    from utilities.constants import RECENTFILES_QSETTINGS_KEY
     emptyList = QStringList()
-    prefs.writeEntry("/Nanorex/NE1/recentFiles", emptyList)
+    prefs.writeEntry(RECENTFILES_QSETTINGS_KEY, emptyList)
+        # todo: make a user-accessible way to erase the recent files list.
+        # [bruce 080727 suggestion]
     
     del prefs
 

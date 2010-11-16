@@ -1,11 +1,10 @@
-# Copyright 2007 Nanorex, Inc.  See LICENSE file for details.
-
+# Copyright 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 Zoom to Area functionality.
 
 @author:    Mark Sims
-@version:   $Id: ZoomToAreaMode.py 12879 2008-05-21 16:22:55Z russfish $
-@copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
+@version:   $Id: ZoomToAreaMode.py 14377 2008-09-30 16:37:50Z ninadsathaye $
+@copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 @license:   GPL
 
 History:
@@ -30,8 +29,6 @@ from OpenGL.GLU import gluUnProject
 from geometry.VQT import V, A
 from graphics.drawing.drawers import drawrectangle
 from utilities.constants import GL_FAR_Z
-
-
 from temporary_commands.TemporaryCommand import TemporaryCommand_Overdrawing
 
 
@@ -116,8 +113,9 @@ class ZoomToAreaMode_GM( TemporaryCommand_Overdrawing.GraphicsMode_class ):
         # like a double click, a single line rubber band, skip zoom
         DELTA = 1.0E-5
         if self.pWxy[0] == cWxy[0] or self.pWxy[1] == cWxy[1] \
-                or zoomFactor < DELTA: 
-            self.command.Done()
+                or zoomFactor < DELTA:
+            
+            self.command.command_Done()
             return
         
         # Erase the last rubber-band window
@@ -154,11 +152,11 @@ class ZoomToAreaMode_GM( TemporaryCommand_Overdrawing.GraphicsMode_class ):
         #  near or back clipping planes, and the rubber band can be 
         # always shown. The disadvantage: when the view field is too 
         # small, a selection window may be actually act as a single pick.
-        # rubber ban window will not look as rectanglular any more.
-        #zf = self.glpane.getZoomFactor()
+        # rubber band window will not look as rectangular any more.
+        #zf = self.glpane.getZoomFactor() # [note: method does not exist]
         #zoomFactor = pow(zoomFactor, 0.25)
         #zoomFactor *= zf
-        #self.glpane.setZoomFactor(zoomFactor)
+        #self.glpane.setZoomFactor(zoomFactor) # [note: method does not exist]
         
         # Change viewing distance to do zoom. This works better with
         # mouse wheel, since both are changing viewing distance, and
@@ -166,7 +164,7 @@ class ZoomToAreaMode_GM( TemporaryCommand_Overdrawing.GraphicsMode_class ):
         # plane change as scale too.
         self.glpane.scale *= zoomFactor
        
-        self.command.Done(exit_using_done_or_cancel_button = False)
+        self.command.command_Done()
         return
         
     def update_cursor_for_no_MB(self): # Fixes bug 1638. Mark 3/12/2006.
@@ -175,14 +173,22 @@ class ZoomToAreaMode_GM( TemporaryCommand_Overdrawing.GraphicsMode_class ):
         """
         self.glpane.setCursor(self.win.ZoomCursor)
 
-    def restore_patches_by_GraphicsMode(self):
+    def _restore_patches_by_GraphicsMode(self):
         """
         This is run when we exit this command for any reason.
         """
+        # Note: this is no longer part of the GraphicsMode API 
+        # but we retain it as an essentially private method and call it from
+        # self.command.command_will_exit in that case. [bruce 080829 comment]
+        #(comment slightly updated on 2008-09-26 : removed reference to 
+        #the 'new command api' because it is now the default API we use 
+        # -- Ninad)
+        # [bruce 080929 made this private]
+        
         # If OpenGL states changed during this mode, we need to restore
         # them before exit. Currently, only leftDown() will change that.
         # [bruce 071011/071012 change: do this in
-        #  restore_patches_by_GraphicsMode, not in Done]
+        #  _restore_patches_by_GraphicsMode, not in Done]
         if self.command.glStatesChanged:
             self.glpane.redrawGL = True
             glDisable(GL_COLOR_LOGIC_OP)
@@ -198,17 +204,20 @@ class ZoomToAreaMode(TemporaryCommand_Overdrawing):
     """
     Encapsulates the Zoom Tool functionality.
     """
+    
     # TODO: rename to ZoomTool or ZoomCommand or TemporaryCommand_Zoom or ...
     
     # class constants
     commandName = 'ZOOMTOAREA'
-    default_mode_status_text = "Tool: Zoom to Area"
     featurename = "Zoom to Area Tool"
+    from utilities.constants import CL_VIEW_CHANGE
+    command_level = CL_VIEW_CHANGE
 
     GraphicsMode_class = ZoomToAreaMode_GM
-    
-    def Enter(self):
-        super(ZoomToAreaMode, self).Enter()
+        
+
+    def command_entered(self):
+        super(ZoomToAreaMode, self).command_entered()
         bg = self.glpane.backgroundColor
         
         # rubber window shows as white color normally, but when the
@@ -218,18 +227,28 @@ class ZoomToAreaMode(TemporaryCommand_Overdrawing):
             self.rbwcolor = bg
                 # note: accessed as self.command.rbwcolor in our GraphicsMode part
         else:
+            # REVIEW: should the following color be converted to tuple(),
+            # in case it's black and the Numeric.array version
+            # would fool some code due to being boolean false?
+            # [bruce 080829 question]
             self.rbwcolor = A((1.0, 1.0, 1.0)) - A(bg)
         
         self.glStatesChanged = False
             # note: accessed as self.command.glStatesChanged in our GraphicsMode part
         return
-    
-    def init_gui(self):
+
+
+    def command_enter_misc_actions(self):
+        super(ZoomToAreaMode, self).command_enter_misc_actions()
+        
         self.win.zoomToAreaAction.setChecked(1) # toggle on the Zoom Tool icon
 
-    def restore_gui(self):
+    def command_exit_misc_actions(self):       
         self.win.zoomToAreaAction.setChecked(0) # toggle off the Zoom Tool icon
+        super(ZoomToAreaMode, self).command_exit_misc_actions()
 
-    pass
-
-# end
+    def command_will_exit(self):        
+        self.graphicsMode._restore_patches_by_GraphicsMode()
+        super(ZoomToAreaMode, self).command_will_exit()
+        return
+    

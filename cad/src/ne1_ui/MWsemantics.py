@@ -2,7 +2,7 @@
 """
 MWsemantics.py provides the main window class, MWsemantics.
 
-@version: $Id: MWsemantics.py 13515 2008-07-17 18:45:15Z urmim $
+@version: $Id: MWsemantics.py 14453 2008-11-14 02:48:15Z  $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History: too much to mention, except for breakups of the file.
@@ -14,7 +14,7 @@ mark 060120 split out viewSlotsMixin
 mark 2008-02-02 split out displaySlotsMixin
 
 [Much more splitup of this file is needed. Ideally we would
-split up the class MWsemantics (as for cookieMode), not just the file.]
+split up the class MWsemantics (as for BuildCrystal_Command), not just the file.]
 
 [some of that splitup has been done, now, by Ninad in the Qt4 branch]
 """
@@ -26,7 +26,6 @@ from PyQt4 import QtGui, QtCore
 from PyQt4.Qt import Qt
 from PyQt4.Qt import QFont
 from PyQt4.Qt import QMenu
-from PyQt4.Qt import QIcon
 from PyQt4.Qt import QSettings
 from PyQt4.Qt import QVariant
 
@@ -50,23 +49,27 @@ from platform_dependent.PlatformDependent import find_or_make_Nanorex_subdir
 from ne1_ui.ViewOrientationWindow import ViewOrientationWindow # Ninad 061121
 
 from utilities.debug import print_compact_traceback
-from utilities.debug_prefs import debug_pref, Choice_boolean_False, Choice_boolean_True
+from utilities.debug_prefs import debug_pref, Choice_boolean_False
+from utilities.constants import str_or_unicode
+from utilities.constants import RECENTFILES_QSETTINGS_KEY
 
 from ne1_ui.Ui_MainWindow import Ui_MainWindow
 from ne1_ui.Ui_PartWindow import Ui_PartWindow
 
 from utilities.Log import greenmsg, redmsg, orangemsg
 
-
 from operations.ops_files import fileSlotsMixin
 from operations.ops_view import viewSlotsMixin
 from operations.ops_display import displaySlotsMixin
 from operations.ops_modify import modifySlotsMixin
+from operations.ops_select import renameableLeafNode
 
 from foundation.changes import register_postinit_object
 import foundation.preferences as preferences
 import foundation.env as env
 import foundation.undo_internals as undo_internals
+
+from commandSequencer.CommandSequencer import CommandSequencer
 
 from operations.ops_select import objectSelected
 from operations.ops_select import ATOMS
@@ -105,7 +108,6 @@ for i, elno in zip(range(len(eCCBtab1)), eCCBtab1):
 # Debugging for "Open Recent Files" menu. Mark 2007-12-28
 debug_recent_files = False  # Do not commit with True
 recentfiles_use_QSettings = True # bruce 050919 debug flag
-_RECENTFILES_KEY = '/Nanorex/NE1/recentFiles' # key for QSettings
 
 if debug_recent_files:
     def debug_fileList(fileList):
@@ -156,23 +158,11 @@ class MWsemantics(QMainWindow,
         self.orientationWindow = None
 
 
-        self.sequenceEditor = None  #see self.createSequenceEditrIfNeeded
+        self._dnaSequenceEditor = None  #see self.createSequenceEditrIfNeeded
                                     #for details
-
-        # Initialize all Property Manager attrs.
-        self.rotaryMotorPropMgr = None
-        self.linearMotorPropMgr = None
-        self.planePropMgr = None
-        self.dnaDuplexPropMgr = None
-        self.dnaSegmentPropMgr = None
-        self.multipleDnaSegmentPropMgr = None
-        self.makeCrossoversPropMgr = None
-        self.dnaStrandPropMgr = None
-        self.buildDnaPropMgr = None
-        self.buildCntPropMgr = None
-        self.cntSegmentPropMgr = None
-        self.buildProteinPropMgr = None
-
+                                    
+        self._proteinSequenceEditor = None
+       
         # These boolean flags, if True, stop the execution of slot
         # methods that are called because the state of 'self.viewFullScreenAction
         # or self.viewSemiFullScreenAction is changed. Maybe there is a way to
@@ -207,9 +197,7 @@ class MWsemantics(QMainWindow,
         # (it might need to be moved into main.py at some point)
         self.tmpFilePath = find_or_make_Nanorex_directory()
 
-        # Load additional icons to QAction iconsets.
-        # self.load_icons_to_iconsets() # Uncomment this line to test if Redo button has custom icon when disabled. mark 060427
-
+        
         # Load all NE1 custom cursors.
         from ne1_ui.cursors import loadCursors
         loadCursors(self)
@@ -220,22 +208,18 @@ class MWsemantics(QMainWindow,
         env.setMainWindow(self)
 
         # Start NE1 with an empty document called "Untitled".
-        # See also __clear method in ops_files, which creates and inits an assy
-        # using similar code.
+        # See also the _make_and_init_assy method in our mixin class in
+        # ops_files.py, which creates and inits an assy using the same method.
         #
         # Note: It is very desirable to change this startup behavior so that
         # the user must select "File > New" to open an empty document after
         # NE1 starts. Mark 2007-12-30.
-        self.assy = Assembly(self, "Untitled",
-                             own_window_UI = True,
-                             run_updaters = True
-                             )
-            #bruce 060127 added own_window_UI flag to help fix bug 1403;
-            # it's required for this assy to support Undo
+        self.assy = self._make_a_main_assy()
+        
         #bruce 050429: as part of fixing bug 413, it's now required to call
         # self.assy.reset_changed() sometime in this method; it's called below.
 
-        pw = Ui_PartWindow(self.assy, self)
+        pw = Ui_PartWindow(self.assy, self) # note: calls glpane.setAssy inside GLPane.__init__; that calls _reinit_modes
         self.assy.set_glpane(pw.glpane) # sets assy.o and assy.glpane
         self.assy.set_modelTree(pw.modelTree) # sets assy.mt
         self._activepw = pw
@@ -292,20 +276,33 @@ class MWsemantics(QMainWindow,
             # [I guess that comment is by Will... for now, this code doesn't do those things
             #  more than once, it appears. [bruce 070503 comment]]
             MWsemantics._init_part_two(self)
-
-        ## pw.glpane.start_using_mode('$STARTUP_MODE')
-            ### TODO: this should be the commandSequencer --
-            # decide whether to just get it from win (self) here
-            # (e.g. if we abandon separate Ui_PartWindow class)
-            # or make pw.commandSequencer work.
-            # For now just get it from self. [bruce 071012]
-        self.commandSequencer.start_using_mode('$STARTUP_MODE')
+        
+        self.commandSequencer.start_using_initial_mode('$STARTUP_MODE')
 
         env.register_post_event_ui_updater( self.post_event_ui_updater) #bruce 070925
         #Urmi 20080716: initiliaze the Rosetta simulation parameters
         self.rosettaArgs = []
         return
 
+    def _make_a_main_assy(self): #bruce 080813 split this out, revised
+        """
+        [private]
+        
+        Make a new main assy, meant for caller to store as self.assy.
+        
+        Called during __init__, and by _make_and_init_assy (in a mixin class)
+        for fileClose and fileOpen.
+        """
+        res = Assembly(self,
+                       "Untitled",
+                       own_window_UI = True,
+                       run_updaters = True,
+                       commandSequencerClass = CommandSequencer
+                      )
+            #bruce 060127 added own_window_UI flag to help fix bug 1403;
+            # it's required for this assy to support Undo.
+        return res
+        
     def _init_part_two(self):
         """
         #@ NEED DOCSTRING
@@ -338,39 +335,7 @@ class MWsemantics(QMainWindow,
         from ne1_ui.help.help import Ne1HelpDialog
         self.help = Ne1HelpDialog()
 
-        from commands.InsertGraphene.GrapheneGenerator import GrapheneGenerator
-        self.graphenecntl = GrapheneGenerator(self)
-
-        #  New Nanotube Builder or old Nanotube Generator?
-        if debug_pref("Use new 'Build > Nanotube' builder? (next session)",
-                      Choice_boolean_True,
-                      prefs_key = "A10 devel/Old Nanotube Generator"):
-            # New "Build > CNT", experimental. --Mark 2008-03-10
-            from cnt.commands.InsertNanotube.InsertNanotube_EditCommand import InsertNanotube_EditCommand
-            self.InsertNanotubeEditCommand = InsertNanotube_EditCommand(self.glpane)
-            self.nanotubecntl = self.InsertNanotubeEditCommand
-                # Needed for sponsoredList
-
-        else:
-            from commands.InsertNanotube.NanotubeGenerator import NanotubeGenerator
-            self.nanotubecntl = NanotubeGenerator(self)
-
-        # Use old DNA generator or new DNA Duplex generator?
-        if debug_pref("Use old 'Build > DNA' generator? (next session)",
-                      Choice_boolean_False,
-                      non_debug = True,
-                      prefs_key = "A9 devel/DNA Duplex"):
-
-            print "Using original DNA generator (supports PAM5)."
-            from dna.commands.BuildDuplex_old.DnaGenerator import DnaGenerator
-            self.dnacntl = DnaGenerator(self)
-        else:
-            # This might soon become the usual case, with the debug_pref
-            # removed. - Mark
-            from dna.commands.BuildDuplex.DnaDuplex_EditCommand import DnaDuplex_EditCommand
-            self.dnaEditCommand = DnaDuplex_EditCommand(self.glpane)
-            self.dnacntl = self.dnaEditCommand
-
+        
         from commands.PovraySceneProperties.PovraySceneProp import PovraySceneProp
         self.povrayscenecntl = PovraySceneProp(self)
 
@@ -385,14 +350,6 @@ class MWsemantics(QMainWindow,
         from commands.BuildAtom.AtomGenerator import AtomGenerator
         self.atomcntl = AtomGenerator(self)
 
-        # Peptide Generator. piotr 080304
-        from commands.InsertPeptide.PeptideGenerator import PeptideGenerator
-        self.peptidecntl = PeptideGenerator(self)
-
-        # QuteMolX Property Manager. Mark 2007-12-02.
-        from commands.QuteMol.QuteMolPropertyManager import QuteMolPropertyManager
-        self.qutemolPM = QuteMolPropertyManager(self)
-
         # We must enable keyboard focus for a widget if it processes
         # keyboard events. [Note added by bruce 041223: I don't know if this is
         # needed for this window; it's needed for some subwidgets, incl. glpane,
@@ -400,9 +357,8 @@ class MWsemantics(QMainWindow,
         # the glpane. This doesn't prevent other subwidgets from having focus.]
         self.setFocusPolicy(QtCore.Qt.StrongFocus)
 
-        # 'depositState' is used by depositMode and MMKit to synchonize the
-        # depositMode dashboard (Deposit and Paste toggle buttons) and the MMKit pages (tabs).
-        # It is also used to determine what type of object (atom, clipboard chunk or library part)
+        # 'depositState' is used by BuildAtoms_Command 
+        #to determine what type of object (atom, clipboard chunk or library part)
         # to deposit when pressing the left mouse button in Build mode.
         #
         # depositState can be either:
@@ -486,11 +442,10 @@ class MWsemantics(QMainWindow,
         self.mouseWheelZoomInPoint  = env.prefs[zoomInAboutScreenCenter_prefs_key]
         self.mouseWheelZoomOutPoint = env.prefs[zoomOutAboutScreenCenter_prefs_key]
 
-    def _get_commandSequencer(self):
-        # WARNING: if this causes infinite recursion, we just get an AttributeError
-        # from the inner call (saying self has no attr 'commandSequencer')
-        # rather than an understandable exception.
-        return self.glpane #bruce 071008; will revise when we have a separate one
+    def _get_commandSequencer(self): #bruce 080813 revised
+        res = self.assy.commandSequencer
+        assert res
+        return res
 
     commandSequencer = property(_get_commandSequencer)
 
@@ -500,7 +455,7 @@ class MWsemantics(QMainWindow,
     currentCommand = property(_get_currentCommand)
 
     def post_event_ui_updater(self): #bruce 070925
-        self.currentCommand.state_may_have_changed()
+        self.currentCommand.command_post_event_ui_updater()
         return
 
     def createPopupMenu(self): # Ninad 070328
@@ -536,6 +491,7 @@ class MWsemantics(QMainWindow,
             menu.addAction(toolbar.toggleViewAction())
 
         return menu
+
 
     def showFullScreen(self):
         """
@@ -578,7 +534,7 @@ class MWsemantics(QMainWindow,
 
         self.commandToolbar.hide()
 
-    def _showFullScreenCommonCode(self):
+    def _showFullScreenCommonCode(self, hideLeftArea = True):
         """
         The common code for making the Mainwindow full screen (maximimzing the
         3D workspace area) This is used by both, View > Full Screen and
@@ -595,7 +551,7 @@ class MWsemantics(QMainWindow,
                     widget.hide()
                     self._widgetToHideDuringFullScreenMode.append(widget)
 
-        self.activePartWindow().collapseLeftArea()
+        self.activePartWindow().collapseLeftArea(hideLeftArea)
         self.reportsDockWidget.hide()
 
     def showSemiFullScreen(self):
@@ -603,9 +559,8 @@ class MWsemantics(QMainWindow,
         Semi-Full Screen mode. (maximize the glpane real estate by hiding/ collapsing
         other widgets. This is different than the 'Full Screen mode' as it hides
         or collapses only the following widgets --
-         - MainWindow Title bar
-         - ModelTree/PM area,
-         - History Widget,
+         - MainWindow Title bar and border
+         - Report Widget
          - Statusbar
 
         @param val: The state of the QAction (checked or uncheced) If True, it
@@ -627,7 +582,7 @@ class MWsemantics(QMainWindow,
             self.viewFullScreenAction.setChecked(False)
             self._block_viewFullScreenAction_event = False
 
-        self._showFullScreenCommonCode()
+        self._showFullScreenCommonCode(hideLeftArea = False)
 
     def showNormal(self):
         QMainWindow.showNormal(self)
@@ -666,9 +621,7 @@ class MWsemantics(QMainWindow,
         fileSlotsMixin.closeEvent(self, ce)
 
     def sponsoredList(self):
-        return (self.graphenecntl,
-                self.nanotubecntl,
-                self.dnacntl,
+        return (               
                 self.povrayscenecntl,
                 self.minimize_energy)
 
@@ -692,9 +645,11 @@ class MWsemantics(QMainWindow,
         """
         NE1 is going to exit. (The user has already been given the chance to save current files
         if they are modified, and (whether or not they were saved) has approved the exit.)
-           Perform whatever internal side effects are desirable to make the exit safe and efficient,
+
+        Perform whatever internal side effects are desirable to make the exit safe and efficient,
         and/or to implement features which save other info (e.g. preferences) upon exiting.
-           This should be safe to call more than once, even though doing so is a bug.
+
+        This should be safe to call more than once, even though doing so is a bug.
         """
 
         # We do most things in their own try/except clauses, so if they fail,
@@ -731,7 +686,7 @@ class MWsemantics(QMainWindow,
         except:
             print_compact_traceback( msg )
 
-        ## self.__clear() # (this seems to take too long, and is probably not needed)
+        ## self._make_and_init_assy() # (this seems to take too long, and is probably not needed)
 
         try:
             self.deleteOrientationWindow() # ninad 061121- perhaps it's unnecessary
@@ -741,9 +696,23 @@ class MWsemantics(QMainWindow,
         try:
             if self.assy:
                 self.assy.close_assy()
+                    # note: we won't also call
+                    # self.assy.commandSequencer.exit_all_commands
+                    # (with or without warn_about_abandoned_changes = False).
+                    # Ideally we might sometimes like that warning here,
+                    # but it's better to never have it than to risk exit bugs
+                    # (in case it's too late to give it),
+                    # or to bother users with duplicate warnings (if they
+                    # already said to discard ordinary unsaved changes,
+                    # different than the ones that warns about) which we
+                    # don't presently have enough info to avoid giving.
+                    # As for the exits themselves, they are not needed,
+                    # and might be too slow and/or risk exit bugs.
+                    # [bruce 080909 comment]
                 self.assy.deinit()
-                # in particular, stop trying to update Undo/Redo actions all the time
-                # (which might cause crashes once their associated widgets are deallocated)
+                    # in particular, stop trying to update Undo/Redo actions
+                    # all the time (which might cause crashes once their
+                    # associated widgets are deallocated)
         except:
             print_compact_traceback( msg )
 
@@ -756,76 +725,8 @@ class MWsemantics(QMainWindow,
             # blame item
             print_compact_traceback( "exception (ignored) in postinit_item(%r): " % item )
         return
-
-    def update_mode_status(self, mode_obj = None):
-        """
-        [by bruce 040927]
-
-        Update the text shown in self.modebarLabel (if that widget
-        exists yet).  Get the text to use from mode_obj if supplied,
-        otherwise from the current mode object
-        (self.currentCommand). (The mode object has to be supplied when
-        the currently stored one is incorrect, during a mode
-        transition.)
-
-        This method needs to be called whenever the mode status text
-        might need to change.  See a comment in the method to find out
-        what code should call it.
-
-        """
-        # There are at least 3 general ways we could be sure to call
-        # this method often enough; the initial implementation of
-        # 040927 uses (approximately) way #1:
-        #
-        # (1) Call it after any user-event-handler that might change
-        # what the mode status text should be.  This is reasonable,
-        # but has the danger that we might forget about some kind of
-        # user-event that ought to change it. (As of 040927, we call
-        # this method from this file (after tool button actions
-        # related to selection), and from the mode code (after mode
-        # changes).)
-        #
-        # (2) Call it after any user-event at all (except for
-        # mouse-move or mouse-drag).  This would probably be best (##e
-        # so do it!), since it's simple, won't miss anything, and is
-        # probably efficient enough.  (But if we ever support
-        # text-editing, we might have to exclude keypress/keyrelease
-        # from this, for efficiency.)
-        #
-        # (3) Call it after any internal change which might affect the
-        # mode-status text. This would have to include, at least, any
-        # change to (the id of) self.glpane, self.currentCommand,
-        # self.glpane.assy, or (the value of)
-        # self.glpane.assy.selwhat, regardless of the initial cause of
-        # that change. The problems with this method are: it's
-        # complicated; we might miss a necessary update call; we'd
-        # have to be careful for efficiency to avoid too many calls
-        # after a single user event (e.g. one for which we iterate
-        # over all atoms and "select parts" redundantly for each one);
-        # or we'd have to make many calls permissible, by separating
-        # this method into an "update-needed" notice (just setting a
-        # flag), and a "do-update" function, which does the update
-        # only when the flag is set. But if we did the latter, it
-        # would be simpler and probably faster to just dispense with
-        # the flag and always update, i.e. to use method (2).
-
-        try:
-            widget = self.statusBar().modebarLabel
-        except AttributeError:
-            print "Caught <AttributeError: self.statusBar().modebarLabel>, normal behavior, not a bug"
-            pass # this is normal, before the widget exists
-        else:
-            mode_obj = mode_obj or self.currentCommand
-            text = mode_obj.get_mode_status_text()
-            #widget.setText( text )
-
-
-    ##################################################
-    # The beginnings of an invalidate/update mechanism
-    # at the moment it just does update whether needed or not
-    ##################################################
-
-    def win_update(self): # bruce 050107 renamed this from 'update'
+    
+    def win_update(self):
         """
         Update most state which directly affects the GUI display,
         in some cases repainting it directly.
@@ -834,7 +735,7 @@ class MWsemantics(QMainWindow,
         [no longer named update, since that conflicts with QWidget.update]
         """
         if not self.initialised:
-            return #bruce 041222
+            return
 
         pw = self.activePartWindow()
         pw.glpane.gl_update()
@@ -843,6 +744,7 @@ class MWsemantics(QMainWindow,
             # this is self.reportsDockWidget.history_object, not env.history,
             # since it's really about this window's widget-owner,
             # not about the place to print history messages [bruce 050913]
+        return
 
     ###################################
     # File Toolbar Slots
@@ -852,9 +754,7 @@ class MWsemantics(QMainWindow,
     # Notes:
     #   #e closeEvent method (moved to fileSlotsMixin) should be split in two
     # and the outer part moved back into this file.
-    #   __clear method was moved to fileSlotsMixin (as it should be), even though
-    # its name-mangled name thereby changed, and some comments in other code
-    # still refer to it as MWsemantics.__clear. It should be given an ordinary name.
+    #   _make_and_init_assy method was moved to fileSlotsMixin (as it should be)
 
 
     ###################################
@@ -938,7 +838,7 @@ class MWsemantics(QMainWindow,
 
     def editPasteFromClipboard(self):
         """
-        Invokes the L{PasteMode}, a temporary command to paste items in the
+        Invokes the L{PasteFromClipboard_Command}, a temporary command to paste items in the
         clipboard, into the 3D workspace. It also stores the command NE1 should
         return to after exiting this temporary command.
         """
@@ -948,13 +848,14 @@ class MWsemantics(QMainWindow,
                 msg = orangemsg("Nothing to paste. Paste Command cancelled.")
                 env.history.message(msg)
                 return
-
-            commandSequencer = self.commandSequencer
-            currentCommand = commandSequencer.currentCommand
-
-            if currentCommand.commandName != "PASTE":
-                commandSequencer.userEnterTemporaryCommand('PASTE') #bruce 071011 guess ### REVIEW
-                return
+            
+            #pre-commandstack refactoring/cleanup comment: 
+            #Make 'paste' as a general command to fix this bug: Enter Dna command
+            #, invoke paste command, exit paste, enter Dna again -- the flyout
+            #toolbar for dna is not visible . This whole thing will get revised 
+            #after the command stack cleanup (to be coded soon)
+            # -- Ninad 2008-07-29
+            self.commandSequencer.userEnterCommand('PASTE')
         else:
             msg = orangemsg("Clipboard is empty. Paste Command cancelled.")
             env.history.message(msg)
@@ -962,14 +863,11 @@ class MWsemantics(QMainWindow,
 
     def insertPartFromPartLib(self):
         """
-        Sets the current command to L{PartLibraryMode}, for inserting (pasting)
+        Sets the current command to L{PartLibrary_Command}, for inserting (pasting)
         a part from the partlib into the 3D workspace. It also stores the command
         NE1 should return to after exiting this temporary command.
         """
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "PARTLIB":
-            commandSequencer.userEnterTemporaryCommand('PARTLIB') #bruce 071011 guess ### REVIEW
+        self.commandSequencer.userEnterCommand('PARTLIB') #bruce 071011 guess ### REVIEW
         return
 
     # TODO: rename killDo to editDelete
@@ -992,13 +890,10 @@ class MWsemantics(QMainWindow,
         selectedSegments = self.assy.getSelectedDnaSegments()
         if len(selectedSegments) > 0:
             commandSequencer = self.commandSequencer
-
-            if commandSequencer.currentCommand.commandName != "MULTIPLE_DNA_SEGMENT_RESIZE":
-                commandSequencer.userEnterTemporaryCommand('MULTIPLE_DNA_SEGMENT_RESIZE')
-
+            commandSequencer.userEnterCommand('MULTIPLE_DNA_SEGMENT_RESIZE')
             assert commandSequencer.currentCommand.commandName == 'MULTIPLE_DNA_SEGMENT_RESIZE'
             commandSequencer.currentCommand.editStructure(list(selectedSegments))
-
+        return
 
     def editAddSuffix(self):
         """
@@ -1041,7 +936,7 @@ class MWsemantics(QMainWindow,
              % (_number_renamed, len(_renameList))
         env.history.message(_cmd + _msg)
 
-    def editRenameSelectedObjects(self):
+    def editRenameSelection(self):
         """
         Renames multiple selected objects (chunks or jigs).
         """
@@ -1049,7 +944,7 @@ class MWsemantics(QMainWindow,
         if self.glpane.is_animating:
             return
 
-        _cmd = greenmsg("Rename selected objects: ")
+        _cmd = greenmsg("Rename: ")
 
         if not objectSelected(self.assy):
             if objectSelected(self.assy, objectFlags = ATOMS):
@@ -1062,24 +957,40 @@ class MWsemantics(QMainWindow,
         _renameList = self.assy.getSelectedRenameables()
 
         ok, new_name = grab_text_line_using_dialog(
-            title = "Rename Nodes",
-            label = "New name of selected nodes:",
-            iconPath = "ui/actions/Edit/Rename_Objects.png")
+            title = "Rename",
+            label = "New name:",
+            iconPath = "ui/actions/Edit/Rename.png")
 
         if not ok:
+            # No msg. Ok for now. --Mark
             return
+        
+        # Renumber the selected objects if the last character is "#"
+        # i.e. the # character will be replaced by a number, resulting in 
+        # uniquely named (numbered) nodes in the model tree. 
+        # IIRC, the numbering is not guaranteed to be in any specific order,
+        # but testing has shown that leaf nodes are numbered in the order
+        # they appear in the model tree. --Mark 2008-11-12
+        if new_name[-1] == "#":
+            _renumber = True
+            new_name = new_name[:-1]
+        else:
+            _renumber = False
 
         _number_renamed = 0
         for _object in _renameList:
-            if _object.rename_enabled():
-                ok, info = _object.try_rename(new_name)
+            if renameableLeafNode(_object):
+                if _renumber:
+                    ok, info = _object.try_rename(new_name + str(_number_renamed + 1))
+                else:
+                    ok, info = _object.try_rename(new_name)
                 if ok:
                     _number_renamed += 1
 
         _msg = "%d of %d selected objects renamed." \
              % (_number_renamed, len(_renameList))
         env.history.message(_cmd + _msg)
-
+        return
 
     def renameObject(self, object):
         """
@@ -1125,6 +1036,7 @@ class MWsemantics(QMainWindow,
         Renames the selected node/object.
 
         @note: Does not work for DnaStrands or DnaSegments.
+        @deprecated: Use editRenameSelection instead.
         """
         _cmd = greenmsg("Rename: ")
 
@@ -1183,12 +1095,10 @@ class MWsemantics(QMainWindow,
         """
         env.history.message(greenmsg("Select All:"))
         self.assy.selectAll()
-        self.update_mode_status() # bruce 040927... not sure if this is ever needed
 
     def selectNone(self):
         env.history.message(greenmsg("Select None:"))
         self.assy.selectNone()
-        self.update_mode_status() # bruce 040927... not sure if this is ever needed
 
     def selectInvert(self):
         """
@@ -1201,7 +1111,6 @@ class MWsemantics(QMainWindow,
         #env.history.message(greenmsg("Invert Selection:"))
         # assy method revised by bruce 041217 after discussion with Josh
         self.assy.selectInvert()
-        self.update_mode_status() # bruce 040927... not sure if this is ever needed
 
     def selectConnected(self):
         """
@@ -1268,12 +1177,8 @@ class MWsemantics(QMainWindow,
 
     def createPlane(self):
         commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "REFERENCE_PLANE":
-            commandSequencer.userEnterTemporaryCommand(
-                'REFERENCE_PLANE')
-
-        self.commandSequencer.currentCommand.runCommand()
+        commandSequencer.userEnterCommand('REFERENCE_PLANE')
+        commandSequencer.currentCommand.runCommand()
 
     def makeGridPlane(self):
         self.assy.makeGridPlane()
@@ -1407,11 +1312,11 @@ class MWsemantics(QMainWindow,
 
     # get into Select Atoms mode
     def toolsSelectAtoms(self): # note: this can NO LONGER be called from update_select_mode [as of bruce 060403]
-        self.commandSequencer.userEnterCommand('SELECTATOMS')
+        self.commandSequencer.userEnterCommand('SELECTATOMS', always_update = True)
 
     # get into Select Chunks mode
     def toolsSelectMolecules(self):# note: this can also be called from update_select_mode [bruce 060403 comment]
-        self.commandSequencer.userEnterCommand('SELECTMOLS')
+        self.commandSequencer.userEnterCommand('SELECTMOLS', always_update = True)
 
     # get into Move Chunks (or Translate Components) command
     def toolsMoveMolecule(self):
@@ -1428,19 +1333,19 @@ class MWsemantics(QMainWindow,
     # get into Build mode
     def toolsBuildAtoms(self): # note: this can now be called from update_select_mode [as of bruce 060403]
         self.depositState = 'Atoms'
-        self.commandSequencer.userEnterCommand('DEPOSIT')
+        self.commandSequencer.userEnterCommand('DEPOSIT', always_update = True)
 
     # get into cookiecutter mode
-    def toolsCookieCut(self):
-        self.commandSequencer.userEnterCommand('COOKIE')
+    def enterBuildCrystalCommand(self):
+        self.commandSequencer.userEnterCommand('CRYSTAL', always_update = True)
 
     # get into Extrude mode
     def toolsExtrude(self):
-        self.commandSequencer.userEnterCommand('EXTRUDE')
+        self.commandSequencer.userEnterCommand('EXTRUDE', always_update = True)
 
     # get into Fuse Chunks mode
     def toolsFuseChunks(self):
-        self.commandSequencer.userEnterCommand('FUSECHUNKS')
+        self.commandSequencer.userEnterCommand('FUSECHUNKS', always_update = True)
 
     ###################################
     # Simulator Toolbar Slots
@@ -1464,8 +1369,12 @@ class MWsemantics(QMainWindow,
         cmdrun = simSetup_CommandRun( self)
         cmdrun.run()
         return
-
+    
+    #Urmi 20080725: Methods for running Rosetta Simulation
     def rosettaSetup(self):
+        """
+        Setup rosetta simulation.
+        """
         from simulation.ROSETTA.RosettaSimulationPopUpDialog import RosettaSimulationPopUpDialog
         form = RosettaSimulationPopUpDialog(self)
         self.connect(form, SIGNAL('editingFinished()'), self.runRosetta)
@@ -1473,36 +1382,42 @@ class MWsemantics(QMainWindow,
         return
     
     def runRosetta(self):
-        
+        """
+        Run a Rosetta simulation.
+        """
         from simulation.ROSETTA.rosetta_commandruns import rosettaSetup_CommandRun
         if self.rosettaArgs[0] > 0:
-            cmdrun = rosettaSetup_CommandRun(self, self.rosettaArgs)
+            cmdrun = rosettaSetup_CommandRun(self, self.rosettaArgs, "ROSETTA_FIXED_BACKBONE_SEQUENCE_DESIGN")
             cmdrun.run() 
         
         return
     
-    def setRosettaParameters(self, numRuns, ex1, ex1aro,ex2, ex2aro_only, ex3, ex4, rot_opt,
-                            try_both_his_tautomers, soft_rep_design, use_electrostatic_repulsion, 
-                            norepack_disulf, otherOptionsText):
-        try:
-            s = int(str(numRuns))
-        except ValueError:
-            numRuns = 0
-            env.history.message(redmsg("Requested number of simulations is not an integer. Rosetta simulation cannot run."))
-            return 
-        if len(str(numRuns)) > 4:
-            numRuns = 0
-            env.history.message(redmsg("Requested number of simulations is beyond the capability of the program"))
-            return 
-        if int(numRuns) <= 0: 
-            numRuns = 0
-            env.history.message(redmsg("Not a valid number of simulations requested. Rosetta simulation cannot run."))
-            return
-        argList = [int(numRuns), ex1, ex1aro,ex2, ex2aro_only, ex3, ex4, rot_opt,
-                   try_both_his_tautomers, soft_rep_design, use_electrostatic_repulsion, 
-                   norepack_disulf, otherOptionsText]
+    def setRosettaParameters(self, numRuns, otherOptionsText):
+        """
+        Set parameters for a Rosetta .
+        @param numRuns: number of Rosetta simulations.
+        @type numRuns: int
+        @param otherOptionsText: string of all the other options, including the 
+                                ones in Rosett pop up dialog.
+        @type otherOptionsText: str
+        """
+        protein = ""
+        if self.commandSequencer.currentCommand.commandName == 'BUILD_PROTEIN' or self.commandSequencer.currentCommand.commandName == 'EDIT_ROTAMERS' or self.commandSequencer.currentCommand.commandName == 'EDIT_RESIDUES':
+            protein = self.commandSequencer.currentCommand.propMgr.current_protein
+        
+        #run Rosetta for the first selected protein
+        if protein == "" and len(self.assy.selmols) >=1:
+            for chunk in self.assy.selmols:
+                if chunk.isProteinChunk():
+                    protein = chunk.name
+                    break
+                
+        argList = [numRuns, otherOptionsText, protein]
+        self.rosettaArgs = []
         self.rosettaArgs.extend(argList)
         return
+    
+    #end of Rosetta simulation methods
     
     def simNanoHive(self):
         """
@@ -1568,11 +1483,10 @@ class MWsemantics(QMainWindow,
         If the current command's .commandName differs from the one given, change
         to that command.
 
-        @note: it's likely that this method is not needed since
-        userEnterCommand has the same special case of doing nothing
-        if we're already in the named command. If so, the special case
-        could be removed with no effect, and this method could be
-        inlined to just userEnterCommand.
+        @note: As of 080730, userEnterCommand has the same special case
+               of doing nothing if we're already in the named command.
+               So we just call it. (Even before, it had almost that
+               special case; see its docstring for details.)
 
         @note: all uses of this method are causes for suspicion, about
         whether some sort of refactoring or generalization is called for,
@@ -1582,9 +1496,7 @@ class MWsemantics(QMainWindow,
         (That happens in current code [071011], and ought to be cleared up somehow,
          but maybe not using this method in particular.)
         """
-        commandSequencer = self.commandSequencer
-        if commandSequencer.currentCommand.commandName != commandName:
-            commandSequencer.userEnterCommand(commandName)
+        self.commandSequencer.userEnterCommand(commandName)
             # note: this changes the value of .currentCommand
         return
 
@@ -1592,17 +1504,12 @@ class MWsemantics(QMainWindow,
         self.ensureInCommand('SELECTMOLS')
         self.atomcntl.show()
 
-    #def insertPeptide(self): # piotr 080304
-    #    self.ensureInCommand('SELECTMOLS')
-    #    self.peptidecntl.show()
-
-    def insertGraphene(self):
-        self.ensureInCommand('SELECTMOLS')
-        self.graphenecntl.show()
-
-    def generateNanotube(self):
-        self.ensureInCommand('SELECTMOLS')
-        self.nanotubecntl.show()
+    def insertGraphene(self):   
+        """
+        Invokes the graphene command ('BUILD_GRAPHENE')
+        """
+        self.commandSequencer.userEnterCommand('BUILD_GRAPHENE')
+        self.commandSequencer.currentCommand.runCommand()
 
     # Build > CNT related slots and methods. ######################
 
@@ -1623,8 +1530,7 @@ class MWsemantics(QMainWindow,
             selNanotubeGroup.edit()
         else:
             commandSequencer = self.commandSequencer
-            if commandSequencer.currentCommand.commandName != 'BUILD_NANOTUBE':
-                commandSequencer.userEnterCommand('BUILD_NANOTUBE')
+            commandSequencer.userEnterCommand('BUILD_NANOTUBE')
 
             assert self.commandSequencer.currentCommand.commandName == 'BUILD_NANOTUBE'
             self.commandSequencer.currentCommand.runCommand()
@@ -1637,79 +1543,15 @@ class MWsemantics(QMainWindow,
         @type  isChecked: boolean
         @see: B{Ui_NanotubeFlyout.activateInsertNanotubeLine_EditCommand}
         """
-        #  New Nanotube Builder or old Nanotube Generator?
-        if debug_pref("Use new 'Build > Nanotube' builder? (next session)",
-                      Choice_boolean_True,
-                      prefs_key = "A10 devel/Old Nanotube Generator"):
+        
+        self.enterOrExitTemporaryCommand('INSERT_NANOTUBE')
+        
+        currentCommand = self.commandSequencer.currentCommand
+        if currentCommand.commandName == "INSERT_NANOTUBE":
+            currentCommand.runCommand()
+            
 
-            commandSequencer = self.commandSequencer
-            currentCommand = commandSequencer.currentCommand
-            if currentCommand.commandName != "INSERT_NANOTUBE":
-                commandSequencer.userEnterTemporaryCommand(
-                    'INSERT_NANOTUBE')
-                assert commandSequencer.currentCommand.commandName == 'INSERT_NANOTUBE'
-                commandSequencer.currentCommand.runCommand()
-            else:
-                currentCommand = self.commandSequencer.currentCommand
-                if currentCommand.commandName == 'INSERT_NANOTUBE':
-                    currentCommand.Done(exit_using_done_or_cancel_button = False)
-        else:
-            if isChecked:
-                self.nanotubecntl.show()
-
-    def createBuildNanotubePropMgr_if_needed(self, editCommand):
-        """
-        Create Build Nanotube PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{BuildNanotube_EditCommand}
-        @see: B{BuildNanotube_EditCommand._createPropMgrObject}
-        """
-        from cnt.commands.BuildNanotube.BuildNanotube_PropertyManager import BuildNanotube_PropertyManager
-        if self.buildCntPropMgr is None:
-            self.buildCntPropMgr = \
-                BuildNanotube_PropertyManager(self, editCommand)
-        else:
-            self.buildCntPropMgr.setEditCommand(editCommand)
-
-        return self.buildCntPropMgr
-
-    def createNanotubeSegmentPropMgr_if_needed(self, editCommand):
-        """
-        Create the NanotubeSegment PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{NanotubeSegment_EditCommand}
-        @see: B{NanotubeSegment_EditCommand._createPropMgrObject}
-        """
-        from cnt.commands.NanotubeSegment.NanotubeSegment_PropertyManager import NanotubeSegment_PropertyManager
-        if self.cntSegmentPropMgr is None:
-            self.cntSegmentPropMgr = \
-                NanotubeSegment_PropertyManager(self, editCommand)
-
-        else:
-            self.cntSegmentPropMgr.setEditCommand(editCommand)
-
-        return self.cntSegmentPropMgr
-
-    def activateDnaTool_OLD_NOT_USED(self):
-        """
-        THIS IS DEPRECATED. THIS METHOD WILL BE REMOVED AFTER SOME
-        MORE TESTING AND WHEN WE FEEL COMFORTABLE ABOUT THE NEW BUILD DNA
-        MODE. -- NINAD - 2008-01-11
-
-        Enter the DnaDuplex_EditCommand command.
-        @see:B{self.insertDna}
-        """
-        commandSequencer = self.commandSequencer
-        if commandSequencer.currentCommand.commandName != 'DNA_DUPLEX':
-            commandSequencer.userEnterCommand('DNA_DUPLEX')
-
-        assert self.commandSequencer.currentCommand.commandName == 'DNA_DUPLEX'
-
-        self.commandSequencer.currentCommand.runCommand()
+        
 
     def activateDnaTool(self):
         """
@@ -1728,207 +1570,144 @@ class MWsemantics(QMainWindow,
             selDnaGroup.edit()
         else:
             commandSequencer = self.commandSequencer
-            if commandSequencer.currentCommand.commandName != 'BUILD_DNA':
-                commandSequencer.userEnterCommand('BUILD_DNA')
+            commandSequencer.userEnterCommand('BUILD_DNA')
 
             assert self.commandSequencer.currentCommand.commandName == 'BUILD_DNA'
             self.commandSequencer.currentCommand.runCommand()
 
+    def enterOrExitTemporaryCommand(self, commandName): #bruce 080730 split this out of several methods
+        commandSequencer = self.commandSequencer
+        currentCommand = commandSequencer.currentCommand
+        if currentCommand.commandName != commandName:
+            # enter command, if not already in it
+            commandSequencer.userEnterCommand( commandName)
+        else:
+            # exit command, if already in it
+            currentCommand.command_Done()
+        return
+        
     def enterBreakStrandCommand(self, isChecked = False):
         """
         """
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "BREAK_STRANDS":
-            commandSequencer.userEnterTemporaryCommand(
-                'BREAK_STRANDS')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'BREAK_STRANDS':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-
+        #REVIEW- arg isChecked is unused. Need to revise this this in several 
+        #methods-- Ninad 2008-07-31
+        self.enterOrExitTemporaryCommand( 'BREAK_STRANDS' )
+    
     def enterJoinStrandsCommand(self, isChecked = False):
         """
         """
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "JOIN_STRANDS":
-            commandSequencer.userEnterTemporaryCommand(
-                'JOIN_STRANDS')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'JOIN_STRANDS':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-
+        self.enterOrExitTemporaryCommand( 'JOIN_STRANDS' )       
 
     def enterMakeCrossoversCommand(self, isChecked = False):
         """
         Enter make crossovers command.
         """
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "MAKE_CROSSOVERS":
-            commandSequencer.userEnterTemporaryCommand(
-                'MAKE_CROSSOVERS')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'MAKE_CROSSOVERS':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-
+        self.enterOrExitTemporaryCommand( 'MAKE_CROSSOVERS' )        
 
     def enterOrderDnaCommand(self, isChecked = False):
         """
         """
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "ORDER_DNA":
-            commandSequencer.userEnterTemporaryCommand(
-                'ORDER_DNA')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'ORDER_DNA':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
+        self.enterOrExitTemporaryCommand('ORDER_DNA')        
 
     def enterDnaDisplayStyleCommand(self, isChecked = False):
         """
         """
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "EDIT_DNA_DISPLAY_STYLE":
-            commandSequencer.userEnterTemporaryCommand(
-                'EDIT_DNA_DISPLAY_STYLE')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'EDIT_DNA_DISPLAY_STYLE':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-
-    #UM 063008: protein flyout toolbar commands
-    
+        self.enterOrExitTemporaryCommand('EDIT_DNA_DISPLAY_STYLE')
+        
+    #UM 063008: protein flyout toolbar commands    
     def activateProteinTool(self):
         """
         Activates the Protein toolbar.
         """
-        
-        # piotr 080710
-        # If "Enable Proteins" is set to False, use old Peptide Generator instead.
-        from protein.model.Protein import enableProteins 
-        
-        if not enableProteins:
-            self.insertPeptide()
-        else:
-            commandSequencer = self.commandSequencer
-            if commandSequencer.currentCommand.commandName != 'BUILD_PROTEIN':
-                commandSequencer.userEnterCommand('BUILD_PROTEIN')
-                
-            assert self.commandSequencer.currentCommand.commandName == 'BUILD_PROTEIN'
-            self.commandSequencer.currentCommand.runCommand()
-            return
-    
-    def createBuildProteinPropMgr_if_needed(self, editCommand):
-        """
-        Create Build Dna PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{BuildDna_EditCommand}
-        @see: B{BuildDna_EditCommand._createPropMgrObject}
-        """
-        from protein.commands.BuildProtein.BuildProtein_PropertyManager import BuildProtein_PropertyManager
-        if self.buildProteinPropMgr is None:
-            self.buildProteinPropMgr = \
-                BuildProtein_PropertyManager(self, editCommand)
-        else:
-            self.buildProteinPropMgr.setEditCommand(editCommand)
-    
-        return self.buildProteinPropMgr
-        
-    
-    def insertPeptide(self, isChecked = False):
-        self.ensureInCommand('SELECTMOLS')
-        self.peptidecntl.show()
-        return 
-      
-    def enterProteinDisplayStyleCommand(self, isChecked = False):
         commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "EDIT_PROTEIN_DISPLAY_STYLE":
-            commandSequencer.userEnterTemporaryCommand(
-                'EDIT_PROTEIN_DISPLAY_STYLE')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'EDIT_PROTEIN_DISPLAY_STYLE':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
+        from utilities.GlobalPreferences import MODEL_AND_SIMULATE_PROTEINS
+        if MODEL_AND_SIMULATE_PROTEINS:
+            commandSequencer.userEnterCommand('MODEL_AND_SIMULATE_PROTEIN')
+            #assert commandSequencer.currentCommand.commandName == 'MODEL_AND_SIMULATE_PROTEIN'
+            #commandSequencer.currentCommand.runCommand()
+        else:    
+            commandSequencer.userEnterCommand('BUILD_PROTEIN')
+            assert commandSequencer.currentCommand.commandName == 'BUILD_PROTEIN'
+            commandSequencer.currentCommand.runCommand()
         return
+    
+        
+    
+    def insertPeptide(self, isChecked = False):  
+        """
+        Invokes the peptide command (BUILD_PEPTIDE)
+        @param isChecked: If insertPeptide button in the 
+                          Protein Flyout toolbar is
+                          checked, enter insertPeptideMode. 
+        @type isChecked: bool
+        """
+        
+        self.enterOrExitTemporaryCommand('BUILD_PEPTIDE')     
+        
+        currentCommand = self.commandSequencer.currentCommand      
+        if currentCommand.commandName == "BUILD_PEPTIDE":
+            currentCommand.runCommand()
+        
+    def enterProteinDisplayStyleCommand(self, isChecked = False):
+        """
+        Enter protein display style command
+        @param isChecked: If enterProteinDisplayStyleCommand button in the 
+                          Protein Flyout toolbar is
+                          checked, enter ProteinDisplayStyleMode. 
+        @type isChecked: bool
+        """
+        self.enterOrExitTemporaryCommand('EDIT_PROTEIN_DISPLAY_STYLE')
+        
     
     def enterEditRotamersCommand(self, isChecked = False):
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "EDIT_ROTAMERS":
-            commandSequencer.userEnterTemporaryCommand(
-                'EDIT_ROTAMERS')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'EDIT_ROTAMERS':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-        return
-    
+        """
+        Enter edit rotamers command
+        @param isChecked: If enterEditRotamersCommand button in the 
+                          Protein Flyout toolbar is
+                          checked, enter enterEditRotamersMode. 
+        @type isChecked: bool
+        """
+        self.enterOrExitTemporaryCommand('EDIT_ROTAMERS')
+            
         
     def enterEditResiduesCommand(self, isChecked = False):
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "EDIT_RESIDUES":
-            commandSequencer.userEnterTemporaryCommand(
-                'EDIT_RESIDUES')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'EDIT_RESIDUES':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-        return
-    
+        """
+        Enter edit residues command
+        @param isChecked: If enterEditResiduesCommand button in the 
+                          Protein Flyout toolbar is
+                          checked, enter enterEditResiduesMode. 
+        @type isChecked: bool
+        """
+        self.enterOrExitTemporaryCommand('EDIT_RESIDUES')
+            
+    def enterCompareProteinsCommand(self, isChecked = False):
+        """
+        Enter compare proteins command
+        @param isChecked: If enterCompareProteinsCommand button in the 
+                          Protein Flyout toolbar is
+                          checked, enter enterCompareProteinsMode. 
+        @type isChecked: bool
+        """
+        self.enterOrExitTemporaryCommand('COMPARE_PROTEINS')
+       
 
     def enterStereoPropertiesCommand(self):
         """
+        Enter Stereo Properties Command
+        """
+        self.enterOrExitTemporaryCommand('STEREO_PROPERTIES')
+                        
+                
+    def enterQuteMolCommand(self):
+        """
+        Show the QuteMol property manager. 
         """
         commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "STEREO_PROPERTIES":
-            commandSequencer.userEnterTemporaryCommand(
-                'STEREO_PROPERTIES')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'STEREO_PROPERTIES':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-
-    def insertDna_OLD_NOT_USED(self, isChecked = False):
-        """
-        THIS IS DEPRECATED. THIS METHOD WILL BE REMOVED AFTER SOME
-        MORE TESTING AND WHEN WE FEEL COMFORTABLE ABOUT THE NEW BUILD DNA
-        MODE. -- NINAD - 2008-01-11
-
-        @param isChecked: If Dna Duplex button in the Dna Flyout toolbar is
-                          checked, enter DnaLineMode. (provided you are
-                          using the new DNADuplexEditCommand command.
-        @type  isChecked: boolean
-        @see: B{Ui_DnaFlyout.activateDnaDuplex_EditCommand}
-        """
-
-        if debug_pref("Use old 'Build > DNA' generator? (next session)",
-                      Choice_boolean_False,
-                      non_debug = True,
-                      prefs_key = "A9 devel/DNA Duplex"):
-            if isChecked:
-                self.dnacntl.show()
-        else:
-            commandSequencer = self.commandSequencer
-            currentCommand = commandSequencer.currentCommand
-            if currentCommand.commandName != "DNA_LINE_MODE":
-                commandSequencer.userEnterTemporaryCommand(
-                    'DNA_LINE_MODE')
-            else:
-                currentCommand = self.commandSequencer.currentCommand
-                if currentCommand.commandName == 'DNA_LINE_MODE':
-                    currentCommand.Done(exit_using_done_or_cancel_button = False)
-
+        commandSequencer.userEnterCommand('QUTEMOL')
+        # note: if we make the Qutemol action a 'ckeckable action'
+        # (so when unchecked by the user, it should exit the QuteMol command),
+        # then replace the above by a call to self.enterOrExitTemporaryCommand.
+        
     def insertDna(self, isChecked = False):
         """
         @param isChecked: If Dna Duplex button in the Dna Flyout toolbar is
@@ -1936,25 +1715,12 @@ class MWsemantics(QMainWindow,
                           using the new DNADuplexEditCommand command.
         @type  isChecked: boolean
         @see: B{Ui_DnaFlyout.activateDnaDuplex_EditCommand}
-        """
-        if debug_pref("Use old 'Build > DNA' generator? (next session)",
-                      Choice_boolean_False,
-                      non_debug = True,
-                      prefs_key = "A9 devel/DNA Duplex"):
-            if isChecked:
-                self.dnacntl.show()
-        else:
-            commandSequencer = self.commandSequencer
-            currentCommand = commandSequencer.currentCommand
-            if currentCommand.commandName != "DNA_DUPLEX":
-                commandSequencer.userEnterTemporaryCommand(
-                    'DNA_DUPLEX')
-                assert commandSequencer.currentCommand.commandName == 'DNA_DUPLEX'
-                commandSequencer.currentCommand.runCommand()
-            else:
-                currentCommand = self.commandSequencer.currentCommand
-                if currentCommand.commandName == 'DNA_DUPLEX':
-                    currentCommand.Done(exit_using_done_or_cancel_button = False)
+        """   
+        self.enterOrExitTemporaryCommand('DNA_DUPLEX')
+        
+        currentCommand = self.commandSequencer.currentCommand
+        if currentCommand.commandName == 'DNA_DUPLEX':
+            currentCommand.runCommand()
 
     def orderDna(self, dnaGroupList = ()):
         """
@@ -2044,7 +1810,7 @@ class MWsemantics(QMainWindow,
         If one doesn't already exists, it creates one .
         (created only once and only when its first requested and then the
         object is reused)
-        @return: The sequence editor object (self.sequenceEditor
+        @return: The sequence editor object (self._dnaSequenceEditor
         @rtype: B{DnaSequenceEditor}
         @see: DnaDuplexPropertyManager._loadSequenceEditor
         @WARNING: QMainwindow.restoreState prints a warning message because its
@@ -2054,216 +1820,42 @@ class MWsemantics(QMainWindow,
         object when MainWindow is created. (This is a small object so may
         be thats the best way)
         """
-        if not self.sequenceEditor:
+        if self._dnaSequenceEditor is None:
             from dna.DnaSequenceEditor.DnaSequenceEditor import DnaSequenceEditor
-            self.sequenceEditor = DnaSequenceEditor(self)
-            self.sequenceEditor.setObjectName("sequence_editor")
+            self._dnaSequenceEditor = DnaSequenceEditor(self)
+            self._dnaSequenceEditor.setObjectName("dna_sequence_editor")
             #Should changes.keep_forevenr be called here?
-            #doesn't look necessary at the moment -- ninad 2007-11-21
+            #Answer : No because python references to these objects are kept in 
+            #the MainWindow attrs
 
-        return self.sequenceEditor
-
+        return self._dnaSequenceEditor
+    
+    
     def createProteinSequenceEditorIfNeeded(self):
         """
         Returns a Sequence editor object (a dockwidget).
         If one doesn't already exists, it creates one .
         (created only once and only when its first requested and then the
         object is reused)
-        @return: The sequence editor object (self.sequenceEditor
+        @return: The sequence editor object (self._proteinSequenceEditor
         @rtype: B{ProteinSequenceEditor}
         
         """
-        if not self.sequenceEditor:
+        if self._proteinSequenceEditor is None:
             from protein.ProteinSequenceEditor.ProteinSequenceEditor import ProteinSequenceEditor
-            self.sequenceEditor = ProteinSequenceEditor(self)
-            self.sequenceEditor.setObjectName("sequence_editor")
+            self._proteinSequenceEditor = ProteinSequenceEditor(self)
+            self._proteinSequenceEditor.setObjectName("protein_sequence_editor")
 
-        return self.sequenceEditor
+        return self._proteinSequenceEditor    
     
-    def createRotaryMotorPropMgr_if_needed(self, editCommand):
-        """
-        Create the Rotary motor PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{RotaryMotor_EditCommand}
-        @see: B{RotaryMotor_EditCommand._createPropMgrObject}
-        """
-        from commands.RotaryMotorProperties.RotaryMotorPropertyManager import RotaryMotorPropertyManager
-        if self.rotaryMotorPropMgr is None:
-            self.rotaryMotorPropMgr = \
-                RotaryMotorPropertyManager(self, editCommand)
+    def toggle_selectByNameDockWidget(self, bool_toggle):
+        pw = self._activepw
+        leftChannelDockWidget = pw.getLeftChannelDockWidget()
+        if bool_toggle:
+            leftChannelDockWidget.show()
         else:
-            self.rotaryMotorPropMgr.setEditCommand(editCommand)
-
-        return self.rotaryMotorPropMgr
-
-
-    def createLinearMotorPropMgr_if_needed(self, editCommand):
-        """
-        Create the Linear motor PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{LinearMotor_EditCommand}
-        @see: B{LinearMotor_EditCommand._createPropMgrObject}
-        """
-        from commands.LinearMotorProperties.LinearMotorPropertyManager import LinearMotorPropertyManager
-        if self.linearMotorPropMgr is None:
-            self.linearMotorPropMgr = \
-                LinearMotorPropertyManager( self, editCommand)
-        else:
-            self.linearMotorPropMgr.setEditCommand(editCommand)
-
-        return self.linearMotorPropMgr
-
-    def createPlanePropMgr_if_needed(self, editCommand):
-        """
-        Create the Plane PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{RotaryMotor_EditCommand}
-        @see: B{Plane_EditCommand._createPropMgrObject}
-        """
-        from commands.PlaneProperties.PlanePropertyManager import PlanePropertyManager
-        if self.planePropMgr is None:
-            self.planePropMgr = \
-                PlanePropertyManager(self, editCommand)
-        else:
-            self.planePropMgr.setEditCommand(editCommand)
-
-        return self.planePropMgr
-
-    def createDnaDuplexPropMgr_if_needed(self, editCommand):
-        """
-        THIS METHOD IS NOT USED AS OF 2007-12-04
-        - This is because the endPoint1 and endPoint2 passed to the
-        Dna duplex PM are unique for each generated Dna group. So having a
-        unique PM for editing such a dna group. The 'endPoints' are not stored
-        in the dna group. The new dna data model will store the axis end points
-        Once thats done this method will be used to create only a single
-        PM object and reusing it as needed.
-
-        Create the DNA Duplex PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{DnaDuplex_EditCommand}
-        """
-        from dna.commands.BuildDuplex.DnaDuplexPropertyManager import DnaDuplexPropertyManager
-        if self.dnaDuplexPropMgr is None:
-            self.dnaDuplexPropMgr = \
-                DnaDuplexPropertyManager(self, editCommand)
-        else:
-            self.dnaDuplexPropMgr.setEditCommand(editCommand)
-
-        return self.dnaDuplexPropMgr
-
-    def createBuildDnaPropMgr_if_needed(self, editCommand):
-        """
-        Create Build Dna PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{BuildDna_EditCommand}
-        @see: B{BuildDna_EditCommand._createPropMgrObject}
-        """
-        from dna.commands.BuildDna.BuildDna_PropertyManager import BuildDna_PropertyManager
-        if self.buildDnaPropMgr is None:
-            self.buildDnaPropMgr = \
-                BuildDna_PropertyManager(self, editCommand)
-        else:
-            self.buildDnaPropMgr.setEditCommand(editCommand)
-
-        return self.buildDnaPropMgr
-
-    def createDnaSegmentPropMgr_if_needed(self, editCommand):
-        """
-        Create the DnaSegment PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{DnaSegment_EditCommand}
-        @see: B{DnaSegment_EditCommand._createPropMgrObject}
-        """
-
-        from dna.commands.DnaSegment.DnaSegment_PropertyManager import DnaSegment_PropertyManager
-        if self.dnaSegmentPropMgr is None:
-            self.dnaSegmentPropMgr = \
-                DnaSegment_PropertyManager(self, editCommand)
-
-        else:
-            self.dnaSegmentPropMgr.setEditCommand(editCommand)
-
-        return self.dnaSegmentPropMgr
-
-
-    def createMultipleDnaSegmentPropMgr_if_needed(self, editCommand):
-        """
-        Create the a Property manager object (if one doesn't exist)  for the
-        Multiple Dna Segment Resize command.
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{{MultipleDnaSegmentResize_EditCommand}
-        @see: B{MultipleDnaSegmentResize_EditCommand._createPropMgrObject}
-        """
-
-        from dna.commands.MultipleDnaSegmentResize.MultipleDnaSegmentResize_PropertyManager import MultipleDnaSegmentResize_PropertyManager
-        if self.multipleDnaSegmentPropMgr is None:
-            self.multipleDnaSegmentPropMgr = \
-                MultipleDnaSegmentResize_PropertyManager(self, editCommand)
-
-        else:
-            self.multipleDnaSegmentPropMgr.setEditCommand(editCommand)
-
-        return self.multipleDnaSegmentPropMgr
-
-
-    def createMakeCrossoversPropMgr_if_needed(self, editCommand):
-        """
-        Create the a Property manager object (if one doesn't exist)  for the
-        Make Crossovers command.
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{{MakeCrossovers_Command}
-        @see: B{MakeCrossovers_Command._createPropMgrObject}
-        """
-
-        from dna.commands.MakeCrossovers.MakeCrossovers_PropertyManager import MakeCrossovers_PropertyManager
-        if self.makeCrossoversPropMgr is None:
-            self.makeCrossoversPropMgr = \
-                MakeCrossovers_PropertyManager(self, editCommand)
-
-        else:
-            self.makeCrossoversPropMgr.setEditCommand(editCommand)
-
-        return self.makeCrossoversPropMgr
-
-
-
-    def createDnaStrandPropMgr_if_needed(self, editCommand):
-        """
-        Create the DnaStrand PM object (if one doesn't exist)
-        If this object is already present, then set its editCommand to this
-        parameter
-        @parameter editCommand: The edit controller object for this PM
-        @type editCommand: B{DnaSegment_EditCommand}
-        @see: B{DnaSegment_EditCommand._createPropMgrObject}
-        """
-
-        from dna.commands.DnaStrand.DnaStrand_PropertyManager import DnaStrand_PropertyManager
-        if self.dnaStrandPropMgr is None:
-            self.dnaStrandPropMgr = \
-                DnaStrand_PropertyManager(self, editCommand)
-
-        else:
-            self.dnaStrandPropMgr.setEditCommand(editCommand)
-
-        return self.dnaStrandPropMgr
-
+            leftChannelDockWidget.close()
+        
 
     def insertPovrayScene(self):
         self.povrayscenecntl.setup()
@@ -2287,23 +1879,38 @@ class MWsemantics(QMainWindow,
         env.history.message(redmsg("Mirror Circular Boundary Tool: Not implemented yet."))
 
     ###################################
-    # Slots for Dashboard widgets
+    # Slots for Done and Cancel actions for current command
     ###################################
 
-    # fill the shape created in the cookiecutter with actual
-    # carbon atoms in a diamond lattice (including bonds)
-    # this works for all modes, not just add atom
     def toolsDone(self):
-        self.currentCommand.Done()
-
-    def toolsStartOver(self):
-        self.currentCommand.Restart()
-
-    def toolsBackUp(self):
-        self.currentCommand.Backup()
+        """
+        @note: called from several places, including ok_btn_clicked
+        (and in some cases, cancel_btn_clicked) of PM_Dialog and its
+        subclasses
+        
+        The calls from ok_btn_clicked and cancel_btn_clicked methods are 
+        probablycorrect, but are deprecated, and should be replaced by calls of
+        self.command.command_Done (where self is the calling PM).
+        """
+        #bruce 080815/080827 docstring
+        command_to_exit  = self.currentCommand.command_that_supplies_PM()
+        command_to_exit.command_Done()
+        return
 
     def toolsCancel(self):
-        self.currentCommand.Flush()
+        """
+        Cancel the command which is supplying the currently visible
+        Property Manager.
+        
+        @note: called only from cancel_btn_clicked methods in PM_Dialog or its
+        subclasses, but some of those call toolsDone instead.
+        
+        (where self is the calling PM).
+        """
+        #bruce 080815/080827 docstring
+        command_to_exit = self.currentCommand.command_that_supplies_PM()
+        command_to_exit.command_Cancel()
+        return
 
     ######################################
     # Show View > Orientation Window
@@ -2356,23 +1963,7 @@ class MWsemantics(QMainWindow,
         # implem passes it either to "central widget" (just guessing that's the GLPane) or to
         # the last widget we clicked on (or more likely, the one with the keyfocus).
         return
-
-    # Load IconSets #########################################
-
-    def load_icons_to_iconsets(self): ### REVIEW (Mark): is this still needed? [bruce 070820]
-        """
-        Load additional icons to QAction icon sets that are used in MainWindow
-        toolbars and menus. This is experimental. mark 060427.
-        """
-        filePath = os.path.dirname(os.path.abspath(sys.argv[0]))
-        small_disabled_on_icon_fname = filePath + "/../images/redoAction_small_disabled_off.png"
-
-        # Add the small "disabled/off" icon for the Redo QAction, displayed when editRedoAction.setDisabled(1).
-        editRedoIconSet = self.editRedoAction.iconSet()
-        editRedoIconSet.setPixmap ( small_disabled_on_icon_fname, QIcon.Small, QIcon.Disabled, QIcon.Off )
-        self.editRedoAction.setIcon ( editRedoIconSet )
-        return
-
+    
     # Methods for temporarily disabling QActions in toolbars/menus ##########
 
     def enableViews(self, enableFlag = True):
@@ -2444,6 +2035,7 @@ class MWsemantics(QMainWindow,
         self.modifyAdjustSelAction.setEnabled(enable) # "Adjust Selection"
         self.modifyAdjustAllAction.setEnabled(enable) # "Adjust All"
         self.simMinimizeEnergyAction.setEnabled(enable) # Minimize Energy
+        self.checkAtomTypesAction.setEnabled(enable) # Check AMBER AtomTypes
         self.rosettaSetupAction.setEnabled(enable)
         self.simSetupAction.setEnabled(enable) # "Simulator"
         self.fileSaveAction.setEnabled(enable) # "File Save"
@@ -2452,6 +2044,7 @@ class MWsemantics(QMainWindow,
         self.fileCloseAction.setEnabled(enable) # "File Close"
         self.fileInsertMmpAction.setEnabled(enable) # "Insert MMP"
         self.fileInsertPdbAction.setEnabled(enable) # "Insert PDB"
+        self.fileInsertInAction.setEnabled(enable) # "Insert IN"
         self.editDeleteAction.setEnabled(enable) # "Delete"
 
         # [bruce 050426 comment: I'm skeptical of disabling zoom/pan/rotate,
@@ -2537,7 +2130,7 @@ class MWsemantics(QMainWindow,
         ##e [bruce 050811 comment:] perhaps we should move prefix to the beginning, rather than just before "[";
         # and in any case the other stuff here, self.name() + " - " + "[" + "]", should also be user-changeable, IMHO.
         #print "****self.accessibleName *****=" , self.accessibleName()
-        self.setWindowTitle(self.trUtf8("NanoEngineer-1" + " - " +prefix + "[" + partname + "]" + suffix))
+        self.setWindowTitle(self.trUtf8("NanoEngineer-1" + " - " + prefix + "[" + partname.encode("utf_8") + "]" + suffix))
 
         return
 
@@ -2573,10 +2166,10 @@ class MWsemantics(QMainWindow,
         """
         if recentfiles_use_QSettings:
             prefsSetting = QSettings("Nanorex", "NanoEngineer-1")
-            fileList = prefsSetting.value(_RECENTFILES_KEY).toStringList()
+            fileList = prefsSetting.value(RECENTFILES_QSETTINGS_KEY).toStringList()
         else:
             prefsSetting = preferences.prefs_context()
-            fileList = prefsSetting.get(_RECENTFILES_KEY, [])
+            fileList = prefsSetting.get(RECENTFILES_QSETTINGS_KEY, [])
 
         return fileList, prefsSetting
 
@@ -2593,7 +2186,7 @@ class MWsemantics(QMainWindow,
             # Warning: Potential bug if number of recent files >= 10
             # (i.e. LIST_CAPACITY >= 10). See fileSlotsMixin.openRecentFile().
 
-        fileName = os.path.normpath(str(fileName))
+        fileName = os.path.normpath(str_or_unicode(fileName))
 
         fileList, prefsSetting = self.getRecentFilesListAndPrefsSetting()
 
@@ -2601,7 +2194,7 @@ class MWsemantics(QMainWindow,
             # If filename is already in fileList, delete it from the list.
             # filename will be added to the top of the list later.
             for ii in range(len(fileList)):
-                if str(fileName) == str(fileList[ii]):
+                if str_or_unicode(fileName) == str_or_unicode(fileList[ii]):
                     del fileList[ii]
                     break
 
@@ -2614,17 +2207,17 @@ class MWsemantics(QMainWindow,
 
         if recentfiles_use_QSettings:
             assert isinstance(prefsSetting, QSettings)
-            prefsSetting.setValue(_RECENTFILES_KEY, QVariant(fileList))
+            prefsSetting.setValue(RECENTFILES_QSETTINGS_KEY, QVariant(fileList))
 
             if 0: #debug_recent_files:
                 # confirm that the information really made it into the QSetting.
-                fileListTest = prefsSetting.value(_RECENTFILES_KEY).toStringList()
+                fileListTest = prefsSetting.value(RECENTFILES_QSETTINGS_KEY).toStringList()
                 fileListTest = map(str, list(fileListTest))
                 assert len(fileListTest) == len(fileList)
                 for i in range(len(fileList)):
-                    assert str(fileList[i]) == str(fileListTest[i])
+                    assert str_or_unicode(fileList[i]) == str_or_unicode(fileListTest[i])
         else:
-            prefsSetting[_RECENTFILES_KEY] = fileList
+            prefsSetting[RECENTFILES_QSETTINGS_KEY] = fileList
 
         del prefsSetting
 
@@ -2650,11 +2243,11 @@ class MWsemantics(QMainWindow,
 
         self.openRecentFilesMenu.clear()
         for ii in range(len(fileList)):
-            _recent_filename = os.path.normpath(str(fileList[ii])) # Fixes bug 2193. Mark 060808.
+            _recent_filename = os.path.normpath(str_or_unicode(fileList[ii]).encode("utf_8")) # Fixes bug 2193. Mark 060808.
             self.openRecentFilesMenu.addAction(
                 QtGui.QApplication.translate(
                     "Main Window",
-                    "&" + str(ii + 1) + "  " + _recent_filename, None))
+                    "&" + str(ii + 1) + "  " + _recent_filename, None, QtGui.QApplication.UnicodeUTF8))
 
         # Insert the "Open Recent Files" menu above "File > Close".
         self.openRecentFilesMenuAction = \
@@ -2670,33 +2263,14 @@ class MWsemantics(QMainWindow,
         """
         This is a slot method for invoking the B{Color Scheme} command.
         """
-
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "COLOR_SCHEME":
-            commandSequencer.userEnterTemporaryCommand(
-                'COLOR_SCHEME')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'COLOR_SCHEME':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-        return
+        self.enterOrExitTemporaryCommand('COLOR_SCHEME') 
                 
     def lightingSchemeCommand(self):
         """
         This is a slot method for invoking the B{Lighting Scheme} command.
         """
+        self.enterOrExitTemporaryCommand('LIGHTING_SCHEME')
         
-        commandSequencer = self.commandSequencer
-        currentCommand = commandSequencer.currentCommand
-        if currentCommand.commandName != "LIGHTING_SCHEME":
-            commandSequencer.userEnterTemporaryCommand(
-                'LIGHTING_SCHEME')
-        else:
-            currentCommand = self.commandSequencer.currentCommand
-            if currentCommand.commandName == 'LIGHTING_SCHEME':
-                currentCommand.Done(exit_using_done_or_cancel_button = False)
-        return
                 
     def toggleRulers(self, isChecked):
         """

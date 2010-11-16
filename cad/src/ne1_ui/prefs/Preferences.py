@@ -3,7 +3,7 @@
 Preferences.py
 
 @author: Mark
-@version: $Id: Preferences.py 13479 2008-07-16 13:58:30Z marksims $
+@version: $Id: Preferences.py 14197 2008-09-11 04:52:29Z brucesmith $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -48,6 +48,7 @@ from utilities.prefs_constants import displayCompass_prefs_key
 from utilities.prefs_constants import displayCompassLabels_prefs_key
 from utilities.prefs_constants import displayPOVAxis_prefs_key
 from utilities.prefs_constants import displayConfirmationCorner_prefs_key
+from utilities.prefs_constants import enableAntiAliasing_prefs_key
 from utilities.prefs_constants import animateStandardViews_prefs_key
 from utilities.prefs_constants import displayVertRuler_prefs_key
 from utilities.prefs_constants import displayHorzRuler_prefs_key
@@ -217,6 +218,10 @@ from utilities.prefs_constants import keepBondsDuringTransmute_prefs_key
 from utilities.prefs_constants import indicateOverlappingAtoms_prefs_key
 from utilities.prefs_constants import fogEnabled_prefs_key
 
+# Cursor text prefs.
+from utilities.prefs_constants import cursorTextFontSize_prefs_key
+from utilities.prefs_constants import cursorTextColor_prefs_key
+
 #global display preferences
 from utilities.constants import diDEFAULT ,diTrueCPK, diLINES
 from utilities.constants import diBALL, diTUBES, diDNACYLINDER
@@ -227,7 +232,7 @@ from widgets.prefs_widgets import connect_doubleSpinBox_with_pref
 # Preferences widgets constants. I suggest that these be moved to another
 # file (i.e. prefs_constants.py or another file). Discuss with Bruce. -Mark
 
-# Widget constants for the "Model View" page.
+# Widget constants for the "Graphics Area" page.
 
 BG_EVENING_SKY = 0
 BG_BLUE_SKY = 1
@@ -275,7 +280,10 @@ def debug_povdir_signals():
 # This list of mode names correspond to the names listed in the modes combo box.
 # [TODO: It needs to be renamed, since "modes" is too generic to search for
 #  as a global name, which in theory could referenced from other modules.]
-modes = ['SELECTMOLS', 'MODIFY', 'DEPOSIT', 'COOKIE', 'EXTRUDE', 'FUSECHUNKS', 'MOVIE']
+modes = ['SELECTMOLS', 'MODIFY', 'DEPOSIT', 'CRYSTAL', 'EXTRUDE', 'FUSECHUNKS', 'MOVIE']
+    ### REVIEW: is this constant still used anywhere?
+    # If not, it should be removed.
+    # [bruce 080815 question]
 
 def parentless_open_dialog_pref(): #bruce 060710 for Mac A8
     # see if setting this True fixes the Mac-specific bugs in draggability of this dialog, and CPU usage while it's up
@@ -500,7 +508,7 @@ class Preferences(QDialog, Ui_PreferencesDialog):
         self._setupDialog_TopLevelWidgets()
         self._setupPage_General()
         self._setupPage_Color()
-        self._setupPage_ModelView()
+        self._setupPage_GraphicsArea()
         self._setupPage_ZoomPanRotate()
         self._setupPage_Rulers()
         self._setupPage_Atoms()
@@ -585,7 +593,7 @@ class Preferences(QDialog, Ui_PreferencesDialog):
 
         self.connect(self.logosDownloadPermissionBtnGroup, SIGNAL("buttonClicked(int)"), self.setPrefsLogoDownloadPermissions)
 
-        # Build Chunks option connections.
+        # Build Atoms option connections.
         connect_checkbox_with_boolean_pref( self.autobond_checkbox, buildModeAutobondEnabled_prefs_key )
         connect_checkbox_with_boolean_pref( self.water_checkbox, buildModeWaterEnabled_prefs_key )
         connect_checkbox_with_boolean_pref( self.buildmode_highlighting_checkbox, buildModeHighlightingEnabled_prefs_key )
@@ -645,10 +653,10 @@ class Preferences(QDialog, Ui_PreferencesDialog):
 
         return
 
-    def _setupPage_ModelView(self):
+    def _setupPage_GraphicsArea(self):
         """
         Setup widgets to initial (default or defined) values on the
-        'Model View' page.
+        'Graphics Area' page.
         """
         # Setup the Global Display Style at start-up combobox
         self._setupGlobalDisplayStyleAtStartup_ComboBox()
@@ -664,7 +672,20 @@ class Preferences(QDialog, Ui_PreferencesDialog):
         self.compass_position_combox.setCurrentIndex(self.glpane.compassPosition)
         
         connect_checkbox_with_boolean_pref( self.display_confirmation_corner_checkbox, displayConfirmationCorner_prefs_key )
-
+        connect_checkbox_with_boolean_pref( self.enable_antialiasing_checkbox, enableAntiAliasing_prefs_key )
+        
+        # Cursor text font point size spinbox
+        self.connect(self.cursorTextFontSizeSpinBox, SIGNAL("valueChanged(int)"), self.change_cursorTextFontSize)
+        
+        # Cursor text font size reset button.
+        self.connect(self.cursorTextFontSizeResetButton, SIGNAL("clicked()"), self.reset_cursorTextFontSize)
+        self.cursorTextFontSizeResetButton.setIcon(geticon('ui/dialogs/Reset.png'))
+        self.cursorTextFontSizeSpinBox.setValue(env.prefs[ cursorTextFontSize_prefs_key ] )
+        self.change_cursorTextFontSize(env.prefs[cursorTextFontSize_prefs_key]) # Needed to update the reset button.
+        
+        # Cursor text color
+        connect_colorpref_to_colorframe(cursorTextColor_prefs_key, self.cursorTextColorFrame)
+        self.connect(self.cursorTextColorButton, SIGNAL("clicked()"), self.change_cursorTextColor)
         return
 
     def _setupPage_ZoomPanRotate(self):
@@ -1377,9 +1398,9 @@ class Preferences(QDialog, Ui_PreferencesDialog):
                               self.rosetta_db_path_lineedit,
                               self.rosetta_db_choose_btn]
 
-        from protein.model.Protein import enableProteins
+        from utilities.GlobalPreferences import ENABLE_PROTEINS
         for widget in rosetta_widgetList:
-            if enableProteins:
+            if ENABLE_PROTEINS:
                 widget.show()
             else:
                 widget.hide()
@@ -1468,7 +1489,7 @@ class Preferences(QDialog, Ui_PreferencesDialog):
             self.selectionStyleComboBox.addItem(selectionStyle)
         return
 
-    # = Methods for the "Model View" page.
+    # = Methods for the "Graphics Area" page.
 
     def _setupGlobalDisplayStyleAtStartup_ComboBox(self):
         """
@@ -1511,7 +1532,7 @@ class Preferences(QDialog, Ui_PreferencesDialog):
 
         # Set the current display style in the glpane.
         # (This will be noticed later by chunk.draw of affected chunks.)
-        self.glpane.setDisplay(display_style, True)
+        self.glpane.setGlobalDisplayStyle(display_style)
         self.glpane.gl_update()
         return
 
@@ -1566,6 +1587,34 @@ class Preferences(QDialog, Ui_PreferencesDialog):
         # update the glpane
         self.glpane.compassPosition = val
         self.glpane.gl_update()
+        return
+    
+    # "Cursor text" slots (on Graphics Area page)
+    
+    def change_cursorTextColor(self):
+        """
+        Change the cursor text color.
+        """
+        self.usual_change_color( cursorTextColor_prefs_key)
+        return
+    
+    def change_cursorTextFontSize(self, ptSize):
+        """
+        Change the cursor text font size.
+        """
+        env.prefs[ cursorTextFontSize_prefs_key ] = ptSize
+        self._updateResetButton(self.cursorTextFontSizeResetButton, cursorTextFontSize_prefs_key)
+        return
+    
+    def reset_cursorTextFontSize(self):
+        """
+        Slot called when pressing the Font size reset button.
+        Restores the default value.
+        """
+        env.prefs.restore_defaults([cursorTextFontSize_prefs_key])
+        self.cursorTextFontSizeSpinBox.setValue(env.prefs[cursorTextFontSize_prefs_key])
+    
+    # End "Cursor text" slots.
 
     def change_pasteOffsetScaleFactorForChunks(self, val):
         """
@@ -3019,8 +3068,9 @@ class Preferences(QDialog, Ui_PreferencesDialog):
                                                         rosetta_dbdir_prefs_key,
                                                         'Choose Rosetta database directory')
 
-        if rosetta_db_executable:
-            self.rosetta_db_path_lineedit.setText(env.prefs[rosetta_db_path_prefs_key])
+        # piotr 081908: this pref key doesn't exist
+        #if rosetta_db_executable:
+        #    self.rosetta_db_path_lineedit.setText(env.prefs[rosetta_db_path_prefs_key])
 
     def set_rosetta_db_path(self, newValue):
         """
@@ -3371,7 +3421,7 @@ class Preferences(QDialog, Ui_PreferencesDialog):
         env.prefs[ dynamicToolTipBendAnglePrecision_prefs_key ] = value
 
     ########## End of slot methods for "ToolTips" page widgets ###########
-
+    
     ########## Slot methods for "Window" (former name "Caption") page widgets ################
 
     #e there are some new slot methods for this in other places, which should be refiled here. [bruce 050811]

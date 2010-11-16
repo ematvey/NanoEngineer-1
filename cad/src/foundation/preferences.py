@@ -1,9 +1,9 @@
-# Copyright 2005-2008 Nanorex, Inc.  See LICENSE file for details. 
+﻿# Copyright 2005-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 preferences.py -- Preferences system.
 
 @author: Bruce
-@version: $Id: preferences.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: preferences.py 14044 2008-08-26 20:16:28Z derrickdb1 $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Module classification: [bruce 071215]
@@ -68,6 +68,7 @@ from platform_dependent.PlatformDependent import find_or_make_Nanorex_directory
 import foundation.env as env
 import utilities.EndUser as EndUser
 from utilities.debug import print_compact_traceback
+from utilities.constants import str_or_unicode
 
 from foundation.changes import UsageTracker
 
@@ -247,7 +248,7 @@ def _make_prefs_shelf():
     global _shelfname, _shelf, _cache, _defaults, _trackers
     nanorex = find_or_make_Nanorex_directory()
     global dbname
-    _shelfname = os.path.join( nanorex, "Preferences", "%s-shelf" % dbname )
+    _shelfname = str_or_unicode(os.path.join( nanorex, "Preferences", "%s-shelf" % dbname ))
         # This name should differ when db format differs.
         # Note: the actual filename used might have an extension added
         # by the db module (in theory, it might even create two files
@@ -255,14 +256,14 @@ def _make_prefs_shelf():
         # By experiment, on the Mac, with bsddb there is no extension added,
         # and without it there is '.db' added. [bruce 050105]
     mkdirs_in_filename(_shelfname)
-    _shelf = shelve.open(_shelfname)
+    _shelf = shelve.open(_shelfname.encode("utf_8"))
     _cache = {}
     _cache.update(_shelf) # will this work?
     was_just_made = (not _cache) #bruce 080505
     if was_just_made:
-        print "made prefs db, basename", _shelfname
+        print u"made prefs db, basename", _shelfname.encode("utf_8")
     else:
-        print "prefs db already existed, basename", _shelfname
+        print u"prefs db already existed, basename", _shelfname.encode("utf_8")
     _defaults = {}
     _trackers = {}
     # zap obsolete contents
@@ -297,12 +298,12 @@ def _make_prefs_shelf():
             filename = os.path.join( nanorex, "Preferences", DEFAULT_PREFS_BASENAME )
             if not os.path.exists(filename):
                 lines = []
-                print "didn't find", filename
+                print u"didn't find", filename.encode("utf_8")
             else:
                 file = open( filename, "rU")
                 lines = file.readlines()
                 file.close()
-                print "reading from", filename
+                print u"reading from", filename.encode("utf_8")
             for line in lines:
                 line0 = line
                 try:
@@ -345,7 +346,7 @@ def _make_prefs_shelf():
         items = default_prefs_values.items()
         items.sort() # just to make the following console prints look nicer
         # now open, store the values, and close
-        _shelf = shelve.open(_shelfname)
+        _shelf = shelve.open(_shelfname.encode("utf_8"))
         for key, val in items:
             pkey = _PREFS_KEY_TO_SHELF_KEY(key)
             _store_while_open( pkey, val)
@@ -365,7 +366,7 @@ def _reopen():
     _ensure_shelf_exists()
     global _shelf
     assert _shelf is None
-    _shelf = shelve.open(_shelfname)
+    _shelf = shelve.open(_shelfname.encode("utf_8"))
     # don't bother to re-update our _cache! This would be too slow to do every time.
     return
 

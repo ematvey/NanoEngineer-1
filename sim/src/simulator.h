@@ -3,7 +3,7 @@
 #ifndef SIMULATOR_H_INCLUDED
 #define SIMULATOR_H_INCLUDED
 
-#define RCSID_SIMULATOR_H  "$Id: simulator.h 11077 2008-01-16 23:37:21Z ericmessick $"
+#define RCSID_SIMULATOR_H  "$Id: simulator.h 14419 2008-10-06 18:12:42Z ericmessick $"
 
 #define MULTIPLE_RCSID_STRING \
     RCSID_SIMULATOR_H \
@@ -18,6 +18,7 @@
     RCSID_INTERPOLATE_H \
     RCSID_READMMP_H \
     RCSID_READXYZ_H \
+    RCSID_AMBER_PATTERNS_H \
     RCSID_PAM5_PATTERNS_H \
     RCSID_PATTERN_H \
     RCSID_PRINTERS_H \
@@ -145,9 +146,11 @@
 
 #include "readmmp.h"
 #include "readxyz.h"
+#include "read_amber_itp.h"
 #include "printers.h"
 #include "dynamics.h"
 #include "jigs.h"
+#include "amber_patterns.h"
 #include "pam5_patterns.h"
 #include "pattern.h"
 #include "potential.h"

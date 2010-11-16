@@ -3,7 +3,7 @@
 Ui_MovePropertyManager.py
 @author: Ninad
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
-$Id: Ui_MovePropertyManager.py 13318 2008-07-03 01:19:45Z marksims $
+$Id: Ui_MovePropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 
 History:
 
@@ -12,7 +12,6 @@ ninad 2007-08-20: code cleanup to use new PM module classes.
 
 from PyQt4.Qt import Qt
 
-from PM.PM_Dialog          import PM_Dialog
 from PM.PM_GroupBox        import PM_GroupBox
 from PM.PM_DoubleSpinBox   import PM_DoubleSpinBox
 from PM.PM_ComboBox        import PM_ComboBox
@@ -28,8 +27,10 @@ from PM.PM_Constants       import PM_DONE_BUTTON
 from PM.PM_Constants       import PM_WHATS_THIS_BUTTON
 
 
+from command_support.Command_PropertyManager import Command_PropertyManager
 
-class Ui_MovePropertyManager( PM_Dialog ):
+_superclass = Command_PropertyManager
+class Ui_MovePropertyManager(Command_PropertyManager):
     
        
     # The title that appears in the Property Manager header        
@@ -49,15 +50,8 @@ class Ui_MovePropertyManager( PM_Dialog ):
     translateIconPath = "ui/actions/Properties Manager/Translate_Components.png"
     rotateIconPath = "ui/actions/Properties Manager/Rotate_Components.png"
     
-    def __init__(self, parentMode):        
-        self.parentMode = parentMode
-        self.w = self.parentMode.w
-        self.win = self.parentMode.w
-        self.o = self.parentMode.o
-        self.pw = self.parentMode.pw
-
-        
-        PM_Dialog.__init__(self, self.pmName, self.iconPath, self.title)        
+    def __init__(self, command):  
+        _superclass.__init__(self, command)       
         self.showTopRowButtons(PM_DONE_BUTTON | PM_WHATS_THIS_BUTTON)
     
     def _addGroupBoxes(self):

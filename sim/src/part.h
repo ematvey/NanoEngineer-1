@@ -2,7 +2,7 @@
 #ifndef PART_H_INCLUDED
 #define PART_H_INCLUDED
 
-#define RCSID_PART_H  "$Id: part.h 12830 2008-05-19 17:44:24Z ericmessick $"
+#define RCSID_PART_H  "$Id: part.h 14256 2008-09-17 03:59:27Z ericmessick $"
 
 // See part.c for comment defining these values.  Don't change any of
 // them without deeply understanding the vdw search algorithm there.
@@ -471,6 +471,8 @@ struct part
 extern struct part *makePart(char *filename, int (*parseError)(void *), void *stream);
 
 extern void destroyPart(struct part *p);
+
+extern struct atom *getBondedAtom(struct atom *a, int n);
 
 extern struct part *endPart(struct part *p);
 

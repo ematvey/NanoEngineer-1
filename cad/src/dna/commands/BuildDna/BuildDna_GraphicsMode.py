@@ -3,7 +3,7 @@
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: BuildDna_GraphicsMode.py 13364 2008-07-09 17:06:54Z ninadsathaye $
+@version:$Id: BuildDna_GraphicsMode.py 14454 2008-11-14 03:54:55Z  $
 
 History:
 
@@ -19,7 +19,11 @@ from geometry.VQT import V, Q, A, norm, vlen
 from commands.Select.Select_GraphicsMode import DRAG_STICKINESS_LIMIT
 from utilities.debug import print_compact_traceback
 import math
+import foundation.env as env
 
+from utilities.prefs_constants import cursorTextFontSize_prefs_key
+
+from graphics.drawing.drawDnaLabels import draw_dnaBaseNumberLabels
 
 DEBUG_CLICK_ON_OBJECT_ENTERS_ITS_EDIT_COMMAND = True
 
@@ -62,6 +66,7 @@ class BuildDna_GraphicsMode(
     cursor_over_when_LMB_pressed = ''
 
     def Enter_GraphicsMode(self):
+        print "*** in BuildDna_GM.Enter_GraphicsMode"
         _superclass.Enter_GraphicsMode(self)
         #Precaution
         self.clear_leftA_variables()
@@ -83,20 +88,21 @@ class BuildDna_GraphicsMode(
                     self.o.setCursor(self.win.rotateAboutCentralAxisCursor)
                 elif self.o.selobj.element.role == 'axis':
                     self.o.setCursor(self.win.translateAlongCentralAxisCursor)
-
-
+                    
+                    
+    
     def bareMotion(self, event):
         """
         @see: self.update_cursor_for_no_MB
         """
         value = _superclass.bareMotion(self, event)
 
-        #When the cursor is over a specifit atom, we need to display
+        #When the cursor is over a specific atom, we need to display
         #a different icon. (e.g. when over a strand atom, it should display
         # rotate cursor)
         self.update_cursor()
 
-        return value # russ 080527
+        return value
 
     def leftDown(self, event):
         """
@@ -153,17 +159,18 @@ class BuildDna_GraphicsMode(
         farQ_junk, self.movingPoint = self.dragstart_using_GL_DEPTH( event)
         self.leftADown(objectUnderMouse, event)
 
+    
+    
     def singletLeftDown(self, s, event):
         """
         Handles SingletLeftDown (left down on a bond point) event.
         @see: JoinStrands_GraphicsMode.leftUp()
         """
-
         #@see: class JoinStrands_GraphicsMode for a detailed explanation.
         #copying some portion in that comment below --
         #Example: In this BuildDna_EditCommand (graphicsMode), if you want to
         #join  two strands, upon 'singletLeftDown'  it enters
-        #JoinStrands_Command , also calling leftDown method of its graphicsmode.
+        #JoinStrands_By_DND_Command , also calling leftDown method of its graphicsmode.
         #Now, when user releases theLMB, it calls
         #JoinStrands_GraphicsMode.leftUp()  which in turn exits that command
         #if the flag 'exit_command_on_leftUp' is set to True(to go back to the
@@ -174,22 +181,16 @@ class BuildDna_GraphicsMode(
         #So, for some significant amount of time, we may continue to use
         #this flag to temporarily enter/exit this command.
         #@see: self.leftUp(), BuildDna_GraphicsMode.singletLeftDown()
-
-        #Note: Going back and forth between joinstrands command has a bug
-        #due to commandstack depth. It won't go back to DnaStrand and Segment
-        #edit commands (if the previous command was one of those) instead it
-        #will always return to BuildDna_EditCommand.
-
+        
         commandSequencer = self.win.commandSequencer
 
-        if commandSequencer.currentCommand.commandName != "JOIN_STRANDS":
-            commandSequencer.userEnterTemporaryCommand('JOIN_STRANDS')
+        commandSequencer.userEnterCommand('JoinStrands_By_DND')
 
-        assert commandSequencer.currentCommand.commandName == 'JOIN_STRANDS'
+        assert commandSequencer.currentCommand.commandName == 'JoinStrands_By_DND'
 
         #Make sure that the glpane selobj is set to 's' (this bondpoint)
         #when we enter a different command, all that information is probably
-        #lost , so its important to set it explicitely here.
+        #lost , so its important to set it explicitly here.
         self.glpane.set_selobj(s)
 
         #'gm' is the graphics mode of JoinStrands_Command
@@ -207,7 +208,7 @@ class BuildDna_GraphicsMode(
         chunk..typically pick or unpick the chunk(s) or do nothing.
 
         If an object left down happens, the left down method of that object
-        calls this method (chunkLeftDown) as it is the 'selectMolsMode' which
+        calls this method (chunkLeftDown) as it is the 'SelectChunks_GraphicsMode' which
         is supposed to select Chunk of the object clicked
         @param a_chunk: The chunk of the object clicked (example, if the  object
                       is an atom, then it is atom.molecule
@@ -381,7 +382,9 @@ class BuildDna_GraphicsMode(
             #a the following axis atoms --strand atoms axis_neighbors and
             #axis atom centers directly connected to this axis atom.
             #  -- Ninad 2008-03-25
-            self._commonCenterForRotation = obj.axis_neighbor().posn()
+            axis_neighbor = obj.axis_neighbor()
+            if axis_neighbor is not None:
+                self._commonCenterForRotation = axis_neighbor.posn()
         else:
             self._translateAlongAxis = False
             self._rotateAboutAxis = False
@@ -421,15 +424,15 @@ class BuildDna_GraphicsMode(
             ###Exit this command by directly calling command.Done.
             ###This skips call of command.preview_or_finalize_structure
             ###Not calling 'preview_or_finialize_structure before calling
-            ###command.Done(), has an advantage. As of 2008-02-20, we
+            ###command.command_Done(), has an advantage. As of 2008-02-20, we
             ###remove the structure (segment) and recreate it upon done.
             ###This also removes, for instance, any cross overs you created
             ###earlier. although same thing happens when you hit 'Done button',
             ###it is likely to happen by accident while you are in segment edit
             ###mode and just click on empty space, Therefore, we simply call
-            ###Command.Done(). See a related bug mentioned in
+            ###Command.command_Done(). See a related bug mentioned in
             ###DnaSegment_EditCommand.setStructureName
-            ##self.command.Done()
+            ##self.command.command_Done()
 
 
     def leftDrag(self, event):
@@ -447,7 +450,7 @@ class BuildDna_GraphicsMode(
 
         #NOTE:
         #In SelectChunks_GraphicsMode.leftDrag, there is a condition statement
-        #which checkes if self.drag_handler is in assy.getSelecteedMovables
+        #which checks if self.drag_handler is in assy.getSelectedMovables
         #I don't know why it does that... I think it always assums that the
         #drag handler is officially a node in the MT? In our case,
         #the drag handler is a 'Highlightable' object (actually
@@ -532,25 +535,7 @@ class BuildDna_GraphicsMode(
         self.o.gl_update()
         return
 
-    def _is_dnaGroup_highlighting_enabled(self):
-        """
-        Overrides SelectChunks_GraphicsMode._is_dnaGroup_highlighting_enabled()
-
-        Returns a boolean that decides whether to highlight the whole
-        DnaGroup or just the chunk of the glpane.selobj.
-        Example: In default mode (SelectChunks_graphicsMode) if the cursor is
-        over an atom or a bond which belongs to a DnaGroup, the whole
-        DnaGroup is highlighted. But if you are in buildDna mode, the
-        individual strand and axis chunks will be highlighted in this case.
-        Therefore, subclasses of SelectChunks_graphicsMode should override this
-        method to enable or disable the DnaGroup highlighting. (the Default
-        implementation returns True)
-        @see: self._get_objects_to_highlight()
-        @see: self.drawHighlightedChunk()
-        @see : self.drawHighlightedObjectUnderMouse()
-        """
-        return False
-
+    
     def editObjectOnSingleClick(self):
         """
         Subclasses can override this method. If this method returns True,
@@ -561,6 +546,7 @@ class BuildDna_GraphicsMode(
         """
         if DEBUG_CLICK_ON_OBJECT_ENTERS_ITS_EDIT_COMMAND:
             return True
+        
 
     def drawHighlightedChunk(self, glpane, selobj, hicolor, hicolor2):
         """
@@ -607,11 +593,16 @@ class BuildDna_GraphicsMode(
                                                 hicolor2)
 
 
-    def _drawCursorText(self):
+    def _drawCursorText(self, position = None):
         """
         Draw the text near the cursor. It gives information about number of
         basepairs/bases being added or removed, length of the segment (if self.struct
         is a strand etc.
+        @param position: Optional argument. If position (a vector) is specified, 
+                         instead of drawing the text at the cursor position, 
+                         it is drawn at the specified position. 
+        @type position: B{V} or None
+               
         @see: DnaSegment_GraphicsMode,  DnaStrand_GraphicsMode  (subclasses of
         this class where this is being used.
         """
@@ -622,7 +613,27 @@ class BuildDna_GraphicsMode(
                 #number of base pairs etc
 
                 text , textColor = self.command.getCursorText()
-                self.glpane.renderTextNearCursor(text,
-                                                 offset = 30,
-                                                 color = textColor)
-
+                                
+                if position is None:
+                    self.glpane.renderTextNearCursor(text,
+                                                     offset = 30,
+                                                     textColor = textColor,
+                                                     fontSize = env.prefs[cursorTextFontSize_prefs_key])
+                else:
+                    self.glpane.renderTextAtPosition(position,
+                                                     text, 
+                                                     textColor = textColor,
+                                                     fontSize = env.prefs[cursorTextFontSize_prefs_key])
+    
+    
+    def _drawLabels(self):
+        """
+        Overrides superclass method
+        @see: self.Draw()
+        @see: drawDnaLabels.py
+        """
+        _superclass._drawLabels(self)
+        #Draw the Dna base number labels. 
+        draw_dnaBaseNumberLabels(self.glpane)
+        
+    

@@ -2,7 +2,7 @@
 """
 GLPane_minimal.py -- common superclass for GLPane-like widgets.
 
-@version: $Id: GLPane_minimal.py 13443 2008-07-15 03:31:28Z protkiewicz $
+@version: $Id: GLPane_minimal.py 14358 2008-09-26 01:22:45Z russfish $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -12,17 +12,42 @@ need a common superclass (and have common code that needs merging).
 It needs to be in its own file to avoid import loop problems.
 """
 
+import math
+
+from OpenGL.GL import GL_CULL_FACE
+from OpenGL.GL import GL_DEPTH_TEST
+from OpenGL.GL import GL_MODELVIEW
+from OpenGL.GL import GL_PROJECTION
+from OpenGL.GL import GL_SMOOTH
+from OpenGL.GL import GL_VIEWPORT
 from OpenGL.GL import glDepthRange
+from OpenGL.GL import glEnable
+from OpenGL.GL import glFrustum
+from OpenGL.GL import glGetIntegerv
+from OpenGL.GL import glLoadIdentity
+from OpenGL.GL import glMatrixMode
+from OpenGL.GL import glOrtho
+from OpenGL.GL import glRotatef
+from OpenGL.GL import glShadeModel
+from OpenGL.GL import glTranslatef
+from OpenGL.GL import glViewport
+
+from OpenGL.GLU import gluPickMatrix
 
 from PyQt4.QtOpenGL import QGLFormat
 from PyQt4.QtOpenGL import QGLWidget
 
+from Numeric import dot
+
+from geometry.VQT import norm, angleBetween
 from geometry.VQT import V, Q
+
 from graphics.behaviors.Trackball import Trackball
 from model.NamedView import NamedView
 
 from utilities.prefs_constants import undoRestoreView_prefs_key
 from utilities.prefs_constants import startup_GLPane_scale_prefs_key
+from utilities.prefs_constants import enableAntiAliasing_prefs_key
 
 from utilities.constants import default_display_mode
 
@@ -57,7 +82,8 @@ DEPTH_TWEAK_VALUE = 100000
     #
     # [bruce 070926]
 
-DEPTH_TWEAK = DEPTH_TWEAK_UNITS * DEPTH_TWEAK_VALUE
+    # Russ 080925: Moved DEPTH_TWEAK in to GLPane_minimal.
+    # DEPTH_TWEAK = DEPTH_TWEAK_UNITS * DEPTH_TWEAK_VALUE
     # changed by setDepthRange_setup_from_debug_pref
 
 DEPTH_TWEAK_CHOICE = \
@@ -87,17 +113,29 @@ class GLPane_minimal(QGLWidget, object): #bruce 070914
     # for that here, since some subclasses define it in each way
     # (and we'd have to know which way to define a default value correctly).
 
-    # default values of instance variables:
+    # class constants
 
-    glselectBufferSize = 10000 # guess, probably overkill, seems to work, no other value was tried
+    SIZE_FOR_glSelectBuffer = 10000 # guess, probably overkill, seems to work, no other value was tried
+    
+    # default values of instance variables:
 
     shareWidget = None
 
     is_animating = False #bruce 080219 fix bug 2632 (unverified)
 
+    initialised = False
+
+    _resize_counter = 0
+
     # default values of subclass-specific constants
 
     permit_draw_bond_letters = True #bruce 071023
+
+    #@ Marked for removal. Mark 2008-08-26
+    #useMultisample = debug_pref("GLPane: full scene anti-aliasing (next session)?", 
+    #                            Choice_boolean_False, prefs_key = True)
+    
+    useMultisample = env.prefs[enableAntiAliasing_prefs_key]
 
     def __init__(self, parent, shareWidget, useStencilBuffer):
         """
@@ -117,8 +155,13 @@ class GLPane_minimal(QGLWidget, object): #bruce 070914
                 glformat.setStencil(True)
                     # set gl format to request stencil buffer
                     # (needed for mouseover-highlighting of objects of general
-                    #  shape in depositMode.bareMotion) [bruce 050610]
+                    #  shape in BuildAtoms_Graphicsmode.bareMotion) [bruce 050610]
 
+            if (self.useMultisample):
+                glformat.setSampleBuffers(True)
+                # use full scene anti-aliasing on hardware that supports 
+                # this feature
+                
             QGLWidget.__init__(self, glformat, parent)
 
         # Current view attributes (sometimes saved in or loaded from
@@ -135,16 +178,234 @@ class GLPane_minimal(QGLWidget, object): #bruce 070914
         
         # zoom factor
         self.zoomFactor = 1.0
+            # Note: I believe (both now, and in a comment dated 060829 which is
+            # now being removed from GLPane.py) that nothing ever sets
+            # self.zoomFactor to anything other than 1.0, though there is code
+            # which could do this in theory. I think zoomFactor was added as
+            # one way to implement zoomToArea, but another way (changing scale)
+            # was chosen, which makes zoomFactor useless. Someday we should
+            # consider removing it, unless we think it might be useful for
+            # something in the future. [bruce 080910 comment]
 
-        self.trackball = Trackball(10,10)
+        # Initial value of depth "constant" (changeable by prefs.)
+        self.DEPTH_TWEAK = DEPTH_TWEAK_UNITS * DEPTH_TWEAK_VALUE
+
+        self.trackball = Trackball(10, 10)
 
         self._functions_to_call_when_gl_context_is_current = []
 
         # piotr 080714: Defined this attribute here in case
         # chunk.py accesses it in ThumbView. 
         self.lastNonReducedDisplayMode = default_display_mode
+        
+        # piotr 080807
+        # Most recent quaternion to be used in animation timer.
+        self.last_quat = None
+        
         return
 
+    # define properties which return model-space vectors
+    # corresponding to various directions relative to the screen
+    # (can be used during drawing or when handling mouse events)
+    #
+    # [bruce 080912 turned these into properties, and optimized;
+    #  before that, this was done by __getattr__ in each subclass]
+
+    def __right(self, _q = V(1, 0, 0)):
+        return self.quat.unrot(_q)
+    right = property(__right)
+
+    def __left(self, _q = V(-1, 0, 0)):
+        return self.quat.unrot(_q)
+    left = property(__left)
+
+    def __up(self, _q = V(0, 1, 0)):
+        return self.quat.unrot(_q)
+    up = property(__up)
+
+    def __down(self, _q = V(0, -1, 0)):
+        return self.quat.unrot(_q)
+    down = property(__down)
+
+    def __out(self, _q = V(0, 0, 1)):
+        return self.quat.unrot(_q)
+    out = property(__out)
+    
+    def __lineOfSight(self, _q = V(0, 0, -1)):
+        return self.quat.unrot(_q)
+    lineOfSight = property(__lineOfSight)
+
+    def get_angle_made_with_screen_right(self, vec):
+        """
+        Returns the angle (in degrees) between screen right direction
+        and the given vector. It returns positive angles (between 0 and
+        180 degrees) if the vector lies in first or second quadrants
+        (i.e. points more up than down on the screen). Otherwise the
+        angle returned is negative.
+        """
+        #Ninad 2008-04-17: This method was added AFTER rattlesnake rc2.
+        #bruce 080912 bugfix: don't give theta the wrong sign when
+        # dot(vec, self.up) < 0 and dot(vec, self.right) == 0.
+        vec = norm(vec)        
+        theta = angleBetween(vec, self.right)
+        if dot(vec, self.up) < 0:
+            theta = - theta
+        return theta
+
+    def __get_vdist(self):
+        """
+        Recompute and return the desired distance between
+        eyeball and center of view.
+        """
+        #bruce 070920 revised; bruce 080912 moved from GLPane into GLPane_minimal
+        # Note: an old comment from elsewhere in GLPane claims:
+            # bruce 041214 comment: some code assumes vdist is always 6.0 * self.scale
+            # (e.g. eyeball computations, see bug 30), thus has bugs for aspect < 1.0.
+            # We should have glpane attrs for aspect, w_scale, h_scale, eyeball,
+            # clipping planes, etc, like we do now for right, up, etc. ###e
+        # I don't know if vdist could ever have a different value,
+        # or if we still have aspect < 1.0 bugs due to some other cause.
+        return 6.0 * self.scale
+
+    vdist = property(__get_vdist)
+
+    def eyeball(self): #bruce 060219 ##e should call this to replace equivalent formulae in other places
+        """
+        Return the location of the eyeball in model coordinates.
+
+        @note: this is not meaningful except when using perspective projection.
+        """
+        ### REVIEW: whether this is correct for tall aspect ratio GLPane.
+        # See also the comment in __get_vdist, above, mentioning bug 30.
+        # There is related code in writepovfile which computes a camera position
+        # which corrects vdist when aspect < 1.0:
+        ##    # Camera info
+        ##    vdist = cdist
+        ##    if aspect < 1.0:
+        ##            vdist = cdist / aspect
+        ##    eyePos = vdist * glpane.scale * glpane.out - glpane.pov
+        # [bruce comment 080912]
+        #bruce 0809122 moved this from GLPane into GLPane_minimal,
+        # and made region selection code call it for the first time.
+        return self.quat.unrot(V(0, 0, self.vdist)) - self.pov
+
+    def __repr__(self):
+        return "<%s at %#x>" % (self.__class__.__name__.split('.')[-1], id(self))
+
+    def initializeGL(self):
+        """
+        Called once by Qt when the OpenGL context is first ready to use.
+        """
+        #bruce 080912 merged this from subclass methods, guessed docstring
+        self._setup_lighting()
+        
+        glShadeModel(GL_SMOOTH)
+        glEnable(GL_DEPTH_TEST)
+        glEnable(GL_CULL_FACE)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        
+        if not self.isSharing():
+            self._setup_display_lists()
+        return
+
+    def resizeGL(self, width, height):
+        """
+        Called by QtGL when the drawing window is resized.
+        """
+        #bruce 080912 moved this from GLPane into GLPane_minimal
+
+        self._resize_counter += 1 #bruce 080922
+        
+        self.width = width
+        self.height = height
+
+        glViewport(0, 0, self.width, self.height)
+            # example of using a smaller viewport:
+            ## glViewport(10, 15, (self.width - 10)/2, (self.height - 15)/3)
+
+        # modify width and height for trackball
+        # (note: this was done in GLPane but not in ThumbView until 080912)
+        if width < 300:
+            width = 300
+        if height < 300:
+            height = 300
+        self.trackball.rescale(width, height)
+        
+        self.initialised = True
+        
+        return
+
+    def __get_aspect(self):
+        #bruce 080912 made this a property, moved to this class
+        return (self.width + 0.0) / (self.height + 0.0)
+    
+    aspect = property(__get_aspect)
+    
+    def _setup_projection(self, glselect = False): ### WARNING: This is not actually private! TODO: rename it.
+        """
+        Set up standard projection matrix contents using various attributes
+        of self (aspect, vdist, scale, zoomFactor).
+        
+        (Warning: leaves matrixmode as GL_PROJECTION.)
+        
+        @param glselect: False (default) normally, or a 4-tuple
+               (format not documented here) to prepare for GL_SELECT picking
+        """
+        #bruce 080912 moved this from GLPane into GLPane_minimal
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+
+        scale = self.scale * self.zoomFactor
+        near, far = self.near, self.far
+
+        aspect = self.aspect
+        vdist = self.vdist
+
+        if glselect:
+            x, y, w, h = glselect
+            gluPickMatrix(
+                x, y,
+                w, h,
+                glGetIntegerv( GL_VIEWPORT ) #k is this arg needed? it might be the default...
+            )
+
+        if self.ortho:
+            glOrtho( - scale * aspect, scale * aspect,
+                     - scale,          scale,
+                     vdist * near, vdist * far )
+        else:
+            glFrustum( - scale * near * aspect, scale * near * aspect,
+                       - scale * near,          scale * near,
+                       vdist * near, vdist * far)
+        return
+
+    def _setup_modelview(self):
+        """
+        set up modelview coordinate system
+        """
+        #bruce 080912 moved this from GLPane into GLPane_minimal
+        # note: it's not yet used in ThumbView, but maybe it could be.
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+        glTranslatef( 0.0, 0.0, - self.vdist)
+            # translate coords for drawing, away from eye (through screen
+            # and beyond it) by vdist; this places origin at desired position
+            # in eyespace for "center of view" (and for center of trackball
+            # rotation)
+        q = self.quat
+        glRotatef( q.angle * 180.0 / math.pi, q.x, q.y, q.z)
+            # rotate those coords by the trackball quat
+        glTranslatef( self.pov[0], self.pov[1], self.pov[2])
+            # and translate them by -cov, to bring cov (center of view)
+            # to origin
+        return
+    
+    def _setup_lighting(self):
+        # note: in subclass GLPane, as of 080911 this is defined in
+        # its mixin superclass GLPane_lighting_methods
+        assert 0, "subclass must override this"
+        
     def _setup_display_lists(self): # bruce 071030
         """
         This needs to be called during __init__ if a new display list context
@@ -155,6 +416,7 @@ class GLPane_minimal(QGLWidget, object): #bruce 070914
         most recently set up display list context will work with the
         associated drawing functions in the same modules.
         """
+        # TODO: warn if called twice (see docstring for why)
         setup_drawer()
         setup_draw_grid_lines()
         return
@@ -169,7 +431,7 @@ class GLPane_minimal(QGLWidget, object): #bruce 070914
         Subclass implementations of paintGL are advised to call this
         at the beginning and return immediately if it's false.
         """
-        return False
+        return True #bruce 080913 False -> True (more useful default)
 
     # ==
 
@@ -243,21 +505,28 @@ class GLPane_minimal(QGLWidget, object): #bruce 070914
     # ==
 
     def setDepthRange_setup_from_debug_pref(self):
-        global DEPTH_TWEAK
-        DEPTH_TWEAK = DEPTH_TWEAK_UNITS * \
+        self.DEPTH_TWEAK = DEPTH_TWEAK_UNITS * \
                     debug_pref("GLPane: depth tweak", DEPTH_TWEAK_CHOICE)
         return
 
     def setDepthRange_Normal(self):
-        glDepthRange(0.0 + DEPTH_TWEAK, 1.0) # args are near, far
+        glDepthRange(0.0 + self.DEPTH_TWEAK, 1.0) # args are near, far
         return
 
     def setDepthRange_Highlighting(self):
-        glDepthRange(0.0, 1.0 - DEPTH_TWEAK)
+        glDepthRange(0.0, 1.0 - self.DEPTH_TWEAK)
         return
 
     # ==
 
+    # REVIEW:
+    # the following "Undo view" methods probably don't work in subclasses other
+    # than GLPane. It might make sense to have them here, but only if they are
+    # refactored a bit, e.g. so that self.animateToView works in other
+    # subclassses even if it doesn't animate. Ultimately it might be better
+    # to refactor them a lot and/or move them out of this class hierarchy
+    # entirely. [bruce 080912 comment]
+    
     def current_view_for_Undo(self, assy): #e shares code with saveNamedView
         """
         Return the current view in this glpane (which we assume is showing
@@ -272,11 +541,11 @@ class GLPane_minimal(QGLWidget, object): #bruce 070914
         # have and draw a .assy attribute, though by passing assy into this method,
         # we remove any obvious bug from that. [bruce 080220 comment]
 
-        oldc = assy.all_change_counters()
+        oldc = assy.all_change_indicators()
 
         namedView = NamedView(assy, "name", self.scale, self.pov, self.zoomFactor, self.quat)
 
-        newc = assy.all_change_counters()
+        newc = assy.all_change_indicators()
         assert oldc == newc
 
         namedView.current_selgroup_index = assy.current_selgroup_index()

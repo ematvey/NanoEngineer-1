@@ -3,7 +3,7 @@
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: MakeCrossovers_Command.py 13076 2008-06-04 06:40:07Z ninadsathaye $
+@version:$Id: MakeCrossovers_Command.py 14380 2008-09-30 17:30:40Z ninadsathaye $
 
 History:
 2008-05-21 - 2008-06-01 Created and further refactored and modified
@@ -39,66 +39,42 @@ class MakeCrossovers_Command(SelectChunks_Command,
     """
     
     """
-    # class constants
     
-    commandName = 'MAKE_CROSSOVERS'
-    default_mode_status_text = ""
-    featurename = 'Make Crossovers'
-         
-    hover_highlighting_enabled = True
     GraphicsMode_class = MakeCrossovers_Graphicsmode
-   
     
-    command_can_be_suspended = False
+    PM_class = MakeCrossovers_PropertyManager
+    
+    # class constants    
+    commandName = 'MAKE_CROSSOVERS'
+    featurename = "Make Crossovers"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_DNA'
+    
     command_should_resume_prevMode = True 
-    command_has_its_own_gui = True
+    command_has_its_own_PM = True
     
-    flyoutToolbar = None
+    flyoutToolbar = None    
     
-                
-    def Enter(self):
-        ListWidgetItems_Command_Mixin.Enter(self)    
-        _superclass.Enter(self)  
     
-    def init_gui(self):
+    def _getFlyoutToolBarActionAndParentCommand(self):
         """
-        Initialize GUI for this mode 
+        Overides superclass method. 
+        @see: self.command_update_flyout()
         """
-        previousCommand = self.commandSequencer.prevMode 
-        if previousCommand.commandName == 'BUILD_DNA':
-            try:
-                self.flyoutToolbar = previousCommand.flyoutToolbar
-                #Need a better way to deal with changing state of the 
-                #corresponding action in the flyout toolbar. To be revised 
-                #during command toolbar cleanup 
-                self.flyoutToolbar.makeCrossoversAction.setChecked(True)
-            except AttributeError:
-                self.flyoutToolbar = None
-        
-        if self.propMgr is None:
-            self.propMgr = MakeCrossovers_PropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494.
-            #This bug is mitigated as propMgr object no longer gets recreated
-            #for modes -- niand 2007-08-29
-            changes.keep_forever(self.propMgr)  
-            
-        #Now set the initial segment list. The segments within this segment list
+        flyoutActionToCheck = 'makeCrossoversAction'
+        parentCommandName = None     
+        return flyoutActionToCheck, parentCommandName
+
+    def command_entered(self):
+        #Set the initial segment list. The segments within this segment list
         #will be searched for the crossovers. 
+        ListWidgetItems_Command_Mixin.command_entered(self) 
+        
+        _superclass.command_entered(self)
+        
         selectedSegments = self.win.assy.getSelectedDnaSegments()        
-        self.ensureSegmentListItemsWithinLimit(selectedSegments)
-                
-        self.propMgr.show()    
-        
-    
-                   
-        
-    def restore_gui(self):
-        """
-        Restore the GUI 
-        """                   
-        if self.propMgr is not None:
-            self.propMgr.close()
-            
+        self.ensureSegmentListItemsWithinLimit(selectedSegments)                     
             
     def logMessage(self, type = 'DEFAULT'): 
         """
@@ -139,7 +115,6 @@ class MakeCrossovers_Command(SelectChunks_Command,
         performance reasons)
         """
         return MAXIMUM_ALLOWED_DNA_SEGMENTS_FOR_CROSSOVER
-    
     
     def ensureSegmentListItemsWithinLimit(self, segments):
         """
@@ -254,7 +229,7 @@ class MakeCrossovers_Command(SelectChunks_Command,
         @Note: This method is copied from DnaDuplex.py
         
         """
-        #Moved from B_Dna_PAM3_SingleStrand to here, to fix bugs like 
+        #Moved from B_Dna_PAM3_SingleStrand_Generator to here, to fix bugs like 
         #2711 in segment resizing-- Ninad 2008-04-14
         assert atm1.element.role == 'strand' and atm2.element.role == 'strand'
         #Initialize all possible bond points to None

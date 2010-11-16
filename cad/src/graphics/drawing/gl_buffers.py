@@ -2,7 +2,7 @@
 """
 gl_buffers.py - OpenGL data buffer objects.
 
-@version: $Id: gl_buffers.py 13207 2008-06-19 18:07:40Z russfish $
+@version: $Id: gl_buffers.py 14412 2008-10-03 17:30:12Z russfish $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -37,6 +37,8 @@ ColorSorter.py CS_workers.py CS_ShapeList.py CS_draw_primitives.py drawers.py
 gl_lighting.py gl_buffers.py
 """
 
+import graphics.drawing.drawing_globals as drawing_globals
+
 # Vertex Buffer Object (VBO) and Index Buffer Object (IBO) support.
 # For docs see http://www.opengl.org/sdk/docs/man/xhtml/glBufferData.xml .
 
@@ -49,14 +51,21 @@ gl_lighting.py gl_buffers.py
 #
 from OpenGL.GL.ARB.vertex_buffer_object import glGenBuffersARB
 from OpenGL.GL.ARB.vertex_buffer_object import glDeleteBuffersARB
-# Patched versions.
-from graphics.drawing.vbo_patch import glBufferDataARB, glBufferSubDataARB
+if 0:
+    from OpenGL.GL.ARB.vertex_buffer_object import glBufferDataARB
+    from OpenGL.GL.ARB.vertex_buffer_object import glBufferSubDataARB
+else:
+    # Patched versions.
+    from graphics.drawing.vbo_patch import glBufferDataARB, glBufferSubDataARB
 # Unwrappered.
 from OpenGL.raw.GL.ARB.vertex_buffer_object import glBindBufferARB
+# Use with  a size in bytes and a data of None to allocate a block of space.
+from OpenGL.raw.GL.ARB.vertex_buffer_object import glBufferDataARB as glAllocBufferData
 
 class GLBufferObject(object):
     """
-    Buffer data in the graphics card's RAM space.
+    Buffer data in the graphics card's RAM space.  This is a thin wrapper that
+    helps use the OpenGL functions.
 
     Useful man pages for glBind, glBufferData, etc. for OpenGL 2.1 are at:
     http://www.opengl.org/sdk/docs/man
@@ -66,20 +75,63 @@ class GLBufferObject(object):
     'target' is GL_ARRAY_BUFFER_ARB for vertex/normal buffers (VBO's), and
     GL_ELEMENT_ARRAY_BUFFER_ARB for index buffers (IBO's.)
 
-    'data' is a numpy.array, with dtype=numpy.<datatype> .
+    'data' is a numpy.array, with dtype=numpy.<datatype>, or a single number
+    giving the size *in bytes*, to allocate the space but not yet fill it in .
 
     'usage' is one of the hint constants, like GL_STATIC_DRAW.
     """
 
     def __init__(self, target, data, usage):
         self.buffer = glGenBuffersARB(1) # Returns a numpy.ndarray for > 1.
-        self.target = target
+        self.target = target             # OpenGL array binding target.
+        self.usage = usage               # OpenGL Buffer Object usage hint.
 
         self.bind()
-        self.size = len(data)
+        if type(data) == type(1):
+            self.size = data
+            # Allocate with glBufferDataARB but don't fill it in yet.
+            glAllocBufferData(target, self.size, None, usage)
+        else:
+            self.size = len(data)
+            # Allocate, and push the data over to Graphics card RAM too.
+            glBufferDataARB(target, data, usage)
 
-        # Push the data over to Graphics card RAM.
-        glBufferDataARB(target, data, usage)
+        self.unbind()
+
+        # Support for lazily updating drawing caches, namely a
+        # timestamp showing when this GLBufferObject was last flushed.
+        self.flushed = drawing_globals.NO_EVENT_YET
+
+        return
+
+    def updateAll(self, data):
+        """
+        Update the contents of a buffer with glBufferData.
+        """
+        self.bind()
+
+        # Strangely, this does not show the problem that glBufferSubDataARB does.
+        glBufferDataARB(self.target, data, self.usage)
+
+        self.unbind()
+        return
+
+    def update(self, offset, data):
+        """
+        Update the contents of a buffer with glBufferSubData.
+        The offset into the buffer is *in bytes*!
+        """
+        self.bind()
+
+        ## Warning!  This call on glBufferSubDataARB sometimes hangs MacOS in
+        ## the "Spinning Ball of Death" and can't be killed, when the data array
+        ## is getting big (larger than 320,000 bytes for 100x100 sphere radii,
+        ## 10,000 spheres * 4 bytes per radius * 8 vertices per box.)
+
+        # XXX Should break up the transfer into batches here, similar to what is
+        #     done with large batches of texture memory matrices.
+        # XXX Need to determine the array element size.  Assume 4 for now.
+        glBufferSubDataARB(self.target, offset, data)
 
         self.unbind()
         return

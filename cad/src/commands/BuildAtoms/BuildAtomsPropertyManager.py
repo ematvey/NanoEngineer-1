@@ -6,7 +6,7 @@ The BuildAtomsPropertyManager class provides the Property Manager for the
 B{Build Atoms mode}.  The UI is defined in L{Ui_BuildAtomsPropertyManager}
     
 @author: Bruce, Huaicai, Mark, Ninad
-@version: $Id: BuildAtomsPropertyManager.py 13150 2008-06-08 17:21:30Z marksims $
+@version: $Id: BuildAtomsPropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -16,7 +16,7 @@ this functionality was integrated into a Property Manager. Since then
 several changes have been made. 
 ninad 2007-08-29: Created to use PM module classes, thus deprecating old 
                   Property Manager class MMKit. Split out old 'clipboard' 
-                  functionality into new L{PasteMode} 
+                  functionality into new L{PasteFromClipboard_Command} 
 """
 
 
@@ -24,30 +24,40 @@ import foundation.env as env
 
 from PyQt4.Qt import SIGNAL
 from commands.BuildAtoms.Ui_BuildAtomsPropertyManager import Ui_BuildAtomsPropertyManager
-from model.bond_constants import btype_from_v6
 from geometry.VQT import V
 from utilities.Comparison import same_vals
+from utilities.prefs_constants import buildModeHighlightingEnabled_prefs_key
+from utilities.prefs_constants import buildModeWaterEnabled_prefs_key
+from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
 
 
-NOBLEGASES = ["He", "Ne", "Ar", "Kr"]
-PAMATOMS = ["Gv5", "Ax3"]
-ALL_PAM_ATOMS = ["Gv5", "Ss5", "Pl5", "Ax3", "Ss3", "Ub3", "Ux3", "Uy3"]
+from utilities import debug_flags
+from utilities.debug import print_compact_stack
 
+
+NOBLEGASES = ("He", "Ne", "Ar", "Kr")
+PAMATOMS = ("Gv5", "Ax3")
+ALL_PAM_ATOMS = ("Gv5", "Ss5", "Pl5", "Ax3", "Ss3", "Ub3", "Ux3", "Uy3")
+
+_superclass = Ui_BuildAtomsPropertyManager
 class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
     """
     The BuildAtomsPropertyManager class provides the Property Manager for the
     B{Build Atoms mode}.  The UI is defined in L{Ui_BuildAtomsPropertyManager}
     """
     
-    def __init__(self, parentMode):
+    def __init__(self, command):
         """
         Constructor for the B{Build Atoms} property manager.
         
-        @param parentMode: The parent mode where this Property Manager is used
-        @type  parentMode: L{depositMode} 
+        @param command: The parent mode where this Property Manager is used
+        @type  command: L{BuildAtoms_Command} 
         """
         self.previousSelectionParams = None
-        Ui_BuildAtomsPropertyManager.__init__(self, parentMode)
+        self.isAlreadyConnected = False
+        self.isAlreadyDisconnected = False
+        
+        _superclass.__init__(self, command)
         
         # It is essential to make the following flag 'True' instead of False. 
         # Program enters self._moveSelectedAtom method first after init, and 
@@ -57,22 +67,34 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
         # implementing connectWithState. 
         self.model_changed_from_glpane = True
         
-    def ok_btn_clicked(self):
-        """
-        Calls MainWindow.toolsDone to exit the current mode. 
-        @attention: this method needs to be renamed. (this should be done in 
-        PM_Dialog)
-        """
-        self.w.toolsDone()
-    
+    def show(self):
+        _superclass.show(self)                  
+        self.updateMessage()
+        
+        
     def connect_or_disconnect_signals(self, isConnect): 
         """
         Connect or disconnect widget signals sent to their slot methods.
         @param isConnect: If True the widget will send the signals to the slot 
                           method. 
         @type  isConnect: boolean
-        @see: L{depositMode.connect_or_disconnect_signals} where this is called
+        @see: L{BuildAtoms_Command.connect_or_disconnect_signals} where this is called
         """
+                
+        if isConnect and self.isAlreadyConnected:
+            if debug_flags.atom_debug:
+                print_compact_stack("warning: attempt to connect widgets"\
+                                    "in this PM that are already connected." )
+            return 
+        
+        if not isConnect and self.isAlreadyDisconnected:
+            if debug_flags.atom_debug:
+                print_compact_stack("warning: attempt to disconnect widgets"\
+                                    "in this PM that are already disconnected.")
+            return
+        
+        self.isAlreadyConnected = isConnect
+        self.isAlreadyDisconnected = not isConnect
         
         if isConnect:
             change_connect = self.w.connect
@@ -103,22 +125,26 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
         change_connect(self.zCoordOfSelectedAtom,
                      SIGNAL("valueChanged(double)"), 
                      self._moveSelectedAtom)
-            
-    
-    def model_changed(self):
+        
+        connect_checkbox_with_boolean_pref(self.waterCheckBox,
+                                               buildModeWaterEnabled_prefs_key)                   
+        
+        connect_checkbox_with_boolean_pref(self.highlightingCheckBox, 
+                                           buildModeHighlightingEnabled_prefs_key)
+        
+        
+    #New command API method -- implemented on 2008-08-27
+    def _update_UI_do_updates(self):
         """
-        Overrides basicMode.model_changed. 
-        @WARNING: Ideally this property manager should implement both
-               model_changed and selection_changed methods in the mode API. 
-               model_changed method will be used here when the selected atom is 
-               dragged, transmuted etc. The selection_changed method will be 
-               used when the selection (picking/ unpicking) changes. 
-               At present, selection_changed and model_changed methods are 
-               called too frequently that it doesn't matter which one you use. 
-               Its better to use only a single method for preformance reasons 
-               (at the moment). This should change when the original 
-               methods in the API are revised to be called at appropiraite 
-               time. 
+        Overrides superclass method
+
+        @warning: This is called frequently, even when nothing has changed.
+                  It's used to respond to other kinds of changes as well
+                  (e.g. to the selection). So it needs to be fast
+                  when nothing has changed.
+                  (It will be renamed accordingly in the API.)
+                  
+        @see: Command_PropertyManager._updateUI_do_updates()
         """  
         newSelectionParams = self._currentSelectionParams()
         
@@ -136,17 +162,19 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
         """
         Returns a tuple containing current selection parameters. These 
         parameters are then used to decide whether updating widgets
-        in this property manager is needed when L{self.model_changed} or 
-        L{self.selection_changed} methods are called. In this case, the 
+        in this property manager is needed when L{self.model_changed}
+        method is called. In this case, the 
         Seletion Options groupbox is updated when atom selection changes 
-        or when the selected atom is moved. 
+        or when the selected atom is moved.
+        
         @return: A tuple that contains following selection parameters
                    - Total number of selected atoms (int)
                    - Selected Atom if a single atom is selected, else None
                    - Position vector of the single selected atom or None
         @rtype:  tuple
-        @NOTE: The method name may be renamed in future. 
-        Its possible that there are other groupboxes in the PM that need to be 
+        
+        @NOTE: The method may be renamed in future. 
+        It's possible that there are other groupboxes in the PM that need to be 
         updated when something changes in the glpane.        
         """
         
@@ -200,7 +228,7 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
         
         self.filterlistLE.setEnabled(enabled)   
         self.update_selection_filter_list()     
-        self.parentMode.graphicsMode.update_cursor()
+        self.command.graphicsMode.update_cursor()
         
     def update_selection_filter_list(self):
         """
@@ -291,17 +319,12 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
                     msg ="Note: this pseudoatom can only be deposited onto a strand sugar"\
                         " and will disappear if deposited in free space"
         else: # Bonds Tool is selected
-            if self.parentMode.cutBondsAction.isChecked():
-                msg = "<b> Cut Bonds </b> tool is active. \
-                Click on bonds in order to delete them."
+            if self.command.isDeleteBondsToolActive():
+                msg = "<b> Cut Bonds </b> tool is active. " \
+                    "Click on bonds in order to delete them."
                 self.MessageGroupBox.insertHtmlMessage(msg)
-                return          
-            if not hasattr(self.parentMode, 'bondclick_v6'): 
-                return
-            if self.parentMode.bondclick_v6:
-                name = btype_from_v6(self.parentMode.bondclick_v6)
-                msg = "Click bonds or bondpoints to make them %s bonds." % name 
-            
+                return   
+                        
         # Post message.
         self.MessageGroupBox.insertHtmlMessage(msg)    
     
@@ -369,11 +392,12 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
         # But that method gets called only when during atom left down. 
         #Its not useful here as user may select that atom using selection lasso
         #or using other means (ctrl + A if only one atom is present) . Also, 
-        #the lists parentMode.baggage and parentMode.nonbaggage seem to get 
+        #the lists command.baggage and command.nonbaggage seem to get 
         #cleared during left up. So that method is not useful. 
-        #There needs to be a method in parentmode (selectMode or depositMode) 
+        #There needs to be a method in parentmode (Select_Command or
+        #BuildAtoms_Command) 
         #to do the following (next code cleanup?) -- ninad 2007-09-27
-        self.parentMode.baggage, self.parentMode.nonbaggage = \
+        self.command.baggage, self.command.nonbaggage = \
             selectedAtom.baggage_and_other_neighbors()          
         
         xPos= self.xCoordOfSelectedAtom.value()
@@ -385,8 +409,9 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
         #Don't do selectedAtom.setposn()  because it needs to handle 
         #cases where atom has bond points and/or monovalent atoms . It also 
         #needs to modify the neighboring atom baggage. This is already done in
-        #the following method in parentMode so use that. 
-        self.parentMode.drag_selected_atom(selectedAtom, delta)
+        #the following method in command so use that. 
+        self.command.drag_selected_atom(selectedAtom, delta, 
+                                        computeBaggage = True)
         
         self.o.gl_update()
         
@@ -398,13 +423,12 @@ class BuildAtomsPropertyManager(Ui_BuildAtomsPropertyManager):
         @type  atomCoords: Vector
         """
         self.model_changed_from_glpane = True
-
-        # Disable signals out of these spinboxes, to fix bug 2564 [bruce 071015]
-        ## self.xCoordOfSelectedAtom.setValue_with_signals_blocked(atomCoords[0]) # maybe someday we can just say this?
-        setValue_with_signals_blocked( self.xCoordOfSelectedAtom, atomCoords[0])
-        setValue_with_signals_blocked( self.yCoordOfSelectedAtom, atomCoords[1])
-        setValue_with_signals_blocked( self.zCoordOfSelectedAtom, atomCoords[2])
         
+        #block signals while making setting values in these spinboxes
+        self.xCoordOfSelectedAtom.setValue(atomCoords[0],  blockSignals = True)
+        self.yCoordOfSelectedAtom.setValue(atomCoords[1],  blockSignals = True)
+        self.zCoordOfSelectedAtom.setValue(atomCoords[2],  blockSignals = True)
+
         self.model_changed_from_glpane = False
         return
     

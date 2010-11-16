@@ -2,7 +2,7 @@
 test_animation_mode.py -- scratch code for animation loop, connectWithState, exprs drawing.
 
 @author: Bruce
-@version: $Id: test_animation_mode.py 12879 2008-05-21 16:22:55Z russfish $
+@version: $Id: test_animation_mode.py 14375 2008-09-30 04:14:50Z brucesmith $
 
 To run this code:
 
@@ -87,7 +87,6 @@ from PyQt4.Qt import Qt, QCursor
 
 shiftButton = Qt.ShiftModifier
 controlButton = Qt.ControlModifier
-cntlButton = controlButton
 
 # from experiment, 070813, intel macbook pro
 _key_control = 16777250
@@ -148,8 +147,14 @@ class test_animation_mode_PM(ExampleCommand1_PM):
     [does not use GBC; at least Done & Cancel should work]
     """
     title = "test_animation_mode PM"
+    
+    def __init__(self, command): #bruce 080909/080910, remove win arg
+        ExampleCommand1_PM.__init__(self, command)
+    
     def _addGroupBoxes(self):
-        """Add the groupboxes for this Property Manager."""
+        """
+        Add the groupboxes for this Property Manager.
+        """
         self.pmGroupBox1 = \
             PM_GroupBox( self, 
                          title           =  "test_animation_mode globals",
@@ -212,7 +217,7 @@ class test_animation_mode_PM(ExampleCommand1_PM):
                               decimals      =  self._sCoordinateDecimals,
                               suffix        =  ' ' + self._sCoordinateUnits )
         self.cannonWidthSpinbox.connectWithState(
-            ObjAttr_StateRef( self.commandrun, 'cannonWidth') # first real test of ObjAttr_StateRef.
+            ObjAttr_StateRef( self.command, 'cannonWidth') # first real test of ObjAttr_StateRef.
                 # test results: pm change -> tracked state change (mode attr), with redraw being triggered: works.
                 # other direction (mode change to cannonWidth, in cmd_Start -> pm change) -- fails! ###BUG
                 # note: the prefs state also was not tested in that direction! now it is, in fire command, and it works,
@@ -248,9 +253,9 @@ class test_animation_mode_PM(ExampleCommand1_PM):
 
         #e also let in_loop be shown, or control whether they're disabled... note it can be changed by external effects
         # so we need to track it and control their disabled state, using a formula that gets checked sufficiently often...
-        # connect the expr or formula for self.commandrun._in_loop to the update function...
+        # connect the expr or formula for self.command._in_loop to the update function...
 
-        ## whenever_state_changes( ObjAttr_StateRef( self.commandrun, '_in_loop'), self.update_GroupBox2 ) ###IMPLEM 2 things
+        ## whenever_state_changes( ObjAttr_StateRef( self.command, '_in_loop'), self.update_GroupBox2 ) ###IMPLEM 2 things
 
         ## or just do this?? call_often(update_GroupBox2) -- a few times per sec, and explicit calls on the buttons... seems worse...
 
@@ -260,7 +265,7 @@ class test_animation_mode_PM(ExampleCommand1_PM):
         return
 
     def update_GroupBox2(self, junk = None):
-        in_loop = self.commandrun._in_loop ### or should this be passed in?? probably a better habit is if it's not...
+        in_loop = self.command._in_loop ### or should this be passed in?? probably a better habit is if it's not...
             # note we can't track it from running this, since that attr is not directly usage tracked.
             # maybe we should change it so it is? then just call this once and say "call whenever what it used changes"...
             ##### TODO / REVIEW
@@ -280,12 +285,12 @@ class test_animation_mode_PM(ExampleCommand1_PM):
             self.update_GroupBox2()
         
     def cmd_Start(self):
-        self.commandrun.cmd_Start()
+        self.command.cmd_Start()
         if KLUGE_MANUAL_UPDATE:
             self.update_GroupBox2()
 
     def cmd_Stop(self):
-        self.commandrun.cmd_Stop()
+        self.command.cmd_Stop()
         if KLUGE_MANUAL_UPDATE:
             self.update_GroupBox2()
             ###BUG: KLUGE_MANUAL_UPDATE doesn't cover stops inside test_animation_mode object itself! restart impossible then.
@@ -297,6 +302,7 @@ class test_animation_mode_PM(ExampleCommand1_PM):
         """
         self.cannonHeightSpinbox.setWhatsThis("cannon height")
         return
+    
     pass # test_animation_mode_PM
 
 
@@ -390,7 +396,6 @@ class _S_ImmutableData_Mixin(_S_Data_Mixin):
 def do_what_MainWindowUI_should_do(win):
     pass
 
-##_superclass = selectAtomsMode # this works too [050528]
 ##_superclass = basicMode
 _superclass = Command
 # see also _superclass_GM
@@ -885,7 +890,7 @@ class guy(shelvable_graphic):
         but = -1
         
         self.shift = but & shiftButton # not set correctly at the moment; used to control whether to makeonehere
-        self.control = but & cntlButton # not yet used
+        self.control = but & controlButton # not yet used
         try:
             chrkey = chr(key)
         except:
@@ -968,7 +973,7 @@ annoyers = [##'editToolbar', 'fileToolbar', 'helpToolbar', 'modifyToolbar',
 
 
 # code copied from test_commands.py:
-# these imports are not needed in a minimal example like ExampleCommand2;
+# these imports are not needed in a minimal example like ExampleCommand1;
 # to make that clear, we put them down here instead of at the top of the file
 from graphics.drawing.CS_draw_primitives import drawline
 from utilities.constants import red, green
@@ -1186,7 +1191,7 @@ class test_animation_mode_GM( _superclass_GM ):
 
 from exprs.ExprsMeta import ExprsMeta
 from exprs.StatePlace import StatePlace
-from exprs.instance_helpers import IorE_guest_mixin
+from exprs.IorE_guest_mixin import IorE_guest_mixin # REVIEW: can we use State_preMixin here?
 
 class test_animation_mode(_superclass, IorE_guest_mixin): # list of supers might need object if it doesn't have IorE_guest_mixin; see also __init__
     __metaclass__ = ExprsMeta # this seems to cause no harm.
@@ -1213,9 +1218,10 @@ class test_animation_mode(_superclass, IorE_guest_mixin): # list of supers might
 
     # class constants needed by mode API
     backgroundColor = 103/256.0, 124/256.0, 53/256.0
-    commandName = 'TEST_ANIMATION'
-    default_mode_status_text = "Mode: test animation"
+    commandName = 'test_animation_mode' # must be same as module basename, for 'custom mode' to work
     featurename = "Prototype: Example Animation Mode"
+    from utilities.constants import CL_ENVIRONMENT_PROVIDING
+    command_level = CL_ENVIRONMENT_PROVIDING
 
     # other class constants
     PM_class = test_animation_mode_PM
@@ -1240,13 +1246,14 @@ class test_animation_mode(_superclass, IorE_guest_mixin): # list of supers might
     _loop_start_time = 0
     simtime = 0.0 # this is a constant between loops, and grows with real time during loops. only changed in cmd_Start. never reset.
 
-    def __init__(self, glpane):
+    def __init__(self, commandSequencer):
         """
         create an expr instance, to draw in addition to the model
         """
         # code copied from test_commands.py
-        super(test_animation_mode, self).__init__(glpane) # that only calls some mode's init method, not IorE.__init__,
+        super(test_animation_mode, self).__init__(commandSequencer) # that only calls some mode's init method, not IorE.__init__,
             # so (for now) call that separately
+        glpane = commandSequencer.assy.glpane
         IorE_guest_mixin.__init__(self, glpane)
         if 0:
             # expr from test_commands - works except for resizer highlighting
@@ -1271,24 +1278,34 @@ class test_animation_mode(_superclass, IorE_guest_mixin): # list of supers might
         ## in Draw: add         self._expr_instance.draw()
 
         if TESTING_KLUGES:
-            self.clear() ###### FOR TESTING
-            print "clear in init, testing kluge"####
+            self._clear_command_state() ###### FOR TESTING
+            print "_clear_command_state in init, testing kluge"####
 
         return
 
-    def clear(self):
+    def _clear_command_state(self):
         """
-        (part of mode API)
+        [private, not part of command API]
         """
         self.cmd_Stop()
         if TESTING_KLUGES:
             print "KLUGE FOR TESTING: set cannonWidth in cmd_Stop"
-            self.cannonWidth = 2.0########### DOES IT FIX THE BUG? THEN ZAP.
-        ## this line seems to mess up the reload of test_animation_mode when i reenter it when in itself:
-        ## super(test_animation_mode, self).clear()
+            self.cannonWidth = 2.0 ########### DOES IT FIX THE BUG? THEN ZAP.
+        return
+
+    # ==
+
+    def command_will_exit(self):
+        self._clear_command_state()
+        _superclass.command_will_exit(self)
         return
     
-    def Enter(self):
+    def command_enter_PM(self):
+        if not self.propMgr:
+            self.propMgr = self.PM_class(self) # [080910 change]
+        return
+    
+    def _command_enter_effects(self):
         print
         print "entering test_animation_mode again", time.asctime()
 ##        self.assy = self.w.assy # [AttributeError: can't set attribute -- property?]
@@ -1318,10 +1335,14 @@ class test_animation_mode(_superclass, IorE_guest_mixin): # list of supers might
         ##self.glbufstates = [0, 0] # 0 = unknown, number = last drawn model state number
         self.modelstate = 1
         # set perspective view -- no need, just do it in user prefs
-        return _superclass.Enter(self)
-    
-    def init_gui(self): #050528
-        ## self.w.modifyToolbar.hide()
+        return
+
+    def command_entered(self):
+        _superclass.command_entered(self)
+        self._command_enter_effects()
+        return
+        
+    def command_enter_misc_actions(self): #bruce 080909 guess
         self.hidethese = hidethese = []
         for tbname in annoyers:
             try:
@@ -1331,18 +1352,13 @@ class test_animation_mode(_superclass, IorE_guest_mixin): # list of supers might
                     hidethese.append(tb) # only if hiding it was needed and claims it worked
             except:
                 print_compact_traceback("hmm %s: " % tbname) # someone might rename one of them
-
-        win = self.win
-        self.propMgr = self.PM_class(win, commandrun = self)
-        self.propMgr.show()
-
-    def restore_gui(self): #050528
-        ## self.w.modifyToolbar.show()
+        return
+    
+    def command_exit_misc_actions(self): #bruce 080909 guess
         for tb in self.hidethese:
             tb.show()
-
-        self.propMgr.hide()
-
+        return
+    
 # not used now, but keep (was used to append DebugNodes):
 ##    def placenode(self, node):
 ##        "place newly made node somewhere in the MT"
@@ -1407,7 +1423,7 @@ class test_animation_mode(_superclass, IorE_guest_mixin): # list of supers might
                 # times the redraw (and the other event processing) in glpane._repaint_start_time, glpane._repaint_end_time,
                 # and sets glpane._repaint_duration =  max(MIN_REPAINT_TIME, duration), where MIN_REPAINT_TIME = 0.01.
                 #
-                # If any of those events exit this mode, that will happen right away, but our clear method
+                # If any of those events exit this mode, that will happen right away, but our _clear_command_state method
                 # will run cmd_Stop so that this loop will exit ASAP. To make this exit faster,
                 # we also test _please_exit_loop just below. (REVIEW: do we need to set such a flag to be tested
                 # inside gl_update_duration itself??)

@@ -3,7 +3,7 @@
 displaymodes.py -- support for new modular display modes.
 
 @author: Bruce
-@version: $Id: displaymodes.py 12892 2008-05-21 21:10:05Z protkiewicz $
+@version: $Id: displaymodes.py 14399 2008-10-02 16:52:24Z brucesmith $
 @copyright: 2006-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Initially this only handles ChunkDisplayModes, which draw entire chunks (even if they are
@@ -18,23 +18,24 @@ To make a new chunk display mode, make a new file which defines and registers a 
 of our class ChunkDisplayMode. For an example, see CylinderChunks.py.
 """
 
-# to make a new display mode for whole chunks, see the instructions in the module docstring above.
+# USAGE: to make a new display style for whole chunks,
+# see the instructions in the module docstring above.
 
 from utilities.constants import _f_add_display_style_code
 
 from utilities.debug import register_debug_menu_command
 import foundation.env as env
 
-_display_mode_handlers = {} # maps disp_name, and also its index in constants.dispNames, to a DisplayMode instance used for drawing
+# global variables and accessors
 
-## remap_atom_dispdefs = {}
-    # some dispdef values should be replaced with others in Atom.setDisplay,
-    # since they are not legal for atoms. [bruce 060607]
-    # (moved from chem to displaymodes to break import cycle, bruce 071102)
-    # (then moved to constants.py to permit some refactoring, bruce 080324)
+_display_mode_handlers = {}
+    # maps disp_name, and also its index in constants.dispNames,
+    # to a DisplayMode instance used for drawing
 
 def get_display_mode_handler(disp):
     return _display_mode_handlers.get(disp)
+
+# ==
 
 class DisplayMode:
     """
@@ -80,18 +81,6 @@ class DisplayMode:
         #bruce 080324 refactored this:
         allowed_for_atoms = not clas.chunk_only
         ind = _f_add_display_style_code( disp_name, disp_label, allowed_for_atoms )
-
-# old form of above _f_add_display_style_code call, can be removed soon:
-##        if disp_name in constants.dispNames:
-##            # this is only legal if the classname is the same; in that case, replace things (useful for reload during debugging)
-##            assert 0, "reload during debug for display modes is not yet implemented; or, non-unique mmp_code %r" % (disp_name,)
-##        assert len(constants.dispNames) == len(constants.dispLabel)
-##        constants.dispNames.append(disp_name)
-##        constants.dispLabel.append(disp_label)
-##        ind = constants.dispNames.index(disp_name) # internal value used by setDisplay
-##        if clas.chunk_only:
-##            remap_atom_dispdefs[ind] = constants.diDEFAULT # kluge?
-
         inst = clas(ind)
         _display_mode_handlers[disp_name] = inst
         _display_mode_handlers[ind] = inst #k are both of these needed??
@@ -144,25 +133,37 @@ class ChunkDisplayMode(DisplayMode):
         # (As a quick hack, just add a debug menu command (always visible) which acts like pressing a toolbutton for this mode.)
         disp_name = clas.mmp_code
         inst = _display_mode_handlers[disp_name]
-        register_debug_menu_command("setDisplay(%s)" % clas.disp_label, inst.setDisplay_command)
+        register_debug_menu_command("setDisplayStyle_of_selection(%s)" % clas.disp_label, inst.setDisplay_command)
         ##e should we do something so users can use it as a prefs value for preferred display mode, too?
         return
     register_display_mode_class = staticmethod( register_display_mode_class)
 
     def setDisplay_command(self, widget):
         win = env.mainwindow()
-        win.setDisplay(self.ind)
+        win.setDisplayStyle_of_selection(self.ind)
+            #bruce 080910 comment, upon renaming that method from setDisplay:
+            # the new name says what it does, but when originally coded
+            # this would set global style if nothing was selected
+            # (since that method used to act that way).
         if env.debug():
-            print "setDisplay to %r.ind == %r" % (self, self.ind)
+            print "setDisplayStyle_of_selection to %r.ind == %r" % (self, self.ind)
         return
 
-    def _drawchunk(self, glpane, chunk, highlighted = False):
+    def _f_drawchunk(self, glpane, chunk, highlighted = False):
         """
         [private method for use only by Chunk.draw]
-        Call the subclass's drawchunk method, with the same arguments (but supplying memo ourselves),
-        in the proper way (whatever is useful for Chunk.draw). For now, the chunk has already done its pushMatrix
-        and gotten us inside its OpenGL display list compiling/executing call, but it hasn't done a pushName.
-        [###e possible future revisions: it might do pushName, or it might not put us in the display list unless we say that's ok.]
+        Call the subclass's drawchunk method, with the supplied arguments
+        (but supplying memo ourselves), in the proper way (whatever is useful
+        for Chunk.draw).
+
+        In the calling code as it was when this method was written,
+        the chunk has already done its pushMatrix and gotten us inside its
+        OpenGL display list compiling/executing call, but it hasn't done a
+        pushName. [later: chunks now do a pushName, probably (guess) before
+        this call.]
+
+        @note: possible future revisions: it might do pushName, or it might not
+               put us in the display list unless we say that's ok.
         """
         memo = self.getmemo(chunk)
         #e exceptions?
@@ -170,10 +171,15 @@ class ChunkDisplayMode(DisplayMode):
         self.drawchunk( glpane, chunk, memo, highlighted = highlighted)
         return
 
-    def _drawchunk_selection_frame(self, glpane, chunk, selection_frame_color, highlighted = False):
+    def _f_drawchunk_selection_frame(self, glpane, chunk, selection_frame_color, highlighted = False):
         """
-        Call the subclass's drawchunk with the same arguments (but supplying memo ourselves), in the proper way
+        Call the subclass's drawchunk_selection_frame method,
+        with the supplied arguments (but supplying memo ourselves),
+        in the proper way.
         """
+        # note: as of long before now, this is never called. But it should
+        # remain in the API in case we want to revive its use.
+        # [bruce 081001 comment]
         memo = self.getmemo(chunk)
         #e exceptions
         #e pushname
@@ -181,13 +187,13 @@ class ChunkDisplayMode(DisplayMode):
         self.drawchunk_selection_frame( glpane, chunk, selection_frame_color, memo, highlighted = highlighted)
         return
 
-    def _drawchunk_realtime(self, glpane, chunk, highlighted=False):
+    def _f_drawchunk_realtime(self, glpane, chunk, highlighted = False):
         """
         Call the drawing method that may depend on current view settings,
-        e.g. orientation. 
-        piotr 080313
+        e.g. orientation.
         """
-        # added the highlighted=False argument - piotr 080521
+        # piotr 080313
+        # added the highlighted = False argument - piotr 080521
         # assume we don't need memo here       
         ### memo = self.getmemo(chunk) 
         self.drawchunk_realtime(glpane, chunk, highlighted)
@@ -205,17 +211,22 @@ class ChunkDisplayMode(DisplayMode):
         """
         [needs doc]
         """
-        # Note: This is not yet optimized to let the memo be remade less often than the display list is,
-        # but that can still mean we remake it a lot less often than we're called for drawing the selection frame,
-        # since that is drawn outside the display list and the chunk might get drawn selected many times
-        # without having to remake the display list.
+        # Note: This is not yet optimized to let the memo be remade less often
+        # than the display list is, but that can still mean we remake it a lot
+        # less often than we're called for drawing the selection frame,
+        # since that is drawn outside the display list and the chunk might get
+        # drawn selected many times without having to remake the display list.
         memo_dict = chunk.memo_dict
         our_key_there = id(self)
-            # safer than using mmp_code, in case a developer reloads the class at runtime and the memo algorithm changed
+            # safer than using mmp_code, in case a developer reloads the class
+            # at runtime and the memo algorithm changed
         memoplace = memo_dict.setdefault(our_key_there, {})
-        # memoplace is our own persistent mutable dict on this chunk, which lasts as long as the chunk does
+            # memoplace is our own persistent mutable dict on this chunk, which
+            # lasts as long as the chunk does
         counter = chunk._havelist_inval_counter
-        memo_validity_data = (counter,) # a tuple of everything which has to remain the same, for the memo data to remain valid
+        memo_validity_data = (counter,)
+            # a tuple of everything which has to remain the same, for the memo
+            # data to remain valid
         if memoplace.get('memo_validity_data') != memo_validity_data:
             # need to compute or recompute memo, and save it
             memo = self.compute_memo(chunk)

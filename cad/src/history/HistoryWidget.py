@@ -3,7 +3,7 @@
 HistoryWidget.py -- provides a Qt "megawidget" supporting our history/status area.
 
 @author: Bruce
-@version: $Id: HistoryWidget.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: HistoryWidget.py 14270 2008-09-17 21:37:15Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 TODO:
@@ -316,7 +316,7 @@ class HistoryWidget:
         """
         ## something = str(something) # usually something should already be a string
         if self.file:
-            self.file.write(something)
+            self.file.write(something.encode("utf_8"))
             self.file.write('\n') # file gets \n after each line, not before
             if debug_flags.atom_debug:
                 # (we also flush in self.h_update(), whether or not debugging)
@@ -431,7 +431,8 @@ class HistoryWidget:
         from utilities.debug_prefs import debug_pref, Choice_boolean_False
         if debug_pref("print history.message() call stacks?", Choice_boolean_False): #bruce 060720
             from utilities.debug import compact_stack
-            options['compact_stack'] = compact_stack(skip_innermost_n = 2) # skips compact_stack itself, and this line that calls it
+            options['compact_stack'] = compact_stack(skip_innermost_n = 1)
+                # skips compact_stack itself, and this line that calls it
         if transient_id:
             self.statusbar_msg(msg, repaint = repaint) # (no html allowed in msg!)
             # (Actually we should make a message object now, so the timestamp is

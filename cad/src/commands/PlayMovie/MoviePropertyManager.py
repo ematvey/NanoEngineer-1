@@ -1,12 +1,9 @@
-# Copyright 2007 Nanorex, Inc.  See LICENSE file for details.
+# Copyright 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 MoviePropertyManager.py
-<<<<<<< .mine
 @author: Ninad, Bruce, Mark, Huaicai
-=======
->>>>>>> .r12473
-@version: $Id: MoviePropertyManager.py 13233 2008-06-25 14:40:04Z russfish $
-@copyright: 2007 Nanorex, Inc.  All rights reserved.
+@version: $Id: MoviePropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
+@copyright: 2007-2008 Nanorex, Inc.  All rights reserved.
 
 History:
 ninad20070507 : Converted movie dashboard into movie Property manager
@@ -22,6 +19,8 @@ from utilities.Log import redmsg, greenmsg
 from utilities.constants import filesplit
 from utilities.prefs_constants import workingDirectory_prefs_key
 
+
+_superclass = Ui_MoviePropertyManager
 class MoviePropertyManager(Ui_MoviePropertyManager):
     """
     The MoviePropertyManager class provides the Property Manager for the
@@ -30,17 +29,8 @@ class MoviePropertyManager(Ui_MoviePropertyManager):
 
     #see self.connect_or_disconnect_signals for comment about this flag
     isAlreadyConnected = False
-
-    def __init__(self, parentMode):
-        """
-        Constructor for the B{Movie} property manager.
-
-        @param parentMode: The parent mode where this Property Manager is used
-        @type  parentMode: L{movieMode}
-        """
-        Ui_MoviePropertyManager.__init__(self, parentMode)
-        ##self.updateMessage(msg)
-
+    
+     
     def connect_or_disconnect_signals(self, connect):
         """
         Connect the slots in the Property Manager.
@@ -51,7 +41,7 @@ class MoviePropertyManager(Ui_MoviePropertyManager):
             change_connect = self.w.disconnect
 
         #TODO: This is a temporary fix for a bug. When you invoke a temp mode
-        #such as LineMode or PanMode, entering such a temporary mode keeps the
+        #such as Line_Command or PanMode, entering such a temporary mode keeps the
         #PM from the previous mode open (and thus keeps all its signals
         #connected)  but while exiting that temporary mode and reentering the
         #previous mode, it actually reconnects the signal! This gives rise to
@@ -103,31 +93,15 @@ class MoviePropertyManager(Ui_MoviePropertyManager):
                        SIGNAL("triggered()"),
                        self.movieInfo)
 
-    def ok_btn_clicked(self):
-        """
-        Calls MainWindow.toolsDone to exit the current mode.
-        @attention: this method needs to be renamed. (this should be done in
-        PM_Dialog)
-        """
-        self.w.toolsDone()
-
-    def cancel_btn_clicked(self):
-        """
-        Calls MainWindow.toolsDone to exit the current mode.
-        @attention: this method needs to be renamed. (this should be done in
-        PM_Dialog)
-        """
-        self.w.toolsCancel()
-
     def updateMessage(self, msg = ''):
         """
         Updates the message box with an informative message.
         """
         if not msg:
-            msg = "Use movie control buttons in the Property Manager to play \
-                current simulation movie (if it exists). You can also load a \
-                previously saved movie for this model using \
-                <b>'Open Movie File...'</b> option."
+            msg = "Use movie control buttons in the Property Manager to play " \
+                "current simulation movie (if it exists). You can also load a" \
+                "previously saved movie for this model using "\
+                "<b>'Open Movie File...'</b> option."
 
         self.MessageGroupBox.insertHtmlMessage( msg,
                                                 minLines      = 6,
@@ -164,7 +138,7 @@ class MoviePropertyManager(Ui_MoviePropertyManager):
         """
         msg = self.getOpenMovieFileInfo()
         self.updateMessage(msg)
-        Ui_MoviePropertyManager.show(self)
+        _superclass.show(self)        
 
 # ==
 
@@ -334,7 +308,7 @@ class MoviePropertyManager(Ui_MoviePropertyManager):
             self.w.assy.current_movie = new_movie
             self.w.assy.current_movie.cueMovie(propMgr = self)
             #Make sure to enable movie control buttons!
-            self.parentMode.enableMovieControls(True)
+            self.command.enableMovieControls(True)
             self.updateFrameInformation()
             self._updateMessageInModePM()
         else:
@@ -342,7 +316,7 @@ class MoviePropertyManager(Ui_MoviePropertyManager):
             # (but if someday we do _checkMovieFile inside find_saved_movie and not here,
             #  then this will happen as an error return from find_saved_movie)
             msg = redmsg("Internal error in fileOpenMovie")
-            self.parentMode.enableMovieControls(False)
+            self.command.enableMovieControls(False)
             self._updateMessageInModePM(msg)
             env.history.message(msg)
         return

@@ -3,7 +3,7 @@
 movie.py -- class Movie, used for simulation parameters and open movie files
 
 @author: Mark
-@version: $Id: movie.py 13412 2008-07-12 21:03:00Z ericmessick $
+@version: $Id: movie.py 14274 2008-09-18 01:17:12Z brucesmith $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -641,7 +641,7 @@ class Movie(IdentityCopyMixin): #bruce 080321 bugfix: added IdentityCopyMixin
         You may then make a move of it with:
             mencoder "mf://*.png" -mf fps=25 -o output.avi -ovc lavc -lavcopts vcodec=mpeg4
         """
-        from graphics.rendering.fileIO import writepovfile
+        from graphics.rendering.povray.writepovfile import writepovfile
 
         if not self.isOpen: #bruce 050428 not sure if this is the best condition to use here ###@@@
             if (not self.might_be_playable()) and 0: ## self.why_not_playable:
@@ -757,7 +757,7 @@ class Movie(IdentityCopyMixin): #bruce 080321 bugfix: added IdentityCopyMixin
               % (self.win.movie_is_playing, self.isPaused, self.showEachFrame, self.moveToEnd, self.totalFramesActual, self.currentFrame, self.playDirection )
         if kws:
             print "  other args: %r" % kws
-        print_compact_stack("    stack at that time: ", skip_innermost_n = 3) # skips this lineno and 2 internal ones (#e should revise meaning to -2)
+        print_compact_stack("    stack at that time: ", skip_innermost_n = 1) # skips this lineno and all internal ones
 
     def _playToFrame(self, fnum, from_slider = False):
         #bruce 050428 renamed this from _playFrame, since it plays all frames from current to fnum.

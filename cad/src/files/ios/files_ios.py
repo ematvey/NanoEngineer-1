@@ -1,10 +1,11 @@
+# Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 files_ios.py - provides functions to export a NE-1 model into IOS format as well
 as import optimized sequences into NE-1
 
-@version: $Id$: 
-@copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 @author: Urmi
+@version: $Id: files_ios.py 13786 2008-08-05 16:08:33Z ninadsathaye $
+@copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 
 Note: This is only applicable to DNA/ RNA models (so is IOS)
 """

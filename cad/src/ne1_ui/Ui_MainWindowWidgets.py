@@ -8,7 +8,7 @@ Creates all widgets use by the Main Window, including:
 - QAction for the Command toolbar
 
 @author: Mark
-@version: $Id: Ui_MainWindowWidgets.py 13476 2008-07-16 02:20:39Z ninadsathaye $
+@version: $Id: Ui_MainWindowWidgets.py 14453 2008-11-14 02:48:15Z  $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -21,6 +21,8 @@ from PyQt4.Qt import QToolButton
 from utilities.icon_utilities import geticon
 from utilities.prefs_constants import displayRulers_prefs_key
 from ne1_ui.NE1_QWidgetAction import NE1_QWidgetAction
+# Dock widgets
+from ne1_ui.Ui_ReportsDockWidget import Ui_ReportsDockWidget
 
 def setupUi(win):
     """
@@ -171,14 +173,16 @@ def setupUi(win):
     win.editDeleteAction.setIcon(geticon("ui/actions/Edit/Delete.png"))
     win.editDeleteAction.setObjectName("editDeleteAction")
 
+    # editRenameAction has been deprecated. Use editRenameSelectionAction.
+    # Mark 2008-11-13.
     win.editRenameAction = QtGui.QAction(MainWindow)
     win.editRenameAction.setIcon(geticon("ui/actions/Edit/Rename.png"))
     win.editRenameAction.setObjectName("editRenameAction")
 
-    win.editRenameObjectsAction = QtGui.QAction(MainWindow)
-    win.editRenameObjectsAction.setIcon(
-        geticon("ui/actions/Edit/Rename_Objects.png"))
-    win.editRenameObjectsAction.setObjectName("editRenameObjectsAction")
+    win.editRenameSelectionAction = QtGui.QAction(MainWindow)
+    win.editRenameSelectionAction.setIcon(
+        geticon("ui/actions/Edit/Rename.png"))
+    win.editRenameSelectionAction.setObjectName("editRenameSelectionAction")
 
     win.editAddSuffixAction = QtGui.QAction(MainWindow)
     win.editAddSuffixAction.setIcon(geticon("ui/actions/Edit/Add_Suffixes.png"))
@@ -495,6 +499,10 @@ def setupUi(win):
     win.fileInsertPdbAction.setObjectName("fileInsertPdbAction")
     win.fileInsertPdbAction.setIcon(geticon('ui/actions/Insert/PDB.png'))
 
+    win.fileInsertInAction = NE1_QWidgetAction(MainWindow, 
+                                                  win = MainWindow)
+    win.fileInsertInAction.setObjectName("fileInsertInAction")
+
     win.partLibAction = NE1_QWidgetAction(MainWindow, 
                                             win = MainWindow)
     win.partLibAction.setObjectName("partLibAction")
@@ -586,6 +594,10 @@ def setupUi(win):
         geticon("ui/actions/Simulation/Minimize_Energy.png"))
     win.simMinimizeEnergyAction.setObjectName("simMinimizeEnergyAction")
 
+    win.checkAtomTypesAction = NE1_QWidgetAction(MainWindow, 
+                                                      win = MainWindow)
+    win.checkAtomTypesAction.setObjectName("checkAtomTypesAction")
+
     win.toolsExtrudeAction = NE1_QWidgetAction(MainWindow, win = MainWindow)
     win.toolsExtrudeAction.setCheckable(True)
     win.toolsExtrudeAction.setIcon(
@@ -618,9 +630,9 @@ def setupUi(win):
     win.toolsDepositAtomAction.setIcon(
         geticon("ui/actions/Tools/Build Structures/Build Chunks.png"))
 
-    win.toolsCookieCutAction = NE1_QWidgetAction(MainWindow, win = MainWindow)
-    win.toolsCookieCutAction.setCheckable(1) # make the cookie button checkable
-    win.toolsCookieCutAction.setIcon(
+    win.buildCrystalAction = NE1_QWidgetAction(MainWindow, win = MainWindow)
+    win.buildCrystalAction.setCheckable(1) # make the crystal button checkable
+    win.buildCrystalAction.setIcon(
         geticon("ui/actions/Tools/Build Structures/Build Crystal.png"))
 
     win.insertGrapheneAction = NE1_QWidgetAction(MainWindow, win = MainWindow)
@@ -763,6 +775,12 @@ def setupUi(win):
         geticon("ui/actions/Tools/Select/Selection_Unlocked.png"))
     win.selectLockAction.setObjectName("selectLockAction")
     win.selectLockAction.setCheckable(True)
+    
+    win.selectByNameAction = QtGui.QAction(MainWindow)
+    win.selectByNameAction.setIcon(
+        geticon("ui/actions/Tools/Select/Select_By_Name.png"))
+    win.selectByNameAction.setObjectName("selectByNameAction")
+    win.selectByNameAction.setCheckable(True)
 
     #= "Simulation" (menu and toolbar) widgets.
 
@@ -940,29 +958,8 @@ def setupUi(win):
     win.standardViewsAction.setDefaultWidget(win.standardViews_btn)
     win.standardViews_btn.setDefaultAction(win.standardViewsAction)
 
-    # Miscellaneous QActions.
-
-    # These QActions are used in Cookie (Crystal) and should be moved
-    # to one of those file(s). To do for Mark. mark 2007-12-23
-    win.DefaultSelAction = QtGui.QAction(MainWindow)
-    win.LassoSelAction = QtGui.QAction(MainWindow)
-    win.RectCornerSelAction = QtGui.QAction(MainWindow)
-    win.RectCtrSelAction = QtGui.QAction(MainWindow)
-    win.SquareSelAction = QtGui.QAction(MainWindow)
-    win.TriangleSelAction = QtGui.QAction(MainWindow)
-    win.DiamondSelAction = QtGui.QAction(MainWindow)
-    win.CircleSelAction = QtGui.QAction(MainWindow)
-    win.HexagonSelAction = QtGui.QAction(MainWindow)
-
-    # This needs to stay until I talk with Bruce about UpdateDashboard(),
-    # which calls a method of toolsDoneAction in Command.py. Mark 2007-12-20
-    win.toolsDoneAction = QtGui.QAction(MainWindow)
-    win.toolsDoneAction.setIcon(
-        geticon("ui/actions/Properties Manager/Done.png"))
-    win.toolsDoneAction.setObjectName("toolsDoneAction")
-
+    
     # Dock widgets
-    from ne1_ui.Ui_ReportsDockWidget import Ui_ReportsDockWidget
     win.reportsDockWidget = Ui_ReportsDockWidget(win)
 
 def retranslateUi(win):
@@ -1236,17 +1233,17 @@ def retranslateUi(win):
         QtGui.QApplication.translate(
             "MainWindow", "Shift+R", 
             None, QtGui.QApplication.UnicodeUTF8))
-    win.editRenameObjectsAction.setText(
+    win.editRenameSelectionAction.setText(
         QtGui.QApplication.translate(
-            "MainWindow", "Rename Objects",
+            "MainWindow", "Rename Selection",
             None, QtGui.QApplication.UnicodeUTF8))
-    win.editRenameObjectsAction.setIconText(
+    win.editRenameSelectionAction.setIconText(
         QtGui.QApplication.translate(
-            "MainWindow", "Rename Objects", 
+            "MainWindow", "Rename Selection", 
             None, QtGui.QApplication.UnicodeUTF8))
-    win.editRenameObjectsAction.setToolTip(
+    win.editRenameSelectionAction.setToolTip(
         QtGui.QApplication.translate(
-            "MainWindow", "Rename Objects", 
+            "MainWindow", "Rename Selection", 
             None, QtGui.QApplication.UnicodeUTF8))
 
     win.editAddSuffixAction.setText(
@@ -1499,6 +1496,18 @@ def retranslateUi(win):
         "MainWindow", "Insert Protein Data Bank (PDB) file", 
         None, QtGui.QApplication.UnicodeUTF8))
 
+    win.fileInsertInAction.setText(QtGui.QApplication.translate(
+        "MainWindow", "IN file", 
+        None, QtGui.QApplication.UnicodeUTF8))
+
+    win.fileInsertInAction.setIconText(QtGui.QApplication.translate(
+        "MainWindow", "IN file", 
+        None, QtGui.QApplication.UnicodeUTF8))
+
+    win.fileInsertInAction.setToolTip(QtGui.QApplication.translate(
+        "MainWindow", "Insert AMBER .in file fragment", 
+        None, QtGui.QApplication.UnicodeUTF8))
+
     win.insertCommentAction.setIconText(QtGui.QApplication.translate(
         "MainWindow", "Comment", 
         None,  QtGui.QApplication.UnicodeUTF8))
@@ -1566,6 +1575,12 @@ def retranslateUi(win):
     win.simMinimizeEnergyAction.setIconText(QtGui.QApplication.translate(
         "MainWindow", 
         "Minimize Energy", 
+        None, 
+        QtGui.QApplication.UnicodeUTF8))    
+
+    win.checkAtomTypesAction.setIconText(QtGui.QApplication.translate(
+        "MainWindow", 
+        "Check AMBER AtomTypes", 
         None, 
         QtGui.QApplication.UnicodeUTF8))    
 
@@ -1670,19 +1685,19 @@ def retranslateUi(win):
     #= Tools > Build Structures (menu and toolbar) actions.
     win.toolsDepositAtomAction.setText(
         QtGui.QApplication.translate(
-            "MainWindow", "Chunks", 
+            "MainWindow", "Atoms", 
             None, QtGui.QApplication.UnicodeUTF8))
     win.toolsDepositAtomAction.setToolTip(QtGui.QApplication.translate(
         "MainWindow", 
-        "Build Chunks", 
+        "Build Atoms", 
         None, 
         QtGui.QApplication.UnicodeUTF8))
-    win.toolsCookieCutAction.setText(QtGui.QApplication.translate(
+    win.buildCrystalAction.setText(QtGui.QApplication.translate(
         "MainWindow", 
         "Crystal",
         None, 
         QtGui.QApplication.UnicodeUTF8))
-    win.toolsCookieCutAction.setToolTip(QtGui.QApplication.translate(
+    win.buildCrystalAction.setToolTip(QtGui.QApplication.translate(
         "MainWindow", 
         "Build Crystal",
         None, 
@@ -1755,8 +1770,8 @@ def retranslateUi(win):
     # if the "Enable Proteins" debug pref is set to False.
     # This should be moved to "interactive builders" sections
     # on the Build Structures toolbar.
-    from protein.model.Protein import enableProteins
-    if enableProteins:    
+    from utilities.GlobalPreferences import ENABLE_PROTEINS
+    if ENABLE_PROTEINS:    
         win.insertPeptideAction.setIconText(QtGui.QApplication.translate(
             "MainWindow", 
             "Protein", 
@@ -1866,7 +1881,13 @@ def retranslateUi(win):
     win.selectLockAction.setIconText(QtGui.QApplication.translate("MainWindow", "Lock", None, QtGui.QApplication.UnicodeUTF8))
     win.selectLockAction.setToolTip(QtGui.QApplication.translate("MainWindow", "Selection Lock (Ctrl+L)", None, QtGui.QApplication.UnicodeUTF8))
     win.selectLockAction.setShortcut(QtGui.QApplication.translate("MainWindow", "Ctrl+L", None, QtGui.QApplication.UnicodeUTF8))
-
+    
+    win.selectByNameAction.setText(QtGui.QApplication.translate(
+        "MainWindow", 
+        "Select By Name", 
+        None, 
+        QtGui.QApplication.UnicodeUTF8))
+    
     #= "Simulation" (menu and toolbar) actions.
     win.simSetupAction.setText(QtGui.QApplication.translate(
         "MainWindow", " Run Dynamics...", None, QtGui.QApplication.UnicodeUTF8))
@@ -1957,8 +1978,8 @@ def retranslateUi(win):
     win.viewDefviewAction.setIconText(QtGui.QApplication.translate("MainWindow", "Orientations", None, QtGui.QApplication.UnicodeUTF8))
     win.viewDefviewAction.setToolTip(QtGui.QApplication.translate("MainWindow", "Default Views", None, QtGui.QApplication.UnicodeUTF8))
 
-    win.toolsDoneAction.setText(QtGui.QApplication.translate("MainWindow", "Done", None, QtGui.QApplication.UnicodeUTF8))
-    win.toolsDoneAction.setIconText(QtGui.QApplication.translate("MainWindow", "Done", None, QtGui.QApplication.UnicodeUTF8))
+    
+    
 
     win.modifyStretchAction.setText(QtGui.QApplication.translate("MainWindow", "S&tretch", None, QtGui.QApplication.UnicodeUTF8))
     win.modifyStretchAction.setIconText(QtGui.QApplication.translate("MainWindow", "Stretch", None, QtGui.QApplication.UnicodeUTF8))      

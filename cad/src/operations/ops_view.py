@@ -1,10 +1,10 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 ops_view.py provides viewSlotsMixin for MWsemantics,
 with view slot methods and related helper methods.
 
-@version: $Id: ops_view.py 12798 2008-05-16 16:38:56Z protkiewicz $
-@copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
+@version: $Id: ops_view.py 14382 2008-09-30 17:52:29Z ninadsathaye $
+@copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 Note: most other ops_*.py files provide mixin classes for Part,
 not for MWsemantics like this one.
@@ -181,17 +181,27 @@ class viewSlotsMixin:
         if not val:
             # The Zoom/Pan/Rotate button was toggled off. We are presumably
             # in the associated temporary command, and the user wants us to
-            # exit it. Do so and return to 'prevMode' (using command.Done,
-            # which is overridden in these commands to do that).
+            # exit it. Do so and return to parent command.
             command = commandSequencer.currentCommand
 
-            if command.commandName == commandName: #bruce 071011 change, an educated guess, may increase prints, may cause bugs ### TEST
             ## if command.commandName in modes_we_are_called_for:
+            if command.commandName == commandName:
+                #bruce 071011 change, an educated guess, may increase prints, may cause bugs ### TEST
                 # we're now in the command being turned off, as expected.
-                command.Done(exit_using_done_or_cancel_button = False)
-                ### REVIEW: Can this ever happen if we just now entered that command,
-                # due to a programmatic change to that button, e.g. if another one
-                # was pressed? If so, it might cause some bug. [bruce 070814 comment]
+                if commandSequencer._f_command_stack_is_locked:
+                    # this is normal when the command is exiting on its own
+                    # and changes the state of its action programmatically.
+                    # In this case, redundant exit causes bugs, so skip it.
+                    # It might be better to avoid sending the signal when
+                    # programmatically changing the action state.
+                    # See similar code and comment in Move_Command.py.
+                    # [bruce 080829]
+                    ## print "DEBUG fyi: _zoomPanRotateTool skipping Done of %r since command stack locked" % commandName
+                    ##     # remove when works, or soon after
+                    pass               
+                else:
+                    #Exit this temporary command.
+                    command.command_Done()
             else:
                 if command is not commandSequencer.nullmode:
                     # bruce 071009 add condition to fix bug 2512
@@ -207,15 +217,16 @@ class viewSlotsMixin:
         else:
             # The Zoom/Pan/Rotate button was toggled on.
 
-            commandSequencer.userEnterTemporaryCommand(commandName)
-                #bruce 071011, encapsulating the prevMode code that was here before
+            commandSequencer.userEnterCommand(commandName, always_update = True)
+                #bruce 071011, encapsulating the code that was here before
 
             # Emit a help message on entering the new temporary command. Ideally this
-            # should be done in its Enter or init_gui methods, but that made it
+            # should be done in its command_entered method, but that made it
             # appear before the green "Entering Mode: Zoom" msg. So I put it here.
             # [Mark 050130; comment paraphrased by bruce 070814]
             # TODO: do this in a new postEnter command-specific method which is called
-            # late enough to have the desired effect.
+            # late enough to have the desired effect (later: such as command_entered,
+            # after the ongoing command stack refactoring).
             env.history.message("You may hit the Esc key to exit %s." % user_mode_name)
                 ###REVIEW: put this in statusbar instead?
         return
@@ -488,7 +499,7 @@ class viewSlotsMixin:
         cmd = greenmsg("QuteMolX : ")
 
         if self.assy.molecules:
-            self.qutemolPM.show()
+            self.enterQuteMolCommand()
         else:
             msg = orangemsg("No atoms in the current part.")
             env.history.message(cmd + msg)

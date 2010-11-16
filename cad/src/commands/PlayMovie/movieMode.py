@@ -1,10 +1,10 @@
-# Copyright 2005-2007 Nanorex, Inc.  See LICENSE file for details.
+# Copyright 2005-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 movieMode.py -- movie player mode.
 
 @author: Mark
-@version: $Id: movieMode.py 13476 2008-07-16 02:20:39Z ninadsathaye $
-@copyright: 2005-2007 Nanorex, Inc.  See LICENSE file for details.
+@version: $Id: movieMode.py 14382 2008-09-30 17:52:29Z ninadsathaye $
+@copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
 
@@ -16,29 +16,28 @@ Adding various comments and revising docstrings; perhaps not signing every such 
  probably just be to adapt this file to the external changes.)
 
 ninad20070507: moved Movie Player dashboard to Movie Property Manager.
+ninad2008-08-21: Cleanup: a) to introduce command_enter/exit_* methods in the 
+                  new Command API b) Moved flyouttoolbar related code in its own 
+                  module (Ui_PlayMovieFlyout)
 """
 
 import os
-
 from PyQt4.Qt import Qt
 from PyQt4.Qt import QDialog, QGridLayout, QPushButton, QTextBrowser, SIGNAL, QCursor
-from PyQt4.Qt import QMessageBox, QString, QWidgetAction, QAction
-
 import foundation.env as env
 import foundation.changes as changes
-
-from simulation.movie import find_saved_movie
 from command_support.modes import basicMode
-from utilities.Log import greenmsg
 from utilities.Log import redmsg, orangemsg
 from commands.PlayMovie.MoviePropertyManager import MoviePropertyManager
-from utilities.icon_utilities import geticon
+from ne1_ui.toolbars.Ui_PlayMovieFlyout import PlayMovieFlyout
+import foundation.undo_manager as undo_manager
 
-from utilities.prefs_constants import workingDirectory_prefs_key
-from ne1_ui.NE1_QWidgetAction import NE1_QWidgetAction
-
-class MovieRewindDialog(QDialog):
-
+class _MovieRewindDialog(QDialog):
+    """
+    Warn the user that a given movie is not rewound,
+    explain why that matters, and offer to rewind it
+    (by calling its _reset method).
+    """
     def __init__(self, movie):
         self.movie = movie
         QDialog.__init__(self, None)
@@ -47,33 +46,36 @@ class MovieRewindDialog(QDialog):
         self.text_browser.setObjectName("movie_warning_textbrowser")
         self.text_browser.setMinimumSize(400, 40)
         self.setWindowTitle('Rewind your movie?')
-        self.text_browser.setPlainText(
-            "You may want to rewind the movie now. If you save the part without " +
-            "rewinding the movie, the movie file will become invalid because it " +
-            "depends upon the initial atom positions. The atoms move as the movie " +
-            "progresses, and saving the part now will save the final positions, " +
-            "which are incorrect for the movie you just watched.")
+        self.text_browser.setPlainText( #bruce 080827 revised text
+            "You may want to rewind the movie now. The atoms move as the movie "
+            "progresses, and saving the part without rewinding will save the "
+            "current positions, which is sometimes useful, but will make the "
+            "movie invalid, because .dpb files only store deltas relative to "
+            "the initial atom positions, and don't store the initial positions "
+            "themselves." )
         self.ok_button = QPushButton(self)
         self.ok_button.setObjectName("ok_button")
         self.ok_button.setText("Rewind movie")
         self.cancel_button = QPushButton(self)
         self.cancel_button.setObjectName("cancel_button")
-        self.cancel_button.setText("No thanks")
+        self.cancel_button.setText("Exit command without rewinding") #bruce 080827 revised text
+            # Note: this is not, in fact, a cancel button --
+            # there is no option in the caller to prevent exiting the command.
+            # There is also no option to "forward to final position",
+            # though for a minimize movie, that might be most useful.
+            # [bruce 080827 comment]
         layout = QGridLayout(self)
-        layout.addWidget(self.text_browser,0,0,0,1)
-        layout.addWidget(self.ok_button,1,0)
-        layout.addWidget(self.cancel_button,1,1)
-        self.connect(self.ok_button,SIGNAL("clicked()"),self.rewindMovie)
-        self.connect(self.cancel_button,SIGNAL("clicked()"),self.noThanks)
+        layout.addWidget(self.text_browser, 0, 0, 0, 1)
+        layout.addWidget(self.ok_button, 1, 0)
+        layout.addWidget(self.cancel_button, 1, 1)
+        self.connect(self.ok_button, SIGNAL("clicked()"), self.rewindMovie)
+        self.connect(self.cancel_button, SIGNAL("clicked()"), self.noThanks)
     def rewindMovie(self):
         self.movie._reset()
         self.accept()
     def noThanks(self):
         self.accept()
-
-####@@@@ It might need removing from other places in the code, as well, like entering the mode.
-
-###doc
+    pass
 
 class movieMode(basicMode):
     """
@@ -87,46 +89,147 @@ class movieMode(basicMode):
     it will start playing it. [I don't know the extent to which it will start
     from where it left off, in not only frame number but direction, etc. - bruce 050426]
     """
-
     # class constants
     commandName = 'MOVIE'
-    default_mode_status_text = "Mode: Movie Player"
     featurename = "Movie Player Mode"
+    from utilities.constants import CL_MISC_TOPLEVEL
+    command_level = CL_MISC_TOPLEVEL
 
-    # methods related to entering this mode
+    PM_class = MoviePropertyManager #bruce 080909
+    
+    #Flyout Toolbar
+    FlyoutToolbar_class = PlayMovieFlyout
+    
+    flyoutToolbar = None
 
-    def Enter(self):
-        basicMode.Enter(self)
+    def command_entered(self):
+        """
+        Extends superclass method. 
+        @see: baseCommand.command_entered() for documentation.
+        """
+        basicMode.command_entered(self)
+        #UPDATE 2008-09-18: Copying old code from self.Enter()
         # [bruce 050427 comment: I'm skeptical of this effect on selection,
         #  since I can't think of any good reason for it [maybe rendering speed optimization??],
         #  and once we have movies as nodes in the MT it will be a problem [why? #k],
         #  but for now I'll leave it in.]
         self.o.assy.unpickall_in_GLPane() # was: unpickparts, unpickatoms [bruce 060721]
         self.o.assy.permit_pick_atoms()
+            
+        
+    def command_will_exit(self): 
+        """
+        Extends superclass method, to offer to rewind the movie
+        if it's not at the beginning. (Doesn't offer to prevent
+        exit, only to rewind or not when exit is done.)
+        """
+        ask = not self.commandSequencer.exit_is_forced
+            # It's not safe to rewind if exit is forced,
+            # since this might happen *after* the check for whether
+            # to offer to save changes in an old file being closed,
+            # but it creates such changes.
+            #
+            # A possible fix is for Open to first exit all current commands
+            # (by implicit Done, as when changing to some unrelated command),
+            # before even doing the check. There are better, more complex fixes,
+            # e.g. checking for changes to ask about saving (or for the need to
+            # ask other questions before exit) by asking all commands on the stack.
+            #
+            # Note: a related necessary change is calling exit_all_commands when
+            # closing a file, but I think it doesn't fix the same issue mentioned
+            # above.
+            #
+            # [bruce 080806/080908 comments]
+        
+        if ask:
+            self._offer_to_rewind_if_necessary()
 
-    def _exitMode(self, *args, **kws):
-        # note: this definition generates the debug print
-        ## fyi (for developers): subclass movieMode overrides basicMode._exitMode; this is deprecated after mode changes of 040924.
-        # because it's an API violation to override this method; what should be done instead is to do this in one of the other cleanup
-        # functions documented in modes.py. Sometime that doc should be clarified and this method should be redone properly.
-        # [bruce 070613 comment]
+        #bruce 050426 added this [originally in a method called
+        # restore_patches_by_Command, no longer part of command API]
+        # , to hold the side effect formerly
+        # done illegally by haveNontrivialState.
+        # ... but why do we need to do this at all?
+        # the only point of what we'd do here would be to stop
+        # having that movie optimize itself for rapid playing....
         movie = self.o.assy.current_movie
-        if movie and movie.currentFrame is not 0:
-            mrd = MovieRewindDialog(movie)
+        if movie:
+            movie._close()
+            # note: this assumes this is the only movie which might be "open",
+            # and that redundant _close is ok.
+        
+        basicMode.command_will_exit(self)
+        return
+
+    def _offer_to_rewind_if_necessary(self): #bruce 080806 split this out
+        # TODO: add an option to the PM to always say yes or no to this,
+        # e.g. a 3-choice combobox for what to do if not rewound on exit
+        # (rewind, don't rewind, or ask). [bruce 080806 suggestion]
+        movie = self.o.assy.current_movie
+        if movie and movie.currentFrame != 0:
+            # note: if the movie file stores absolute atom positions,
+            # there is no need to call this. Currently, we only support
+            # .dpb files, which don't store them.
+            # note: if we entered this on a nonzero frame, it might
+            # be more useful to compare to and offer to rewind to
+            # that frame (perhaps in addition to frame 0).
+            # [bruce 080827 comments]
+            mrd = _MovieRewindDialog(movie)
+                # rewind (by calling movie._reset()), if user desires it
+                # (see text and comments in that class)
             mrd.exec_()
-        basicMode._exitMode(self, *args, **kws)
+        return
+    
+    
+    # see also command_will_exit, elsewhere in this file
+    
+    def command_enter_PM(self):
+        """
+        Extends superclass method.         
+        @see: baseCommand.command_enter_PM()  for documentation        
+        """
 
-    def init_gui(self):
+        basicMode.command_enter_PM(self) #bruce 080909 call this instead of inlining it      
+            
+        #@WARNING: The following code in command_enter_PM was originally in 
+        #def init_gui method. Its copied 'as is' from there.-- Ninad 2008-08-21       
+        
+        self.enableMovieControls(False)
+            #bruce 050428 precaution (has no noticable effect but seems safer in theory)
+        #bruce 050428, working on bug 395: I think some undesirable state is left in the dashboard, so let's reinit it
+        # (and down below we might like to init it from the movie if possible, but it's not always possible).
+            
+        self.propMgr._moviePropMgr_reinit() ###e could pass frameno? is max frames avail yet in all playable movies? not sure.
+        # [bruce 050426 comment: probably this should just be a call of an update method, also used during the mode ###e]
+        movie = self.o.assy.current_movie # might be None, but might_be_playable() true implies it's not
+        if self.might_be_playable(): #bruce 050426 added condition
+            frameno = movie.currentFrame
+        else:
+            frameno = 0 #bruce 050426 guessed value
 
-        if not self.propMgr:
-            self.propMgr = MoviePropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494
-            changes.keep_forever(self.propMgr)
-
-        #@NOTE: self.propMgr.show() is called later in this (init_gui) method.
-
-        self.updateCommandToolbar(bool_entering = True)
-
+        self.propMgr.frameNumberSpinBox.setValue(frameno, blockSignals = True) 
+        self.propMgr.moviePlayActiveAction.setVisible(0)
+        self.propMgr.moviePlayRevActiveAction.setVisible(0)
+        
+        if self.might_be_playable(): # We have a movie file ready.  It's showtime! [bruce 050426 changed .filename -> .might_be_playable()]
+            movie.cueMovie(propMgr = self.propMgr) # Cue movie.
+            self.enableMovieControls(True)
+            self.propMgr.updateFrameInformation()
+            if movie.filename: #k not sure this cond is needed or what to do if not true [bruce 050510]
+                env.history.message( "Movie file ready to play: %s" % movie.filename) #bruce 050510 added this message
+        else:
+            self.enableMovieControls(False)         
+        return
+    
+  
+    def command_enter_misc_actions(self):
+        """
+        Overrides superclass method. 
+        
+        @see: baseCommand.command_enter_misc_actions()  for documentation
+        """
+        #@WARNING: The following code in  was originally in 
+        #def init_gui method. Its copied 'as is' from there.-- Ninad 2008-08-21
+        
         self.w.simMoviePlayerAction.setChecked(1) # toggle on the Movie Player icon+
 
         # Disable some action items in the main window.
@@ -137,131 +240,42 @@ class movieMode(basicMode):
         self.w.disable_QActions_for_movieMode(True)
             #  Actions marked #k are now in disable_QActions_for_movieMode(). mark 060314)
 
-        # MP dashboard initialization.
-        self.enableMovieControls(False)
-            #bruce 050428 precaution (has no noticable effect but seems safer in theory)
-        #bruce 050428, working on bug 395: I think some undesirable state is left in the dashboard, so let's reinit it
-        # (and down below we might like to init it from the movie if possible, but it's not always possible).
-        self.propMgr._moviePropMgr_reinit() ###e could pass frameno? is max frames avail yet in all playable movies? not sure.
-        # [bruce 050426 comment: probably this should just be a call of an update method, also used during the mode ###e]
-        movie = self.o.assy.current_movie # might be None, but might_be_playable() true implies it's not
-        if self.might_be_playable(): #bruce 050426 added condition
-            frameno = movie.currentFrame
-        else:
-            frameno = 0 #bruce 050426 guessed value
-
-        self.propMgr.frameNumberSpinBox.setValue(frameno) # bruce 050428 question: does this call our slot method?? ###k
-        self.propMgr.moviePlayActiveAction.setVisible(0)
-        self.propMgr.moviePlayRevActiveAction.setVisible(0)
-
-        if self.might_be_playable(): # We have a movie file ready.  It's showtime! [bruce 050426 changed .filename -> .might_be_playable()]
-            movie.cueMovie(propMgr = self.propMgr) # Cue movie.
-            self.enableMovieControls(True)
-            self.propMgr.updateFrameInformation()
-            if movie.filename: #k not sure this cond is needed or what to do if not true [bruce 050510]
-                env.history.message( "Movie file ready to play: %s" % movie.filename) #bruce 050510 added this message
-        else:
-            self.enableMovieControls(False)
-
-        #Need to do this after calling movie._setUp (propMgr displays movie
-        #information in its msg groupbox.  All this will be cleaned up when we
-        #do moviemode code cleanup.
-
-        self.propMgr.show()
-
         # Disable Undo/Redo actions, and undo checkpoints, during this mode (they *must* be reenabled in restore_gui).
         # We do this last, so as not to do it if there are exceptions in the rest of the method,
         # since if it's done and never undone, Undo/Redo won't work for the rest of the session.
         # [bruce 060414; same thing done in some other modes]
-        import foundation.undo_manager as undo_manager
+        
         undo_manager.disable_undo_checkpoints('Movie Player')
         undo_manager.disable_UndoRedo('Movie Player', "in Movie Player") # optimizing this for shortness in menu text
             # this makes Undo menu commands and tooltips look like "Undo (not permitted in Movie Player)" (and similarly for Redo)
-        self.connect_or_disconnect_signals(True)
-
-    def connect_or_disconnect_signals(self, connect):
+ 
+            
+    def command_exit_misc_actions(self):
         """
-        Connect or disconnect widget signals sent to their slot methods.
-        @param isConnect: If True the widget will send the signals to the slot
-                          method.
-        @type  isConnect: boolean
+        Overrides superclass method. 
+        
+        @see: baseCommand.command_exit_misc_actions()  for documentation
         """
-        if connect:
-            change_connect = self.w.connect
-        else:
-            change_connect = self.w.disconnect
+        #@WARNING: The following code in  was originally in 
+        #def restore_gui method. Its copied 'as is' from there.-- Ninad 2008-08-21
+        
+        # Reenable Undo/Redo actions, and undo checkpoints 
+        #(disabled in command_entered);
+        # do it first to protect it from exceptions in the rest of this method
+        # (since if it never happens, Undo/Redo won't work for the rest of the session)
+        # [bruce 060414; same thing done in some other modes]
+        undo_manager.reenable_undo_checkpoints('Movie Player')
+        undo_manager.reenable_UndoRedo('Movie Player')
 
-        change_connect(self.exitMovieAction,
-                       SIGNAL("triggered()"),
-                       self.w.toolsDone)
+        self.w.simMoviePlayerAction.setChecked(0) # toggle on the Movie Player icon
+        self.set_cmdname('Movie Player') # this covers all changes while we were in the mode
+            # (somewhat of a kluge, and whether this is the best place to do it is unknown;
+            #  without this the cmdname is "Done")
+        self.w.disable_QActions_for_movieMode(False)   
 
-        self.propMgr.connect_or_disconnect_signals(connect)
-
-    def getFlyoutActionList(self): #Ninad 20070618
-        """
-        Returns custom actionlist that will be used in a specific mode
-        or editing a feature etc Example: while in movie mode,
-        the _createFlyoutToolBar method calls
-        this.
-        """
-
-        #'allActionsList' returns all actions in the flyout toolbar
-        #including the subcontrolArea actions
-        allActionsList = []
-
-        #Action List for  subcontrol Area buttons.
-        #In this mode there is really no subcontrol area.
-        #We will treat subcontrol area same as 'command area'
-        #(subcontrol area buttons will have an empty list as their command area
-        #list). We will set  the Comamnd Area palette background color to the
-        #subcontrol area.
-
-        subControlAreaActionList =[]
-
-        self.exitMovieAction = NE1_QWidgetAction(self.w, win = self.w)
-        self.exitMovieAction.setText("Exit Movie")
-        self.exitMovieAction.setWhatsThis("Exits Movie Mode")
-        self.exitMovieAction.setCheckable(True)
-        self.exitMovieAction.setChecked(True)
-        self.exitMovieAction.setIcon(
-            geticon("ui/actions/Toolbars/Smart/Exit.png"))
-        subControlAreaActionList.append(self.exitMovieAction)
-
-        separator = QAction(self.w)
-        separator.setSeparator(True)
-        subControlAreaActionList.append(separator)
-
-        subControlAreaActionList.append(self.w.simPlotToolAction)
-
-        allActionsList.extend(subControlAreaActionList)
-
-        #Empty actionlist for the 'Command Area'
-        commandActionLists = []
-
-        #Append empty 'lists' in 'commandActionLists equal to the
-        #number of actions in subControlArea
-        for i in range(len(subControlAreaActionList)):
-            lst = []
-            commandActionLists.append(lst)
-
-        params = (subControlAreaActionList, commandActionLists, allActionsList)
-
-        return params
-
-    def updateCommandToolbar(self, bool_entering = True):#Ninad 20070618
-        """
-        Update the command toolbar.
-        """
-        # object that needs its own flyout toolbar. In this case it is just
-        #the mode itself.
-
-        action = self.w.simMoviePlayerAction
-        obj = self
-        self.w.commandToolbar.updateCommandToolbar(action,
-                                                   obj,
-                                                   entering = bool_entering)
-        return
-
+    
+    #END new command API methods =============================================
+    
     def enableMovieControls(self, enabled = True):
         self.propMgr.enableMovieControls(enabled)
 
@@ -272,74 +286,11 @@ class movieMode(basicMode):
         movie = self.o.assy.current_movie
         return movie and movie.might_be_playable()
 
-    def update_dashboard_OBS(self): #bruce 050426 pieced this together from other code ####@@@@ call it
-        """
-        Update our dashboard to reflect the state of assy.current_movie.
-        """
-        self.enableMovieControls( self.might_be_playable() )
-        ###e need to do more here, like the stuff in init_gui and maybe elsewhere
-        return
-
-    def restore_patches_by_Command(self):
-        """
-        This is run when we exit the mode for any reason.
-        """
-        #bruce 050426 added this, to hold the side effect formerly
-        # done illegally by haveNontrivialState.
-        # ... but why do we need to do this at all?
-        # the only point of what we'd do here would be to stop
-        # having that movie optimize itself for rapid playing....
-        movie = self.o.assy.current_movie
-        if movie:
-            movie._close()
-            # note: this assumes this is the only movie which might be "open",
-            # and that redundant _close is ok.
-        return
-
-    def haveNontrivialState(self):
-        ##bruce 050426: This used to call self.o.assy.current_movie._close()
-        # but that's wrong (this method shouldn't have side effects),
-        # so I moved that to our custom restore_patches_by_Command() method.
-        # Also, this used to always return False; that's still ok as long as we continually modify
-        # the model and tell it so (assy.changed) -- but I'm not sure we do; this needs review. ###k ####@@@@
-        # (Current strategy, 050426 eve: ignore this and assy.changed issues, until done.)
-        return False
-
-    ##bruce 050426: maybe Done should store the movie changes and Cancel should revert to prior state?? If so, revise this. ####@@@@
-##    def StateDone(self):
-##        self.o.assy.current_movie._close()
-##        return None
-
-    def restore_gui(self):
-
-        self.propMgr.close()
-
-        # Reenable Undo/Redo actions, and undo checkpoints (disabled in init_gui);
-        # do it first to protect it from exceptions in the rest of this method
-        # (since if it never happens, Undo/Redo won't work for the rest of the session)
-        # [bruce 060414; same thing done in some other modes]
-        import foundation.undo_manager as undo_manager
-
-        undo_manager.reenable_undo_checkpoints('Movie Player')
-        undo_manager.reenable_UndoRedo('Movie Player')
-
-        self.w.simMoviePlayerAction.setChecked(0) # toggle on the Movie Player icon
-        self.set_cmdname('Movie Player') # this covers all changes while we were in the mode
-            # (somewhat of a kluge, and whether this is the best place to do it is unknown;
-            #  without this the cmdname is "Done")
-
-        self.updateCommandToolbar(bool_entering = False)
-        self.w.disable_QActions_for_movieMode(False)
-
-        self.connect_or_disconnect_signals(False)
-
-        return
-
     def makeMenus(self):
         self.Menu_spec = [
-            ('Cancel', self.Cancel),
+            ('Cancel', self.command_Cancel),
             ('Reset Movie', self.ResetMovie),
-            ('Done', self.Done),
+            ('Done', self.command_Done),
             None,
             ('Edit Color Scheme...', self.w.colorSchemeCommand),
         ]
@@ -373,7 +324,7 @@ class movieMode(basicMode):
         if key == Qt.Key_Right or key == Qt.Key_Up:
             movie._playToFrame(movie.currentFrame + 1)
 
-        basicMode.keyPress(self,key) # So F1 Help key works. mark 060321
+        basicMode.keyPress(self, key) # So F1 Help key works. mark 060321
 
         return
 
@@ -403,7 +354,7 @@ def simMoviePlayer(assy):
         return
 
     if assy.current_movie and assy.current_movie.might_be_playable():
-        win.commandSequencer.userEnterCommand('MOVIE')
+        win.commandSequencer.userEnterCommand('MOVIE', always_update = True)
         return
 
     # no valid current movie, look for saved one with same name as assy
@@ -430,14 +381,14 @@ def simMoviePlayer(assy):
             # for any loaded Part. So let's not... tho we might presume (from filename choice we used)
             # it was valid for Main Part. Maybe print warning for clip item, and for not valid? #e
             env.history.message("Movie Player: %s previously saved movie for this part." % ("playing" or "loading"))
-            win.commandSequencer.userEnterCommand('MOVIE')
+            win.commandSequencer.userEnterCommand('MOVIE', always_update = True)
             return
     # else if no assy.filename or no movie found from that:
     # bruce 050327 comment -- do what the old code did, except for the moviePlay
     # which seems wrong and tracebacks now.
     assy.current_movie = Movie(assy)
         # temporary kluge until bugs in movieMode for no assy.current_movie are fixed
-    win.commandSequencer.userEnterCommand('MOVIE')
+    win.commandSequencer.userEnterCommand('MOVIE', always_update = True)
     return
 
 # end

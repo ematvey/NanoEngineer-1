@@ -5,7 +5,7 @@ RosettaSetup.py
 Dialog for setting up to run the simulator.
 
 @author: Urmi
-@version: $Id$
+@version: $Id: RosettaSetup.py 13786 2008-08-05 16:08:33Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 Copied and then modified from SimSetup.py
 """

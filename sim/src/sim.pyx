@@ -2,7 +2,7 @@
 """
 sim.pyx
 
-$Id: sim.pyx 12786 2008-05-16 00:08:43Z ericmessick $
+$Id: sim.pyx 14419 2008-10-06 18:12:42Z ericmessick $
 
 Note: this file is processed by Pyrex to produce sim.c in this directory
 (not in the build subdirectory). [bruce 060101]
@@ -48,6 +48,8 @@ cdef extern from "simhelp.c":
     int EnableElectrostatic
     int NeighborSearching
     double ThermostatGamma
+    int UseAMBER
+    int TypeFeedback
     char *IDKey
     char *BaseFileName
     char *InputFileName
@@ -56,6 +58,10 @@ cdef extern from "simhelp.c":
     char *GromacsOutputBaseName
     char *PathToCpp
     char *SystemParametersFileName
+    char *AmberBondedParametersFileName
+    char *AmberNonbondedParametersFileName
+    char *AmberChargesFileName
+
     double Dt
     double Dx
     double Dmass
@@ -153,6 +159,10 @@ cdef class _Simulator:
             return EnableElectrostatic
         elif strcmp(key, "NeighborSearching") == 0:
             return NeighborSearching
+        elif strcmp(key, "UseAMBER") == 0:
+            return UseAMBER
+        elif strcmp(key, "TypeFeedback") == 0:
+            return TypeFeedback
         elif strcmp(key, "ThermostatGamma") == 0:
             return ThermostatGamma
         elif strcmp(key, "IDKey") == 0:
@@ -194,6 +204,21 @@ cdef class _Simulator:
                 # should we raise an AttributeError here?
                 return ""
             return SystemParametersFileName
+        elif strcmp(key, "AmberBondedParametersFileName") == 0:
+            if AmberBondedParametersFileName == NULL:
+                # should we raise an AttributeError here?
+                return ""
+            return AmberBondedParametersFileName
+        elif strcmp(key, "AmberNonbondedParametersFileName") == 0:
+            if AmberNonbondedParametersFileName == NULL:
+                # should we raise an AttributeError here?
+                return ""
+            return AmberNonbondedParametersFileName
+        elif strcmp(key, "AmberChargesFileName") == 0:
+            if AmberChargesFileName == NULL:
+                # should we raise an AttributeError here?
+                return ""
+            return AmberChargesFileName
         elif strcmp(key, "Dt") == 0:
             return Dt
         elif strcmp(key, "Dx") == 0:
@@ -269,6 +294,12 @@ cdef class _Simulator:
         elif strcmp(key, "NeighborSearching") == 0:
             global NeighborSearching
             NeighborSearching = value
+        elif strcmp(key, "UseAMBER") == 0:
+            global UseAMBER
+            UseAMBER = value
+        elif strcmp(key, "TypeFeedback") == 0:
+            global TypeFeedback
+            TypeFeedback = value
         elif strcmp(key, "ThermostatGamma") == 0:
             global ThermostatGamma
             ThermostatGamma = value
@@ -296,6 +327,15 @@ cdef class _Simulator:
         elif strcmp(key, "SystemParametersFileName") == 0:
             global SystemParametersFileName
             SystemParametersFileName = value
+        elif strcmp(key, "AmberBondedParametersFileName") == 0:
+            global AmberBondedParametersFileName
+            AmberBondedParametersFileName = value
+        elif strcmp(key, "AmberNonbondedParametersFileName") == 0:
+            global AmberNonbondedParametersFileName
+            AmberNonbondedParametersFileName = value
+        elif strcmp(key, "AmberChargesFileName") == 0:
+            global AmberChargesFileName
+            AmberChargesFileName = value
         elif strcmp(key, "Dt") == 0:
             global Dt
             Dt = value

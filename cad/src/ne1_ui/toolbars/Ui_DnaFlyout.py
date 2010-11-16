@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_DnaFlyout.py 13476 2008-07-16 02:20:39Z ninadsathaye $
+$Id: Ui_DnaFlyout.py 14382 2008-09-30 17:52:29Z ninadsathaye $
 
 TODO: 
 - Does the parentWidget for the DnaFlyout always needs to be a propertyManager
@@ -19,50 +19,26 @@ from PyQt4.Qt import SIGNAL
 from utilities.icon_utilities import geticon
 from utilities.Log import greenmsg
 from ne1_ui.NE1_QWidgetAction import NE1_QWidgetAction
-
-_theDnaFlyout = None
-
-#NOTE: global methods setupUi, activateDnaFlyout are not called as of 2007-12-19
-#Use methods like DnaFlyout.activateFlyoutToolbar instead. 
-#Command toolbar needs to be integrated with the commandSequencer. 
-#See DnaDuplex_EditCommand.init_gui for an example. (still experimental)
+from ne1_ui.toolbars.Ui_AbstractFlyout import Ui_AbstractFlyout
 
 
-def setupUi(mainWindow):
-    """
-    Construct the QWidgetActions for the Dna flyout on the 
-    Command Manager toolbar.
-    """
-    global _theDnaFlyout
 
-    _theDnaFlyout = DnaFlyout(mainWindow)
+_superclass = Ui_AbstractFlyout
+class DnaFlyout(Ui_AbstractFlyout):  
     
-# probably needs a retranslateUi to add tooltips too...
-
-def activateDnaFlyout(mainWindow):
-    mainWindow.commandToolbar.updateCommandToolbar(mainWindow.buildDnaAction, 
-                                                   _theDnaFlyout)
-
-class DnaFlyout:    
-    def __init__(self, mainWindow, parentWidget):
+    def _action_in_controlArea_to_show_this_flyout(self):
         """
-        Create necessary flyout action list and update the flyout toolbar in
-        the command toolbar with the actions provided by the object of this
-        class.
-        
-        @param mainWindow: The mainWindow object
-        @type  mainWindow: B{MWsemantics} 
-        
-        @param parentWidget: The parentWidget to which actions defined by this 
-                             object belong to. This needs to be revised.
-                             
+        Required action in the 'Control Area' as a reference for this 
+        flyout toolbar. See superclass method for documentation and todo note.
         """
-        self.parentWidget = parentWidget
-        self.win = mainWindow
-        self._isActive = False
-        self._createActions(self.parentWidget)        
-        self._addWhatsThisText()
-        self._addToolTipText()
+        return self.win.buildDnaAction
+    
+    def _getExitActionText(self):
+        """
+        Overrides superclass method. 
+        @see: self._createActions()
+        """
+        return "Exit DNA"
     
     def getFlyoutActionList(self):
         """
@@ -74,19 +50,12 @@ class DnaFlyout:
         """
         #'allActionsList' returns all actions in the flyout toolbar 
         #including the subcontrolArea actions. 
-        allActionsList = []
+        allActionsList = []        
         
-        self.subControlActionGroup = QtGui.QActionGroup(self.parentWidget)
-        self.subControlActionGroup.setExclusive(False)   
-        self.subControlActionGroup.addAction(self.dnaDuplexAction)
-        self.subControlActionGroup.addAction(self.breakStrandAction) 
-        self.subControlActionGroup.addAction(self.joinStrandsAction)
-        self.subControlActionGroup.addAction(self.makeCrossoversAction)
-        self.subControlActionGroup.addAction(self.editDnaDisplayStyleAction)
 
         #Action List for  subcontrol Area buttons. 
         subControlAreaActionList = []
-        subControlAreaActionList.append(self.exitDnaAction)
+        subControlAreaActionList.append(self.exitModeAction)
         separator = QtGui.QAction(self.parentWidget)
         separator.setSeparator(True)
         subControlAreaActionList.append(separator) 
@@ -113,12 +82,11 @@ class DnaFlyout:
         return params
 
     def _createActions(self, parentWidget):
-        self.exitDnaAction = NE1_QWidgetAction(parentWidget, 
-                                               win = self.win)
-        self.exitDnaAction.setText("Exit DNA")
-        self.exitDnaAction.setIcon(
-            geticon("ui/actions/Toolbars/Smart/Exit.png"))
-        self.exitDnaAction.setCheckable(True)
+        """
+        Overrides superclass method
+        """
+        
+        _superclass._createActions(self, parentWidget)
         
         self.dnaDuplexAction = NE1_QWidgetAction(parentWidget,
                                                  win = self.win)
@@ -179,6 +147,14 @@ class DnaFlyout:
         self.editDnaDisplayStyleAction.setIcon(
             geticon("ui/actions/Edit/EditDnaDisplayStyle.png"))
         
+        self.subControlActionGroup = QtGui.QActionGroup(self.parentWidget)
+        self.subControlActionGroup.setExclusive(False)   
+        self.subControlActionGroup.addAction(self.dnaDuplexAction)
+        self.subControlActionGroup.addAction(self.breakStrandAction) 
+        self.subControlActionGroup.addAction(self.joinStrandsAction)
+        self.subControlActionGroup.addAction(self.makeCrossoversAction)
+        self.subControlActionGroup.addAction(self.editDnaDisplayStyleAction)
+        
     def _addWhatsThisText(self):
         """
         Add 'What's This' help text for all actions on toolbar. 
@@ -210,9 +186,8 @@ class DnaFlyout:
         else:
             change_connect = self.win.disconnect 
             
-        change_connect(self.exitDnaAction, 
-                       SIGNAL("triggered(bool)"),
-                       self.activateExitDna)
+        _superclass.connect_or_disconnect_signals(self, 
+                                                  isConnect)
         
         change_connect(self.dnaDuplexAction, 
                              SIGNAL("triggered(bool)"),
@@ -255,7 +230,9 @@ class DnaFlyout:
                              SIGNAL("triggered(bool)"),
                              self.activateDisplayStyle_Command)
     
-    def activateFlyoutToolbar(self):
+    def ORIGINAL_activateFlyoutToolbar(self): #Unused as of 2008-08-13 (and onwards)
+        #This method can be removed in the near future. Testing has not discovered
+        #any new bugs after Ui_DnaFlyout was inherited from Ui_AbstractFlyout. 
         """
         Updates the flyout toolbar with the actions this class provides. 
         """                   
@@ -282,49 +259,12 @@ class DnaFlyout:
         #self.win.commandToolbar._setControlButtonMenu_in_flyoutToolbar(
                     #self.cmdButtonGroup.checkedId())
         self.exitDnaAction.setChecked(True)
+        
+       
         self.connect_or_disconnect_signals(True)
     
-    def deActivateFlyoutToolbar(self):
-        """
-        Updates the flyout toolbar with the actions this class provides.
-        """
-        if not self._isActive:
-            return 
-        
-        self._isActive = False
-        
-        self.resetStateOfActions()
+                
             
-        self.connect_or_disconnect_signals(False)    
-        self.win.commandToolbar.updateCommandToolbar(self.win.buildDnaAction,
-                                                     self,
-                                                     entering = False)
-    
-    def resetStateOfActions(self):
-        """
-        Resets the state of actions in the flyout toolbar.
-        Uncheck most of the actions. Basically it 
-        unchecks all the actions EXCEPT the ExitDnaAction
-        @see: self.deActivateFlyoutToolbar()
-        @see: self.activateBreakStrands_Command() 
-        @see: BuildDna_EditCommand.resume_gui()
-        """
-        
-        #Uncheck all the actions in the flyout toolbar (subcontrol area)
-        for action in self.subControlActionGroup.actions():
-            if action.isChecked():
-                action.setChecked(False)
-        
-    def activateExitDna(self, isChecked):
-        """
-        Slot for B{Exit DNA} action.
-        """     
-        #@TODO: This needs to be revised. 
-        
-        if hasattr(self.parentWidget, 'ok_btn_clicked'):
-            if not isChecked:
-                self.parentWidget.ok_btn_clicked()
-        
     def activateDnaDuplex_EditCommand(self, isChecked):
         """
         Slot for B{Duplex} action.
@@ -462,4 +402,31 @@ class DnaFlyout:
         #in the flyout toolbar (subcontrol area)
         for action in self.subControlActionGroup.actions():
             if action is not self.editDnaDisplayStyleAction and action.isChecked():
+                action.setChecked(False)
+                
+                
+    def resetStateOfActions(self):
+        """
+        See superclass for more documentation. 
+        
+        Resets the state of actions in the flyout toolbar.
+        It unchecks all the actions EXCEPT the ExitModeAction. This is called 
+        while resuming a command. 
+        
+        This is called while resuming a command.         
+        
+        Example: If Insert > Dna command is exited and the Build > Dna command
+        is resumed. When this happens, program needs to make sure that the 
+        Insert > DNA button in the flyout is unchecked. It is done by using this
+        method. 
+        
+        
+        @see: self.deActivateFlyoutToolbar()
+        @see: self.activateBreakStrands_Command() 
+        @see: AbstractFlyout.resetStateOfActions()
+        @see: baseCommand.command_update_flyout() which calls this method. 
+        """
+        #Uncheck all the actions in the flyout toolbar (subcontrol area)
+        for action in self.subControlActionGroup.actions():
+            if action.isChecked():
                 action.setChecked(False)

@@ -3,7 +3,7 @@
  * Type "make shared" to build.
  */
 
-static char const svnId[] = "$Id: samevalshelp.c 12024 2008-03-18 19:18:32Z ericmessick $";
+static char const svnId[] = "$Id: samevalshelp.c 14323 2008-09-23 20:02:11Z ericmessick $";
 
 #ifndef WIN32
 #include <alloca.h>
@@ -175,10 +175,16 @@ _same_vals_helper(PyObject *v1, PyObject *v2)
 	    printf(" (rich comparison)");
 	printf("\n");
     });
-#endif
     if (typ1->tp_compare != NULL) {
-	return typ1->tp_compare(v1, v2) != 0;
+      int i;
+
+      i = typ1->tp_compare(v1, v2);
+      if (i != 2) {
+        // tp_compare() appears to return 2 if __cmp__() is not defined on an instance.
+        return i != 0;
+      }
     }
+#endif
     if (PyObject_RichCompareBool(v1, v2, Py_EQ) == 1)
 	return 0;
     return 1;
@@ -191,8 +197,9 @@ c_same_vals(PyObject *o1, PyObject *o2)
 	PyErr_SetString(PyExc_RuntimeError, "please set arrayType first");
 	return NULL;
     }
-    if (_same_vals_helper(o1, o2) != 0)
+    if (_same_vals_helper(o1, o2) != 0) {
 	return PyInt_FromLong(0);  // false
+    }
     return PyInt_FromLong(1);  // true
 }
 

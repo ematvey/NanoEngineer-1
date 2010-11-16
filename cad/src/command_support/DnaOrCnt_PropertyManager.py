@@ -8,7 +8,7 @@ Property Managers.
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: DnaOrCnt_PropertyManager.py 13368 2008-07-09 20:25:52Z ninadsathaye $
+@version:$Id: DnaOrCnt_PropertyManager.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 
 History:
 Created on 2008-05-20
@@ -33,13 +33,12 @@ from PM.PM_RadioButtonList     import PM_RadioButtonList
 from utilities.constants       import lightgreen_2
 
 from command_support.EditCommand_PM import EditCommand_PM
-from widgets.DebugMenuMixin         import DebugMenuMixin
 
 from PM.PM_ColorChooser import PM_ColorChooser
 from PM.PM_ColorComboBox import PM_ColorComboBox
 
 _superclass = EditCommand_PM
-class DnaOrCnt_PropertyManager(EditCommand_PM, DebugMenuMixin):
+class DnaOrCnt_PropertyManager(EditCommand_PM):
     """
     DnaOrCnt_PropertyManager class provides common functionality 
     (e.g. groupboxes etc) to the subclasses that define various Dna and Cnt
@@ -48,7 +47,7 @@ class DnaOrCnt_PropertyManager(EditCommand_PM, DebugMenuMixin):
     @see: DnaDuplexPropertyManager (subclass)
     """
 
-    def __init__( self, win, editCommand ):
+    def __init__( self, command ):
         """
         Constructor for the DNA Duplex property manager.
         """
@@ -57,13 +56,21 @@ class DnaOrCnt_PropertyManager(EditCommand_PM, DebugMenuMixin):
         self._colorChooser     = None
         self.showCursorTextCheckBox = None
         self.referencePlaneListWidget = None
-
-        _superclass.__init__( self, 
-                              win,
-                              editCommand)
-
-        DebugMenuMixin._init1( self )
         
+        
+        #For model changed signal
+        #@see: self.model_changed() and self._current_model_changed_params 
+        #for example use
+        self._previous_model_changed_params = None
+
+
+        #see self.connect_or_disconnect_signals for comment about this flag
+        self.isAlreadyConnected = False
+        self.isAlreadyDisconnected = False
+        
+
+        _superclass.__init__( self, command)
+
         
     def show(self):
         """
@@ -297,7 +304,7 @@ class DnaOrCnt_PropertyManager(EditCommand_PM, DebugMenuMixin):
         
     def listWidgetHasFocus(self):
         """
-        Checkes if the list widget that lists the referecne plane, on which 
+        Checks if the list widget that lists the referecne plane, on which 
         the dna will be created, has the Qt focus. This is used to just remove 
         items from the list widget (without actually 'deleting' the 
         corresponding Plane in the GLPane)
@@ -316,10 +323,10 @@ class DnaOrCnt_PropertyManager(EditCommand_PM, DebugMenuMixin):
         if self._colorChooser is None:
             return
         
-        if self.editCommand and self.editCommand.hasValidStructure():
+        if self.command and self.command.hasValidStructure():
             color = self._colorChooser.getColor()
-            if hasattr(self.editCommand.struct, 'setColor'):
-                self.editCommand.struct.setColor(color)
+            if hasattr(self.command.struct, 'setColor'):
+                self.command.struct.setColor(color)
                 self.win.glpane.gl_update()
             
 

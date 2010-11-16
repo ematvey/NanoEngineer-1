@@ -3,7 +3,7 @@
 Zoom in/out mode functionality.
 
 @author:    Mark Sims
-@version:   $Id: ZoomInOutMode.py 11951 2008-03-14 04:44:50Z ericmessick $
+@version:   $Id: ZoomInOutMode.py 14362 2008-09-26 16:05:18Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 @license:   GPL
 """
@@ -58,22 +58,28 @@ class ZoomInOutMode(TemporaryCommand_Overdrawing):
     """
     Encapsulates the Zoom In/Out functionality.
     """
-    
-    # class constants
-    
+    # class constants    
     commandName = 'ZOOMINOUT'
-    default_mode_status_text = "Tool: Zoom In/Out"
     featurename = "Zoom In/Out Tool"
+    from utilities.constants import CL_VIEW_CHANGE
+    command_level = CL_VIEW_CHANGE
 
     GraphicsMode_class = ZoomInOutMode_GM
-
-    def init_gui(self):
-        self.win.zoomInOutAction.setChecked(1) # toggle on the Zoom In/Out icon
-        return    
+    
+    def command_enter_misc_actions(self):
+        """
+        See superclass method for documentation
+        """
+        self.win.zoomInOutAction.setChecked(True)
+    
+    def command_exit_misc_actions(self):
+        """
+        See superclass method for documentation
+        """
+        self.win.zoomInOutAction.setChecked(False)
         
-    def restore_gui(self):
-        self.win.zoomInOutAction.setChecked(0) # toggle off the Zoom In/Out icon
-
-    pass
+    #END new command API methods==============================================
+        
+    
 
 # end

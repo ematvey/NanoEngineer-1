@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_StandardToolBar.py 13262 2008-06-30 15:45:03Z KyleAlsup $
+$Id: Ui_StandardToolBar.py 14453 2008-11-14 02:48:15Z  $
 """
 from PyQt4 import QtGui
 from foundation.wiki_help import QToolBar_WikiHelp
@@ -48,8 +48,7 @@ def setupUi(win, toolbarArea):
     win.standardToolBar.addAction(win.colorSchemeAction)
     win.standardToolBar.addAction(win.lightingSchemeAction)
     win.standardToolBar.addSeparator()
-    win.standardToolBar.addAction(win.editRenameAction)
-    win.standardToolBar.addAction(win.editRenameObjectsAction)
+    win.standardToolBar.addAction(win.editRenameSelectionAction)
     win.standardToolBar.addAction(win.editAddSuffixAction)
     win.standardToolBar.addSeparator()
     win.standardToolBar.addAction(win.editPrefsAction)    

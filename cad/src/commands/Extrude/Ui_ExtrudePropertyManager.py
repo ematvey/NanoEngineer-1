@@ -1,11 +1,13 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details.
-
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 """
-$Id: Ui_ExtrudePropertyManager.py 13493 2008-07-16 18:25:03Z marksims $
-The Ui_ExtrudePropertyManager class defines UI elements for the Property
-Manager of the B{Extrude mode}.
+Ui_ExtrudePropertyManager.py - UI elements for the B{Extrude Mode} Property
+Manager.
+
+@version: $Id: Ui_ExtrudePropertyManager.py 14435 2008-10-30 21:42:25Z  $
+@copyight: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
+
 ninad 2007-01-10: Split the ui code out of extrudeMode while converting
 extrude dashboard to extrude property manager.
 ninad 2007-09-10: Code clean up to use PM module classes
@@ -13,7 +15,6 @@ ninad 2007-09-10: Code clean up to use PM module classes
 
 from PyQt4.Qt import Qt
 
-from PM.PM_Dialog        import PM_Dialog
 from PM.PM_GroupBox      import PM_GroupBox
 from PM.PM_CheckBox      import PM_CheckBox
 from PM.PM_Slider        import PM_Slider
@@ -24,9 +25,12 @@ from PM.PM_SpinBox       import PM_SpinBox
 from PM.PM_Constants     import PM_DONE_BUTTON
 from PM.PM_Constants     import PM_WHATS_THIS_BUTTON
 from PM.PM_Constants     import PM_CANCEL_BUTTON
+from PM.PM_Constants     import PM_PREVIEW_BUTTON
 
+from command_support.Command_PropertyManager import Command_PropertyManager
 
-class Ui_ExtrudePropertyManager(PM_Dialog):
+_superclass = Command_PropertyManager
+class Ui_ExtrudePropertyManager(Command_PropertyManager):
     """
     The Ui_ExtrudePropertyManager class defines UI elements for the Property
     Manager of the B{Extrude mode}.
@@ -51,24 +55,20 @@ class Ui_ExtrudePropertyManager(PM_Dialog):
     # The relative path to the PNG file that appears in the header
     iconPath = "ui/actions/Properties Manager/Extrude.png"
 
-    def __init__(self, parentMode):
+    def __init__(self, command):
         """
         Constructor for the B{Extrude} property manager class that defines
         its UI.
 
-        @param parentMode: The parent mode where this Property Manager is used
-        @type  parentMode: L{extrudeMode}
+        @param command: The parent mode where this Property Manager is used
+        @type  command: L{extrudeMode}
         """
-        self.parentMode = parentMode
-        self.w = self.parentMode.w
-        self.win = self.parentMode.w
-        self.pw = self.parentMode.pw
-        self.o = self.win.glpane
-
-        PM_Dialog.__init__(self, self.pmName, self.iconPath, self.title)
+        
+        _superclass.__init__(self, command)
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_CANCEL_BUTTON | \
+                                PM_PREVIEW_BUTTON|\
                                 PM_WHATS_THIS_BUTTON)
 
 
@@ -82,6 +82,17 @@ class Ui_ExtrudePropertyManager(PM_Dialog):
 
         self._addProductSpecsGroupBox()
         self._addAdvancedOptionsGroupBox()
+        
+        #Define extrude preference toggles. This needs to be defined before 
+        #the superclass calls connect_or_disconnect_signals! Defining it in 
+        #_addGroupBoxes is not intuitive. But the problem is the superclass method
+        #also makes connections in its __init__ method. This can be cleaned up
+        #during major reafctoring of extrude Mode --  Ninad 2008-10-02
+        self.extrude_pref_toggles = ( self.showEntireModelCheckBox,
+                                      self.showBondOffsetCheckBox,
+                                      self.makeBondsCheckBox,
+                                      self.mergeCopiesCheckBox,
+                                      self.extrudePrefMergeSelection)
 
     def _addProductSpecsGroupBox(self):
         """

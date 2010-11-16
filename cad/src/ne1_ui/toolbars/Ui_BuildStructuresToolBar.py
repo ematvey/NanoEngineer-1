@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_BuildStructuresToolBar.py 12416 2008-04-09 05:40:41Z marksims $
+$Id: Ui_BuildStructuresToolBar.py 14019 2008-08-22 19:16:12Z ninadsathaye $
 """
 
 from PyQt4 import QtGui
@@ -24,19 +24,10 @@ def setupUi(win, toolbarArea):
     # Populate the "Build Structures" toolbar.
     # Begin with "Builders", then add single shot "Generators".
     win.buildStructuresToolBar.addAction(win.toolsDepositAtomAction)
-    win.buildStructuresToolBar.addAction(win.buildDnaAction)
+    win.buildStructuresToolBar.addAction(win.buildDnaAction)   
     
-    #  New Nanotube Builder or old Nanotube Generator?
-    if debug_pref("Use new 'Build > Nanotube' builder? (next session)", 
-                  Choice_boolean_True, 
-                  prefs_key = "A10 devel/Old Nanotube Generator"):
-        # New "Build > CNT", experimental. --Mark 2008-03-10
-        win.buildStructuresToolBar.addAction(win.buildNanotubeAction) 
-    else:
-        # Original "Build > Nanotube"
-        win.buildStructuresToolBar.addAction(win.nanotubeGeneratorAction)
-        
-    win.buildStructuresToolBar.addAction(win.toolsCookieCutAction)
+    win.buildStructuresToolBar.addAction(win.buildNanotubeAction) 
+    win.buildStructuresToolBar.addAction(win.buildCrystalAction)
     
     win.buildStructuresToolBar.addSeparator() # Generators after this.
     

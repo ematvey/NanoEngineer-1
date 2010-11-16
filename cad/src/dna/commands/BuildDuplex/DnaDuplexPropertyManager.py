@@ -3,7 +3,7 @@
 DnaDuplexPropertyManager.py
 
 @author: Mark Sims
-@version: $Id: DnaDuplexPropertyManager.py 13265 2008-06-30 17:30:56Z ninadsathaye $
+@version: $Id: DnaDuplexPropertyManager.py 14357 2008-09-25 21:53:46Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Mark 2007-10-18:
@@ -13,8 +13,6 @@ Ninad 2007-10-24:
 - Another major rewrite to a) use EditCommand_PM superclass and b) Implement
 feature to generate Dna using endpoints of a line.
 """
-
-__author__ = "Mark"
 
 import foundation.env as env
 
@@ -77,7 +75,7 @@ class DnaDuplexPropertyManager( DnaOrCnt_PropertyManager ):
     pmName        =  title
     iconPath      =  "ui/actions/Tools/Build Structures/InsertDsDna.png"
 
-    def __init__( self, win, editCommand ):
+    def __init__( self, command ):
         """
         Constructor for the DNA Duplex property manager.
         """
@@ -92,9 +90,7 @@ class DnaDuplexPropertyManager( DnaOrCnt_PropertyManager ):
                                               self._numberOfBases)
 
 
-        _superclass.__init__( self,
-                              win,
-                              editCommand)
+        _superclass.__init__( self, command)
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_CANCEL_BUTTON | \
@@ -148,81 +144,15 @@ class DnaDuplexPropertyManager( DnaOrCnt_PropertyManager ):
             Preferences_StateRef_double( bdnaBasesPerTurn_prefs_key, 
                                          env.prefs[bdnaBasesPerTurn_prefs_key] )
             )
-
         
-                
- 
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """
-        if self.editCommand:
-            self.editCommand.preview_or_finalize_structure(previewing = False)
-            ##env.history.message(self.editCommand.logMessage)
-        self.win.toolsDone()
+    def show(self):
+        _superclass.show(self)
+        self.updateMessage("Specify two points in the 3D Graphics " \
+                                   "Area to define the endpoints of the "\
+                                   "DNA duplex."   )
 
-    def cancel_btn_clicked(self):
-        """
-        Slot for the Cancel button.
-        """
-        if self.editCommand:
-            self.editCommand.cancelStructure()
-        self.win.toolsCancel()
-
-
-    def _update_widgets_in_PM_before_show(self):
-        """
-        Update various widgets  in this Property manager.
-        Overrides superclass method
-
-        @see: MotorPropertyManager._update_widgets_in_PM_before_show
-        @see: self.show where it is called.
-        """
-        pass
-
-    def getFlyoutActionList(self):
-        """ returns custom actionlist that will be used in a specific mode
-        or editing a feature etc Example: while in movie mode,
-        the _createFlyoutToolBar method calls
-        this """
-
-
-        #'allActionsList' returns all actions in the flyout toolbar
-        #including the subcontrolArea actions
-        allActionsList = []
-
-        #Action List for  subcontrol Area buttons.
-        #In this mode there is really no subcontrol area.
-        #We will treat subcontrol area same as 'command area'
-        #(subcontrol area buttons will have an empty list as their command area
-        #list). We will set  the Comamnd Area palette background color to the
-        #subcontrol area.
-
-        subControlAreaActionList =[]
-
-        self.exitEditCommandAction.setChecked(True)
-        subControlAreaActionList.append(self.exitEditCommandAction)
-
-        separator = QAction(self.w)
-        separator.setSeparator(True)
-        subControlAreaActionList.append(separator)
-
-
-        allActionsList.extend(subControlAreaActionList)
-
-        #Empty actionlist for the 'Command Area'
-        commandActionLists = []
-
-        #Append empty 'lists' in 'commandActionLists equal to the
-        #number of actions in subControlArea
-        for i in range(len(subControlAreaActionList)):
-            lst = []
-            commandActionLists.append(lst)
-
-        params = (subControlAreaActionList, commandActionLists, allActionsList)
-
-        return params
-
+    
+    
     def _addGroupBoxes( self ):
         """
         Add the DNA Property Manager group boxes.
@@ -461,7 +391,7 @@ class DnaDuplexPropertyManager( DnaOrCnt_PropertyManager ):
         """
         Slot for the B{Bases per turn} spinbox.
         """
-        self.editCommand.basesPerTurn = basesPerTurn
+        self.command.basesPerTurn = basesPerTurn
         self._basesPerTurn = basesPerTurn
         return
 
@@ -469,7 +399,7 @@ class DnaDuplexPropertyManager( DnaOrCnt_PropertyManager ):
         """
         Slot for the B{Rise} spinbox.
         """
-        self.editCommand.duplexRise = rise
+        self.command.duplexRise = rise
         self._duplexRise = rise
         return
 

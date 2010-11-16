@@ -3,7 +3,7 @@
 PeptideGroup.py - ... 
 
 @author: Bruce, Mark
-@version: $Id: PeptideGroup.py 12414 2008-04-09 05:22:11Z marksims $
+@version: $Id: PeptideGroup.py 14410 2008-10-03 02:21:13Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -131,7 +131,7 @@ class PeptideGroup(Group):
         @see: Group.edit()
         """
         commandSequencer = self.assy.w.commandSequencer
-        commandSequencer.userEnterCommand('BUILD_Peptide')
+        commandSequencer.userEnterCommand('BUILD_Peptide', always_update = True)
         currentCommand = commandSequencer.currentCommand
         assert currentCommand.commandName == 'BUILD_Peptide'
         currentCommand.editStructure(self)
@@ -192,8 +192,7 @@ class PeptideGroup(Group):
         @param color: The highlight color
         @see: Chunk.draw_highlighted()
         @see: SelectChunks_GraphicsMode.draw_highlightedChunk()
-        @see: SelectChunks_GraphicsMode._get_objects_to_highlight()
-        @see: SelectChunks_GraphicsMode._is_dnaGroup_highlighting_enabled()   #@     
+        @see: SelectChunks_GraphicsMode._get_objects_to_highlight()    
         """  
         for c in self.getSegments():
             c.draw_highlighted(glpane, color)

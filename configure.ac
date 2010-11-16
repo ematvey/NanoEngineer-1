@@ -114,9 +114,6 @@ fi
 #AC_FUNC_VPRINTF
 #AC_CHECK_FUNCS([clock_gettime gettimeofday memmove memset pow select sqrt strcasecmp strerror strncasecmp strtol])
 
-#				cad/plugins/HDF5_SimResults/Makefile
-#					cad/plugins/HDF5_SimResults/src/Makefile
-#						cad/plugins/HDF5_SimResults/src/Testing/Makefile
 
 # Miscellaneous
 AC_SUBST(UNAME_A, "$(uname -a)")
@@ -128,6 +125,9 @@ AC_CONFIG_FILES([Makefile
 			cad/partlib/Makefile
 			cad/plugins/Makefile
 				cad/plugins/DNA/Makefile
+				cad/plugins/HDF5_SimResults/Makefile
+					cad/plugins/HDF5_SimResults/src/Makefile
+						cad/plugins/HDF5_SimResults/src/Testing/Makefile
 		debian/postinst
 		sim/Makefile
 			sim/src/Makefile])

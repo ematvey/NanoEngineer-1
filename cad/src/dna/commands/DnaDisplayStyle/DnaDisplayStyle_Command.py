@@ -1,7 +1,7 @@
-# Copyright 2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author:    Mark
-@version:   $Id: DnaDisplayStyle_Command.py 13364 2008-07-09 17:06:54Z ninadsathaye $
+@version:   $Id: DnaDisplayStyle_Command.py 14380 2008-09-30 17:30:40Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -11,6 +11,8 @@ from command_support.EditCommand import EditCommand
 from utilities.constants import red
 from dna.commands.DnaDisplayStyle.DnaDisplayStyle_PropertyManager import DnaDisplayStyle_PropertyManager
 
+from graphics.drawing.drawDnaLabels import draw_dnaBaseNumberLabels
+
 # == GraphicsMode part
 
 _superclass_for_GM = SelectChunks_GraphicsMode
@@ -19,7 +21,13 @@ class DnaDisplayStyle_GraphicsMode( SelectChunks_GraphicsMode ):
     """
     Graphics mode for (DNA) Display Style command. 
     """
-    pass
+    def _drawLabels(self):
+        """
+        Overrides suoerclass method.
+        @see: GraphicsMode._drawLabels()
+        """
+        _superclass_for_GM._drawLabels(self)
+        draw_dnaBaseNumberLabels(self.glpane)
     
 # == Command part
 
@@ -28,56 +36,34 @@ class DnaDisplayStyle_Command(EditCommand):
     """
     
     """
+     
     # class constants
     
-    commandName = 'EDIT_DNA_DISPLAY_STYLE'
-    default_mode_status_text = ""
-    featurename = "DNA Display Style"
-         
-    hover_highlighting_enabled = True
     GraphicsMode_class = DnaDisplayStyle_GraphicsMode
-   
     
-    command_can_be_suspended = False
+    PM_class = DnaDisplayStyle_PropertyManager
+    
+    commandName = 'EDIT_DNA_DISPLAY_STYLE'
+    featurename = "DNA Display Style"
+    from utilities.constants import CL_GLOBAL_PROPERTIES
+    command_level = CL_GLOBAL_PROPERTIES
+
     command_should_resume_prevMode = True 
-    command_has_its_own_gui = True
+    command_has_its_own_PM = True
     
     flyoutToolbar = None
-
-    def init_gui(self):
-        """
-        Initialize GUI for this mode 
-        """
-        previousCommand = self.commandSequencer.prevMode 
-        if previousCommand.commandName == 'BUILD_DNA':
-            try:
-                self.flyoutToolbar = previousCommand.flyoutToolbar
-                #Need a better way to deal with changing state of the 
-                #corresponding action in the flyout toolbar. To be revised 
-                #during command toolbar cleanup 
-                self.flyoutToolbar.breakStrandAction.setChecked(True)
-            except AttributeError:
-                self.flyoutToolbar = None
-        
-        if self.propMgr is None:
-            self.propMgr = DnaDisplayStyle_PropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494.
-            #This bug is mitigated as propMgr object no longer gets recreated
-            #for modes -- niand 2007-08-29
-            changes.keep_forever(self.propMgr)  
-            
-        self.propMgr.show()
-            
-        
-    def restore_gui(self):
-        """
-        Restore the GUI 
-        """
-            
-        if self.propMgr is not None:
-            self.propMgr.close()
     
-   
+    
+    def _getFlyoutToolBarActionAndParentCommand(self):
+        """
+        See superclass for documentation.
+        @see: self.command_update_flyout()
+        """
+        flyoutActionToCheck = 'editDnaDisplayStyleAction'
+        parentCommandName = 'BUILD_DNA'      
+        return flyoutActionToCheck, parentCommandName
+    
+
     def keep_empty_group(self, group):
         """
         Returns True if the empty group should not be automatically deleted. 
@@ -105,7 +91,7 @@ class DnaDisplayStyle_Command(EditCommand):
                 bool_keep = True
             #Commented out code that shows what I was planning to implement 
             #earlier. 
-            ##previousCommand = self.commandSequencer.prevMode 
+            ##previousCommand = self.commandSequencer.prevMode # keep_empty_group: .struct
             ##if previousCommand.commandName == 'BUILD_DNA':
                 ##if group is previousCommand.struct:
                     ##bool_keep = True                                

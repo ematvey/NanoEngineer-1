@@ -5,7 +5,7 @@ and provide access to them. Pages typically contain feature-specific help info,
 FAQ, forum, etc.
 
 @author: Will, Bruce
-@version: $Id: wiki_help.py 13317 2008-07-03 01:15:51Z marksims $
+@version: $Id: wiki_help.py 13878 2008-08-11 17:47:19Z urmim $
 @copyright: 2005-2007 Nanorex, Inc.  See LICENSE file for details.
 
 Module classification: [bruce 080101]
@@ -262,7 +262,7 @@ class WikiHelpBrowser(QDialog):
     """
     The WikiHelpBrowser Dialog.
     """
-    def __init__(self, text, parent = None, clicked_func = None, caption = "(caption)"):
+    def __init__(self, text, parent = None, clicked_func = None, caption = "(caption)", size = None):
         QDialog.__init__(self,parent)
         
         self.setWindowTitle(caption)
@@ -287,9 +287,13 @@ class WikiHelpBrowser(QDialog):
         
         spacer = QSpacerItem(40, 20, QSizePolicy.Expanding, QSizePolicy.Minimum)
         TextBrowserLayout.addItem(spacer, 1, 0)
-
+        
         self.resize(QSize(300, 300).expandedTo(self.minimumSizeHint()))
-  
+        if size == 1:
+            self.text_browser.setMinimumSize(200, 400)
+            self.resize(QSize(300, 550).expandedTo(self.minimumSizeHint()))
+        if size == 2:
+            self.resize(QSize(650, 250).expandedTo(self.minimumSizeHint()))
         self.connect(self.close_button, SIGNAL("clicked()"), self.close)
         return
     

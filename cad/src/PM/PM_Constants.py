@@ -3,7 +3,7 @@
 PM_Constants.py -- Property Manager constants.
 
 @author: Mark
-@version: $Id: PM_Constants.py 13489 2008-07-16 17:00:59Z marksims $
+@version: $Id: PM_Constants.py 13796 2008-08-05 18:48:21Z marksims $
 @copyright: 2006-2007 Nanorex, Inc.  All rights reserved.
 
 History:
@@ -72,8 +72,8 @@ PM_GROUPBOX_GRIDLAYOUT_MARGIN  = 2 # Grid contains all widgets in a grpbox
 PM_GROUPBOX_GRIDLAYOUT_SPACING = 2 # Grid contains all widgets in a grpbox
 
 # Top Row Buttons constants
-PM_TOPROWBUTTONS_MARGIN  = 5 # margin around buttons.
-PM_TOPROWBUTTONS_SPACING = 5 # space between buttons.
+PM_TOPROWBUTTONS_MARGIN  = 2 # margin around buttons.
+PM_TOPROWBUTTONS_SPACING = 2 # space between buttons.
 
 # Top Row Button flags.
 PM_NO_BUTTONS = 0

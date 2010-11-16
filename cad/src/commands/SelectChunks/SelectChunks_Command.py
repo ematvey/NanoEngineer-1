@@ -1,8 +1,8 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 SelectChunks_Command.py 
 
-The 'Command' part of the Select Chunks Mode (SelectChunks_basicCommand and 
+The 'Command' part of the Select Chunks Mode (SelectChunks_Command and 
 SelectChunks_basicGraphicsMode are the two split classes of the old 
 selectMolsMode)  It provides the command object for its GraphicsMode class. 
 The Command class defines anything related to the 'command half' of the mode -- 
@@ -13,8 +13,8 @@ For example:
   and the code is still clean, *and* no command-half subclass needs
   to override them).
 
-@version: $Id: SelectChunks_Command.py 13384 2008-07-10 17:46:34Z ninadsathaye $
-@copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
+@version: $Id: SelectChunks_Command.py 14356 2008-09-25 21:52:21Z ninadsathaye $
+@copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 
 TODO:
@@ -28,17 +28,19 @@ Ninad & Bruce 2007-12-13: Created new Command and GraphicsMode classes from
                           selectMolsMode.py
 
 """
-from commands.Select.Select_Command import Select_basicCommand
+from commands.Select.Select_Command import Select_Command
 from commands.SelectChunks.SelectChunks_GraphicsMode import SelectChunks_GraphicsMode
 from command_support.GraphicsMode_API import GraphicsMode_API
+from utilities.Comparison import same_vals
 
 from model.chem import Atom
 from model.chunk import Chunk
 from model.bonds import Bond
 
-class SelectChunks_basicCommand(Select_basicCommand):
+_superclass = Select_Command
+class SelectChunks_Command(Select_Command):
     """
-    The 'Command' part of the Select Chunks Mode (SelectChunks_basicCommand and 
+    The 'Command' part of the Select Chunks Mode (SelectChunks_Command and 
     SelectChunks_basicGraphicsMode are the two split classes of the old 
     selectMolsMode)  It provides the command object for its GraphicsMode class. 
     The Command class defines anything related to the 'command half' of the 
@@ -50,38 +52,25 @@ class SelectChunks_basicCommand(Select_basicCommand):
       and the code is still clean, *and* no command-half subclass needs
       to override them).
     """
+    
+    #GraphicsMode
+    GraphicsMode_class = SelectChunks_GraphicsMode
+    
     commandName = 'SELECTMOLS'
-    default_mode_status_text = "Mode: Select Chunks"
+        # i.e. DEFAULT_COMMAND, but don't use that constant to define it here
     featurename = "Select Chunks Mode"
-
-    hover_highlighting_enabled = True
+    from utilities.constants import CL_DEFAULT_MODE
+    command_level = CL_DEFAULT_MODE # error if command subclass fails to override this
     
-    def __init__(self, commandSequencer):
-        """
-        ...
-        """
-        Select_basicCommand.__init__(self, commandSequencer)
-        return
-    
-    def Enter(self): 
-        Select_basicCommand.Enter(self)           
-        self.hover_highlighting_enabled = True
+    #This attr is used for comparison purpose in self.command_update_UI()
+    _previous_command_stack_change_indicator = None
 
-    def init_gui(self):
-        """
-        """
+    def command_enter_misc_actions(self):
         self.w.toolsSelectMoleculesAction.setChecked(True)
-        #Fixes bugs like 2682 where command toolbar (the flyout toolbar 
-        #portion) doesn't get updated even when in the default mode. 
-        self.win.commandToolbar.resetToDefaultState()
-                
- 
-    def restore_gui(self):
-        """
-        """
-        self.w.toolsSelectMoleculesAction.setChecked(False)
     
-    # moved here from modifyMode.  mark 060303.
+    def command_exit_misc_actions(self):
+        self.w.toolsSelectMoleculesAction.setChecked(False)
+   
     call_makeMenus_for_each_event = True
     #bruce 050914 enable dynamic context menus
     # [fixes an unreported bug analogous to 971]
@@ -163,7 +152,6 @@ class SelectChunks_basicCommand(Select_basicCommand):
                   'unchecked')])
         return
 
-    # moved here from modifyMode.  mark 060303.
     def invalidate_selection(self): #bruce 041115 (debugging method)
         """
         [debugging method] invalidate all aspects of selected atoms or mols
@@ -174,7 +162,7 @@ class SelectChunks_basicCommand(Select_basicCommand):
         for atm in self.o.assy.selatoms.values():
             atm.invalidate_everything()
 
-    # moved here from modifyMode.  mark 060303.
+    
     def update_selection(self): #bruce 041115 (debugging method)
         """
         [debugging method] update all aspects of selected atoms or mols;
@@ -186,26 +174,3 @@ class SelectChunks_basicCommand(Select_basicCommand):
             mol.update_everything()
         return
 
-class SelectChunks_Command(SelectChunks_basicCommand):
-    """
-    @see: B{SelectChunks_basicCommand}
-    @see: cad/doc/splitting_a_mode.py
-    """
-    GraphicsMode_class = SelectChunks_GraphicsMode
-    
-    def __init__(self, commandSequencer):
-        SelectChunks_basicCommand.__init__(self, commandSequencer)
-        self._create_GraphicsMode()
-        self._post_init_modify_GraphicsMode()
-        return
-        
-    def _create_GraphicsMode(self):
-        GM_class = self.GraphicsMode_class
-        assert issubclass(GM_class, GraphicsMode_API)
-        args = [self] 
-        kws = {} 
-        self.graphicsMode = GM_class(*args, **kws)
-
-    def _post_init_modify_GraphicsMode(self):
-        pass
-    

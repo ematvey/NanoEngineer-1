@@ -1,10 +1,13 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 BuildAtoms_Command.py 
 
-The 'Command' part of the BuildAtoms Mode (BuildAtoms_basicCommand and 
+@version: $Id: BuildAtoms_Command.py 14413 2008-10-03 18:00:29Z ninadsathaye $
+@copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
+
+The 'Command' part of the BuildAtoms Mode (BuildAtoms_Command and 
 BuildAtoms_basicGraphicsMode are the two split classes of the old 
-depositMode)  It provides the command object for its GraphicsMode class. 
+depositMode). It provides the command object for its GraphicsMode class. 
 The Command class defines anything related to the 'command half' of the mode -- 
 For example: 
 - Anything related to its current Property Manager, its settings or state
@@ -13,75 +16,75 @@ For example:
   and the code is still clean, *and* no command-half subclass needs
   to override them).
 
-                        
-@version: $Id: BuildAtoms_Command.py 13517 2008-07-17 18:48:03Z ninadsathaye $
-@copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
-
-TODO: [as of 2008-01-04]
-- Flyout toolbar related code needs to go in a file like Ui_BuildAtomsFlyout. 
-  This will also need further cleanup to be done during the Command Toolbar 
-  code cleanup 
-- For all qactions on the flyout toolbar:
-  - move what's this text declarations to whatsThisForAtomsCommandToolbar()
-  - move tooltip text declarations to toolTipsForAtomsCommandToolbar()
-- Do we need to make change bond and delete bond as separate commands? 
-  Not needed immediately but worth doing this in future. 
+TODO: [as of 2008-09-25]
 - Items mentioned in Build_GraphicsMode.py 
 
 History:
-See history for depositMode.py 
-Ninad 2008-01-04: Created new Command and GraphicsMode classes from 
-                  the old class depositMode and moved the 
-                  Command related methods into this class from 
-                  depositMode.py
-"""
 
-from PyQt4 import QtGui
+Originally as 'depositMode.py' by Josh Hall and then significantly modified by 
+several developers. 
+In January 2008, the old depositMode class was split into new Command and 
+GraphicsMode parts and the these classes were moved into their own module 
+[ See BuildAtoms_Command.py and BuildAtoms_GraphicsMode.py]
+"""
 from PyQt4.Qt import QSize
-from PyQt4.Qt import SIGNAL
-from ne1_ui.NE1_QWidgetAction import NE1_QWidgetAction
+
 
 import foundation.env as env
 import foundation.changes as changes
-
-from utilities.icon_utilities import geticon
-
-from utilities.debug import print_compact_stack
 from utilities.debug import print_compact_traceback
-from model.elements import Singlet
-
 from utilities.prefs_constants import buildModeHighlightingEnabled_prefs_key
+from utilities.prefs_constants import buildModeWaterEnabled_prefs_key
 from utilities.prefs_constants import keepBondsDuringTransmute_prefs_key
 
 from commands.BuildAtoms.BuildAtomsPropertyManager import BuildAtomsPropertyManager
-from commands.SelectAtoms.SelectAtoms_Command import SelectAtoms_basicCommand
+from commands.SelectAtoms.SelectAtoms_Command import SelectAtoms_Command
 
 from command_support.GraphicsMode_API import GraphicsMode_API
 from commands.BuildAtoms.BuildAtoms_GraphicsMode import BuildAtoms_GraphicsMode
+from ne1_ui.toolbars.Ui_BuildAtomsFlyout import BuildAtomsFlyout
 
-from utilities.Log import orangemsg
-_superclass = SelectAtoms_basicCommand
+_superclass = SelectAtoms_Command
 
-class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
+class BuildAtoms_Command(SelectAtoms_Command):
     """
+    As of 2008-09-16, the BuildAtoms_Command has two tools :
+    Atoms tool and Bonds tool. At any point of time, user is using either
+    of those tools. so, the user is never in the default
+    'BuildAtoms_Command'. When user clicks on Build > Atoms button, 
+    he/she invokes BuildAtoms_Command. As soon as this command is entered, 
+    program invokes one of the two tools (subcommand). By default, 
+    we always invoke 'Atoms Tool'. 
+    @see: command_update_state() 
+    @see: B{AtomsTool_Command} , B{BondsTool_command}
     """
-    commandName = 'DEPOSIT'
-    msg_commandName = "Build Mode" 
-    default_mode_status_text = "Mode: Build Atoms"
-    featurename = "Build Atoms Mode"    
-   
-    highlight_singlets = True     
-    water_enabled = False # Fixes bug 1583. mark 060301.    
-    # methods related to entering this mode         
-    dont_update_gui = True
+    #GraphicsMode
+    GraphicsMode_class = BuildAtoms_GraphicsMode
     
+    #The class constant PM_class defines the class for the Property Manager of 
+    #this command. See Command.py for more infor about this class constant 
+    PM_class = BuildAtomsPropertyManager
+    
+    #Flyout Toolbar
+    FlyoutToolbar_class = BuildAtomsFlyout
+    
+    commandName = 'DEPOSIT'
+    featurename = "Build Atoms Mode"
+    from utilities.constants import CL_ENVIRONMENT_PROVIDING
+    command_level = CL_ENVIRONMENT_PROVIDING
+
+    highlight_singlets = True         
+        
     #graphicsMode will be set in BuildAtoms_Command.__init__ . 
     graphicsMode = None
     
+    flyoutToolbar = None
+    
+    _currentActiveTool = 'ATOMS_TOOL'
     
     def __init__(self, commandSequencer):
-        _superclass.__init__(self, commandSequencer)        
-            
+        _superclass.__init__(self, commandSequencer)    
+                    
         #Initialize some more attributes. 
         self._pastable_atomtype = None
         
@@ -89,333 +92,63 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
         #bonds between the selected atoms to the bondtyp specified in the 
         #flyout toolbar. This is used only while activating the 
         #bond tool. See self._convert_bonds_bet_selected_atoms() for details
-        self._supress_convert_bonds_bet_selected_atoms = False
-        
-        self.hover_highlighting_enabled = \
-            env.prefs[buildModeHighlightingEnabled_prefs_key]
-        
-    def Enter(self):      
-        self._init_flyoutActions()        
-        _superclass.Enter(self) 
-        
-    def init_gui(self):
-        """
-        Do changes to the GUI while entering this mode. This includes opening 
-        the property manager, updating the command toolbar, connecting widget 
-        slots etc. 
-        
-        Called once each time the mode is entered; should be called only by code 
-        in modes.py
-        
-        @see: L{self.restore_gui}
-        """
-        
-        #GUI actions that need to be disabled (for some reason) while in 
-        #this command can be disabled by calling enable_gui_action with a proper
-        #boolean flag. Note that this method is also called in restore_gui
-        #which toggles the disabled actions 
-        self.enable_gui_actions(False)
-        
-        self.dont_update_gui = True # redundant with Enter, 
-        #I think; changed below
-        # (the possible orders of calling all these mode entering/exiting
-        #  methods is badly in need of documentation, if not cleanup...
-        #  [says bruce 050121, who is to blame for this])
-        
-        #important to check for old propMgr object. Reusing propMgr object 
-        #significantly improves the performance.
-        if not self.propMgr:
-            self.propMgr = BuildAtomsPropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494.
-            #This bug is mitigated as propMgr object no longer gets recreated
-            #for modes -- niand 2007-08-29
-            changes.keep_forever(self.propMgr)  
+        self._suppress_convert_bonds_bet_selected_atoms = False
             
-        self.propMgr.show()
+    def command_enter_misc_actions(self):
+        """
+        Overrides superclass method. 
         
-        self.updateCommandToolbar(bool_entering = True)
+        @see: baseCommand.command_enter_misc_actions()  for documentation
+        """
+        self.w.toolsDepositAtomAction.setChecked(True)
+            
+    def command_exit_misc_actions(self):
+        """
+        Overrides superclass method. 
         
-        if self.depositAtomsAction.isChecked():
+        @see: baseCommand.command_exit_misc_actions()  for documentation
+        """
+        self.w.toolsDepositAtomAction.setChecked(False)  
+        
+    def command_update_state(self):
+        """
+        See superclass for documentation. 
+        Note that this method is called only when self is the currentcommand on 
+        the command stack. 
+        @see: BuildAtomsFlyout.resetStateOfActions()
+        @see: self.activateAtomsTool()
+        """
+        _superclass.command_update_state(self)
+        
+        #Make sure that the command Name is DEPOSIT. (because subclasses 
+        #of BuildAtoms_Command might be using this method). 
+        #As of 2008-09-16, the BuildAtoms_Command has two tools :
+        #Atoms tool and Bonds tool. At any point of time, user is using either
+        #of those tools. so, the user is never in the default
+        #'BuildAtoms_Command'. When user clicks on Build > Atoms button, 
+        #he/she invokes BuildAtoms_Command. As soon as this command is entered, 
+        #we need to invoke one of the two tools (subcommand). 
+        #By default, we always invoke 'Atoms Tool'. 
+        if self.commandName == 'DEPOSIT':
+            print "**** in BuildAtoms.command_update_state"
             self.activateAtomsTool()
-        elif self.transmuteBondsAction.isChecked():
-            self.activateBondsTool()
-            
-        self.w.toolsDepositAtomAction.setChecked(True)          
-                
-        self.connect_or_disconnect_signals(True)      
-        
-        self.dont_update_gui = False
-        
-        self.propMgr.updateMessage()
-        
-        # The caller will now call update_gui(); we rely on that [bruce 050122]
-        return
     
-    
-    def restore_gui(self):
+    def enterToolsCommand(self, commandName = ''): #REVIEW
         """
-        Do changes to the GUI while exiting this mode. This includes closing 
-        this mode's property manager, updating the command toolbar, 
-        disconnecting widget slots etc. 
-        @see: L{self.init_gui}
+        Enter the given tools subcommand (e.g. Atoms tool or one of the bond 
+        tools)
         """
-        self.w.toolsDepositAtomAction.setChecked(False)
-        self.connect_or_disconnect_signals(False)
-        self.enable_gui_actions(True)
-        self.updateCommandToolbar(bool_entering = False)
-        self.propMgr.close()
+        if not commandName:
+            return 
         
-    def enable_gui_actions(self, bool):
+        commandSequencer = self.win.commandSequencer
+        commandSequencer.userEnterCommand( commandName)
+        
+    def getBondTypeString(self):
         """
-        Enable or disable some gui actions depending on 
-        whether user is entering or leaving the mode
+        Overridden in subclasses. 
         """
-        #UPDATE 2008-07-16: commenting out the call that disables 
-        #all structure generator actions while in Build Chunks command. 
-        #This was needed long ago perhaps before year 2007 and some tests 
-        #indicate that this is no longer needed. May be the disabling 
-        #other structure builders was intentionally done to ask user to finish 
-        #what he was doing but that was not consistent throughout the 
-        #program and is creating confusion. So simply allow entering different 
-        #commands from Build > Chunks mode. -[ Ninad comment]
-        #==========================
-        ###self.w.buildDnaAction.setEnabled(bool)
-        ###self.w.buildNanotubeAction.setEnabled(bool)
-        ###self.w.nanotubeGeneratorAction.setEnabled(bool)
-        ###self.w.insertGrapheneAction.setEnabled(bool)
-        ###self.w.toolsCookieCutAction.setEnabled(bool)
-        ####@@This should also contain HeteroJunctionAction. (in general Plugin 
-        ####actions)
-        #============================
-        pass
-
-    def connect_or_disconnect_signals(self, connect): 
-        """
-        Connect or disconnect widget signals sent to their slot methods.
-        @param isConnect: If True the widget will send the signals to the slot 
-                          method. 
-        @type  isConnect: boolean
-        """
-        if connect:
-            change_connect = self.w.connect
-        else:
-            change_connect = self.w.disconnect
-        
-        
-        #Atom, Bond Tools Groupbox
-        change_connect(self.bondToolsActionGroup,
-                       SIGNAL("triggered(QAction *)"), 
-                       self.changeBondTool)
-                
-        
-        change_connect(self.transmuteAtomsAction,
-                        SIGNAL("triggered()"),self.transmutePressed)
-                       
-                
-        change_connect(self.exitModeAction, SIGNAL("triggered()"), 
-                       self.w.toolsDone)
-        
-        change_connect(self.subControlActionGroup, 
-                       SIGNAL("triggered(QAction *)"),
-                       self.updateCommandToolbar)
-        
-        change_connect(self.transmuteBondsAction, 
-                       SIGNAL("triggered()"), 
-                       self.activateBondsTool)
-        
-        change_connect(self.depositAtomsAction, 
-                       SIGNAL("triggered()"), 
-                       self.activateAtomsTool)
-        
-        #Connect or disconnect signals in property manager      
-        self.propMgr.connect_or_disconnect_signals(connect)  
-        
-        #Connect or disconnect the property mgr widget that enables/disables
-        #the 'water'. This is done here instead of doing it in 
-        #propMgr.connect_or_disconnect because this widget needs to talk with 
-        #the graphicsMode of this command (i.e. of the propMgr's .parentMode),
-        # so better it be here and do it safely. [ninad]
-        # [bruce 080710 adds: ideally the water enabled flag would be maintained
-        #  in the command (as all state ought to be) and only used by the
-        #  graphicsMode.]
-        if hasattr(self.graphicsMode, 'setWater'):
-            change_connect(self.propMgr.waterCheckBox,
-                            SIGNAL("toggled(bool)"),
-                            self.graphicsMode.setWater)
-        else:
-            print_compact_stack("bug: BuildAtoms graphicsmode has no attribute"\
-                                "setWater , ignoring")
-            
-        if hasattr(self.graphicsMode, 'set_hoverHighlighting'):
-            change_connect(self.propMgr.highlightingCheckBox,
-                            SIGNAL("toggled(bool)"),
-                            self.graphicsMode.set_hoverHighlighting)
-        else:
-            print_compact_stack("bug: BuildAtoms graphicsmode has no attribute"\
-                                "set_hoverHighlighting , ignoring")
-    
-    def changeBondTool(self, action):
-        """
-        Change the bond tool (e.g. single, double, triple, aromatic 
-        and graphitic) depending upon the checked action.
-        @param: action is the checked bond tool action in the 
-        bondToolsActionGroup
-        """       
-        bondTypeString = ''
-        delete_bonds_bet_selected_atoms = False
-        state = action.isChecked()
-        if action ==  self.bond1Action:
-            self.graphicsMode.setBond1(state)
-            bondTypeString = 'single bonds.'
-        elif action == self.bond2Action:
-            self.graphicsMode.setBond2(state)
-            bondTypeString = 'double bonds.'
-        elif action == self.bond3Action:
-            self.graphicsMode.setBond3(state)
-            bondTypeString = 'triple bonds.'
-        elif action == self.bondaAction:
-            self.graphicsMode.setBonda(state)
-        elif action == self.bondgAction:
-            self.graphicsMode.setBondg(state)
-            bondTypeString = 'graphitic bonds.'
-        elif action == self.cutBondsAction:
-            delete_bonds_bet_selected_atoms = True
-            self.graphicsMode.update_cursor()
-            self.propMgr.updateMessage()
-        
-        #When the bond tool is changed, also make sure to apply the new 
-        #bond tool, to the bonds between the selected atoms if any.        
-        self._convert_bonds_bet_selected_atoms(
-            delete_bonds_bet_selected_atoms = delete_bonds_bet_selected_atoms,
-            bondTypeString = bondTypeString
-        )
-        
-    def _convert_bonds_bet_selected_atoms(self, 
-                                          delete_bonds_bet_selected_atoms = False,
-                                          bondTypeString = ''):
-        """
-        Converts the bonds between the selected atoms to one specified by
-        self.graphicsMode..bondclick_v6. Example: When user selects all atoms in 
-        a nanotube and clicks 'graphitic' bond button, it converts all the 
-        bonds between the selected atoms to graphitic bonds. 
-        @see: self.activateBondsTool()
-        @see: self.changeBondTool()
-        @see: bond_utils.apply_btype_to_bond()
-        @see: BuildAtoms_GraphicsMode.bond_change_type()
-        """
-        #Method written on 2008-05-04 to support NFR bug 2832. This need to 
-        #be reviewed for further optimization (not urgent) -- Ninad
-        #This flag is set while activating the bond tool. 
-        #see self.activateBondsTool()
-        if self._supress_convert_bonds_bet_selected_atoms:
-            return
-        
-        #For the history message
-        converted_bonds = 0
-        non_converted_bonds = 0
-        deleted_bonds = 0
-        #We wil check the bond dictionary to see if a bond between the 
-        #selected atoms is already operated on.
-        bondDict = {}
-        #MAke sure that the bond tool on command toolbar is active
-        if self.isBondsToolActive():
-            bondList = [] 
-            #all selected atoms 
-            atoms = self.win.assy.selatoms.values()
-            for a in atoms:
-                for b in a.bonds[:]:
-                    #If bond 'b' is already in the bondDict, skip this 
-                    #iteration.
-                    if bondDict.has_key(id(b)):
-                        continue
-                    else:
-                        bondDict[id(b)] = b
-                    #neigbor atom of the atom 'a'    
-                    neighbor = b.other(a)
-                    
-                    if neighbor.element != Singlet and neighbor.picked:  
-                        if delete_bonds_bet_selected_atoms:
-                            b.bust()
-                            deleted_bonds += 1
-                        else:
-                            bond_type_changed = self.graphicsMode.bond_change_type(
-                                b, 
-                                allow_remake_bondpoints = True,
-                                supress_history_message = True
-                            )
-                            if bond_type_changed:
-                                converted_bonds += 1
-                            else:
-                                non_converted_bonds += 1
-                            
-            msg = ''                        
-            if delete_bonds_bet_selected_atoms:                
-                msg = "Deleted %d bonds between selected atoms"%deleted_bonds
-            else:
-                if bondTypeString:                        
-                    msg = "%d bonds between selected atoms "\
-                        "converted to %s" %(converted_bonds, 
-                                            bondTypeString)
-                    msg2 = ''
-                    if non_converted_bonds:
-                        msg2 = orangemsg(" [Unable to convert %d "\
-                                         "bonds to %s]"%(non_converted_bonds, 
-                                                         bondTypeString))
-                    if msg2:
-                        msg += msg2
-            if msg:
-                env.history.message(msg)
-                
-            self.glpane.gl_update()
-
-    def update_gui(self): #bruce 050121 heavily revised this 
-        #[called by basicMode.UpdateDashboard]
-        """
-        #doc...
-        can be called many times during the mode;
-        should be called only by code in modes.py
-        """
-##        if not self.isCurrentCommand():
-##            print "update_gui returns since not self.isCurrentCommand"
-##            return #k can this ever happen? yes, when the mode is entered!
-##            # this was preventing the initial update_gui in _enterMode from 
-              ##running...
-        
-        # avoid unwanted recursion [bruce 041124]
-        # [bruce 050121: this is not needed for reason it was before,
-        #  but we'll keep it (in fact improve it) in case it's needed now
-        #  for new reasons -- i don't know if it is, but someday it might be]
-        
-        
-        if self.dont_update_gui:
-            # Getting msg after depositing an atom, then selecting a bondpoint 
-            # and "Select Hotspot and Copy" from the GLPane menu.
-            # Is it a bug??? Mark 051212.
-            # bruce 060412 replies: I don't know; it might be. Perhaps we should
-            # do what MMKit does as of today,
-            # and defer all UpdateDashboard actions until another event handler
-            # (here, or better in basicMode).
-            # But for now I'll disable the debug print and we can defer this 
-            # issue unless it becomes suspected
-            # in specific bugs.
-            return
-        # now we know self.dont_update_gui == False, so ok that we reset it to 
-        # that below (I hope)
-        self.dont_update_gui = True
-        try:
-            self.update_gui_0()
-        except:
-            print_compact_traceback("exception from update_gui_0: ")
-        self.dont_update_gui = False
-        
-        return
-
-    def update_gui_0(self): 
-        """
-        Overridden in some subclasses. Default implementation does nothing
-        @see: B{PasteMode}
-        """        
-        pass
+        return ''
     
     def viewing_main_part(self): #bruce 050416 ###e should refile into assy
         return self.o.assy.current_selgroup_iff_valid() is self.o.assy.tree
@@ -429,7 +162,13 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
             self.o.assy.unpickall_in_GLPane() 
             self.o.selatom.molecule.pick()
             self.w.win_update()
-        
+
+    def toggleShowOverlayText(self):
+        if (self.o.selatom):
+            chunk = self.o.selatom.molecule
+            chunk.showOverlayText = not chunk.showOverlayText
+            self.w.win_update()
+
     def makeMenus(self): #bruce 050705 revised this to support bond menus
         """
         Create context menu for this command. (Build Atoms mode)
@@ -487,6 +226,13 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
                 #e maybe should disable this or change to checkmark item (with 
                 #unselect action) if it's already selected??
             self.Menu_spec.append(item)
+            chunk = selatom.molecule
+            if (chunk.chunkHasOverlayText):
+                if (chunk.showOverlayText):
+                    item = ('Hide overlay text on %r' % name, self.toggleShowOverlayText)
+                else:
+                    item = ('Show overlay text on %r' % name, self.toggleShowOverlayText)
+                self.Menu_spec.append(item)
 
         ##e add something similar for bonds, displaying their atoms, and the 
         ##bonded chunk or chunks?
@@ -666,6 +412,21 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
         atom.remake_bondpoints()
         atom.molecule.assy.glpane.gl_update() #bruce 080216 bugfix
         return
+    
+    def isHighlightingEnabled(self):
+        """
+        overrides superclass method.  
+        @see: anyCommand.isHighlightingEnabled()
+        """
+        return env.prefs[buildModeHighlightingEnabled_prefs_key]
+    
+    def isWaterSurfaceEnabled(self):
+        """
+        overrides superclass method.  
+        @see: BuildAtoms_Command.isWaterSurfaceEnabled()
+        
+        """
+        return env.prefs[buildModeWaterEnabled_prefs_key]
         
     def isAtomsToolActive(self):
         """
@@ -680,7 +441,8 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
         #near future, we need to refactor Build Atoms command to separate out 
         # Atoms and Bonds tools. -- Ninad 2008-01-03 [commented while splitting
         # legacy depositMode class into Command/GM classes]        
-        return self.depositAtomsAction.isChecked()
+        ##return self.depositAtomsAction.isChecked()
+        return self._currentActiveTool == 'ATOMS_TOOL'
     
     def isBondsToolActive(self):
         """
@@ -698,375 +460,112 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
         # belong here, so I didn't copy them here but left the code in 
         #bondLeftUp unchanged (at least for A8).
         
-        return not self.depositAtomsAction.isChecked()
+        ##return not self.depositAtomsAction.isChecked()
+        return self._currentActiveTool == 'BONDS_TOOL'
     
     def isDeleteBondsToolActive(self):
         """
+        Overridden in subclasses. 
         Tells whether the Delete Bonds tool is active (boolean)
         @see: comment in self.isAtomsToolActive()
         """
-        return self.isBondsToolActive() and \
-               self.cutBondsAction.isChecked()
+        #Note: this method will be removed soon. 
+        return False
+        
     
-    #TODO: Move the command toolbar related methods into Ui_BuildAtomsFlyout.py 
-    #(not created yet) 
-    #This will also need further cleanup to be done during the Command Toolbar 
-    #code cleanup 
-    
-    def _init_flyoutActions(self):
-        """
-        Define flyout toolbar actions for this mode.
-        """
-        #@NOTE: In Build mode, some of the actions defined in this method are 
-        #also used in Build Atoms PM. (e.g. bond actions) So probably better to 
-        #renameit as _init_modeActions. Not doing that change in mmkit code 
-        #cleanup commit(other modes still implement a method by same 
-        #name)-ninad20070717
-                
-        self.exitModeAction = NE1_QWidgetAction(self.propMgr, 
-                                                win = self.win)
-        self.exitModeAction.setText("Exit Chunks")
-        self.exitModeAction.setIcon(
-            geticon('ui/actions/Toolbars/Smart/Exit.png'))
-        self.exitModeAction.setCheckable(True)
-        self.exitModeAction.setChecked(True)
-        self.exitModeAction.setWhatsThis(
-        """<b>Exit Chunks </b>
-        <p>
-       Exits the Build Atoms Mode
-        </p>""")
-        
-        #Following Actions are added in the Flyout toolbar. 
-        #Defining them outside that method as those are being used
-        #by the subclasses of deposit mode (testmode.py as of 070410) -- ninad
-                
-        self.depositAtomsAction = NE1_QWidgetAction(self.w, 
-                                                    win = self.w)
-        self.depositAtomsAction.setText("Atoms Tool")
-        self.depositAtomsAction.setIcon(
-            geticon('ui/actions/Toolbars/Smart/Deposit_Atoms.png'))
-        self.depositAtomsAction.setCheckable(True)
-        self.depositAtomsAction.setChecked(True)
-        self.depositAtomsAction.setWhatsThis(
-        """<b>Atoms Tool </b>
-        <p>
-       Turns on the Atoms Tool to deposit atoms from the Molecular
-       Modeling Kit into the 3D Workspace
-        </p>""")
-                
-        self.transmuteBondsAction = NE1_QWidgetAction(self.w, 
-                                                      win = self.w)
-        self.transmuteBondsAction.setText("Bonds Tool")
-        self.transmuteBondsAction.setIcon(
-            geticon('ui/actions/Toolbars/Smart/Transmute_Bonds.png'))
-        self.transmuteBondsAction.setCheckable(True)
-        self.transmuteBondsAction.setWhatsThis(
-        """<b>Bonds Tool</b>
-        <p>
-        Turns on the Bonds Tool to change the bonding type of deposited atoms. 
-        The user can also remove existing bonds by cutting them.
-        </p>""")
-        
-        self.subControlActionGroup = QtGui.QActionGroup(self.w)
-        self.subControlActionGroup.setExclusive(True)   
-        self.subControlActionGroup.addAction(self.depositAtomsAction)   
-        ##self.subControlActionGroup.addAction(self.propMgr.transmuteAtomsAction)
-        self.subControlActionGroup.addAction(self.transmuteBondsAction)
-        
-        self.bondToolsActionGroup = QtGui.QActionGroup(self.w)
-        self.bondToolsActionGroup.setExclusive(True)
-                
-        self.bond1Action = NE1_QWidgetAction(self.w, 
-                                             win = self.w)  
-        self.bond1Action.setText("Single")
-        self.bond1Action.setIcon(
-            geticon("ui/actions/Toolbars/Smart/bond1.png"))
-        self.bond1Action.setWhatsThis(
-        """<b>Single Bond</b>
-        <p>
-       Transmutes selected bond to a single bond if permitted 
-        </p>""")
-            
-        self.bond2Action = NE1_QWidgetAction(self.w, 
-                                             win = self.w)  
-        self.bond2Action.setText("Double")
-        self.bond2Action.setIcon(
-            geticon("ui/actions/Toolbars/Smart/bond2.png"))
-        self.bond2Action.setWhatsThis(
-        """<b>Double Bond</b>
-        <p>
-       Transmutes selected bond to a double bond if permitted 
-        </p>""")
-        
-        self.bond3Action = NE1_QWidgetAction(self.w,
-                                             win = self.w)  
-        self.bond3Action.setText("Triple")
-        self.bond3Action.setIcon(
-            geticon("ui/actions/Toolbars/Smart/bond3.png"))
-        self.bond3Action.setWhatsThis(
-        """<b>Triple Bond</b>
-        <p>
-       Transmutes selected bond to a triple bond if permitted 
-        </p>""")
-        
-        self.bondaAction = NE1_QWidgetAction(self.w, 
-                                             win = self.w)  
-        self.bondaAction.setText("Aromatic")
-        self.bondaAction.setIcon(
-            geticon("ui/actions/Toolbars/Smart/bonda.png"))
-        self.bondaAction.setWhatsThis(
-        """<b>Aromatic Bond</b>
-        <p>
-       Transmutes selected bond to an aromatic bond if permitted 
-        </p>""")
-     
-        
-        self.bondgAction = NE1_QWidgetAction(self.w,
-                                             win = self.w)  
-        self.bondgAction.setText("Graphitic")
-        self.bondgAction.setIcon(
-            geticon("ui/actions/Toolbars/Smart/bondg.png"))
-        self.bondgAction.setWhatsThis(
-        """<b>Graphitic Bond</b>
-        <p>
-       Transmutes selected bond to an graphitic bond if permitted 
-        </p>""")
-        
-        self.cutBondsAction = NE1_QWidgetAction(self.w,
-                                                win = self.w)  
-        self.cutBondsAction.setText("Cut Bonds")
-        self.cutBondsAction.setIcon(
-            geticon("ui/actions/Tools/Build Tools/Cut_Bonds.png"))
-        self.cutBondsAction.setWhatsThis(
-        """<b>Cut Bonds</b>
-        <p>
-       Removes the bond between atoms when selected using the left mouse button 
-       </p>""")
-        
-        
-        for action in [self.bond1Action, 
-                       self.bond2Action, 
-                       self.bond3Action,
-                       self.bondaAction,
-                       self.bondgAction,
-                       self.cutBondsAction  
-                       ]:
-            self.bondToolsActionGroup.addAction(action)
-            action.setCheckable(True)
-                    
-        
-        self.transmuteAtomsAction = NE1_QWidgetAction(self.w, win = self.w)
-        self.transmuteAtomsAction.setText("Transmute Atoms")
-        self.transmuteAtomsAction.setIcon(
-            geticon('ui/actions/Toolbars/Smart/Transmute_Atoms.png'))       
-        self.transmuteAtomsAction.setCheckable(False)
-        self.transmuteAtomsAction.setWhatsThis(
-        """<b>Transmute</b>
-        <p>
-       Can be used to change the selected atoms into a different element or 
-       atom type
-       </p>""")
-        
     def activateAtomsTool(self):
         """
-        Activate the atoms tool of the build chunks mode 
-        hide only the Atoms Tools groupbox in the Build chunks Property manager
+        Activate the atoms tool of the Build Atoms mode 
+        hide only the Atoms Tools groupbox in the Build Atoms Property manager
         and show all others the others.
-        """
-                
+        @see: self.command_update_state()
+        @see: BuildAtomsFlyout.resetStateOfActions()
+        """                
+        self._currentActiveTool = 'ATOMS_TOOL'
+        
         self.propMgr.bondToolsGroupBox.hide()
         
         for grpbox in self.propMgr.previewGroupBox, self.propMgr.elementChooser:
             grpbox.show()
         
-        self.propMgr.pw.propertyManagerScrollArea.ensureWidgetVisible(
-            self.propMgr.headerFrame)
+        #Not sure if the following is needed. pw is None when this method is 
+        #called from self.command_update_state() .. cause unknown as 
+        #of 2008-09-16. Commenting out this line [-- Ninad]
+        ##self.propMgr.pw.propertyManagerScrollArea.ensureWidgetVisible(
+            ##self.propMgr.headerFrame)
         
         self.graphicsMode.update_cursor()
         
         self.w.depositState = 'Atoms'
-        
-        self.UpdateDashboard()
-        
+                
         self.propMgr.updateMessage()
-    
         
+        self.enterToolsCommand('ATOMS_TOOL')
+        
+        self.win.win_update()
+               
+
+    
     def activateBondsTool(self):
         """
-        Activate the bond tool of the build chunks mode 
-        Show only the Bond Tools groupbox in the Build chunks Property manager
+        Activate the bond tool of the Build Atoms mode 
+        Show only the Bond Tools groupbox in the Build Atoms Property manager
         and hide the others.
         @see:self._convert_bonds_bet_selected_atoms()
-        """        
-        #Temporarily set the following flag to True while activating the 
-        #bond tool. @see:self._convert_bonds_bet_selected_atoms()
-        self._supress_convert_bonds_bet_selected_atoms = True
-        self.bond1Action.setChecked(True)
-        self.changeBondTool(self.bond1Action)
-        #Set this flag to False now.
-        self._supress_convert_bonds_bet_selected_atoms = False
+        """                
+        self._currentActiveTool = 'BONDS_TOOL'
+        
                         
-        for grpbox in self.propMgr.previewGroupBox, self.propMgr.elementChooser:
-            grpbox.hide()
+        for widget in (self.propMgr.previewGroupBox,                        
+                       self.propMgr.elementChooser,
+                       self.propMgr.atomChooserComboBox):
+            widget.hide()
+            
+            
                         
         self.propMgr.bondToolsGroupBox.show()
-        
-        bondToolActions =  self.bondToolsActionGroup.actions()
-        for btn in self.propMgr.bondToolButtonRow.buttonGroup.buttons():
-            btnId = self.propMgr.bondToolButtonRow.buttonGroup.id(btn)
-            action = bondToolActions[btnId]
-            action.setCheckable(True)
-            btn.setIconSize(QSize(24,24))
-            btn.setDefaultAction(action)
-        
+                
         self.propMgr.pw.propertyManagerScrollArea.ensureWidgetVisible(
             self.propMgr.headerFrame)
                 
-        self.propMgr.updateMessage()
-    
-    
-    def getFlyoutActionList(self): 
-        """
-        Returns a tuple that contains mode spcific actionlists in the 
-        added in the flyout toolbar of the mode. 
-        CommandToolbar._createFlyoutToolBar method calls this 
-        @return: params: A tuple that contains 3 lists: 
-        (subControlAreaActionList, commandActionLists, allActionsList)
-        """
-        
-        #ninad070330 This implementation may change in future. 
-        
-        #'allActionsList' returns all actions in the flyout toolbar 
-        #including the subcontrolArea actions. 
-        allActionsList = []
-        #Action List for  subcontrol Area buttons. 
-        #For now this list is just used to set a different palette to thisaction
-        #buttons in the toolbar
-        subControlAreaActionList =[] 
-        
-                
-        #Append subcontrol area actions to  subControlAreaActionList
-        #The 'Exit button' althought in the subcontrol area, would 
-        #look as if its in the Control area because of the different color 
-        #palette 
-        #and the separator after it. This is intentional.
-        subControlAreaActionList.append(self.exitModeAction)
-        separator1 = QtGui.QAction(self.w)
-        separator1.setSeparator(True)
-        subControlAreaActionList.append(separator1) 
-        
-        subControlAreaActionList.append(self.depositAtomsAction)        
-        ##subControlAreaActionList.append(self.propMgr.transmuteAtomsAction)
-        subControlAreaActionList.append(self.transmuteBondsAction)      
-        separator = QtGui.QAction(self.w)
-        separator.setSeparator(True)
-        subControlAreaActionList.append(separator) 
-        
-        #Also add the subcontrol Area actions to the 'allActionsList'
-        for a in subControlAreaActionList:
-            allActionsList.append(a)    
-        ##actionlist.append(self.w.modifyAdjustSelAction)
-        ##actionlist.append(self.w.modifyAdjustAllAction)
-        
-        #Ninad 070330:
-        #Command Actions : These are the actual actions that will respond the 
-        #a button pressed in the 'subControlArea (if present). 
-        #Each Subcontrol area button can have its own 'command list' 
-        #The subcontrol area buuton and its command list form a 'key:value pair 
-        #in a python dictionary object
-        #In Build mode, as of 070330 we have 3 subcontrol area buttons 
-        #(or 'actions)'
-        commandActionLists = [] 
-        
-        #Append empty 'lists' in 'commandActionLists equal to the 
-        #number of actions in subControlArea 
-        for i in range(len(subControlAreaActionList)):
-            lst = []
-            commandActionLists.append(lst)
-        
-        #Command list for the subcontrol area button 'Atoms Tool'
-        #For others, this list will remain empty for now -- ninad070330 
-        depositAtomsCmdLst = []
-        depositAtomsCmdLst.append(self.w.modifyHydrogenateAction)
-        depositAtomsCmdLst.append(self.w.modifyDehydrogenateAction)
-        depositAtomsCmdLst.append(self.w.modifyPassivateAction)
-        separatorAfterPassivate = QtGui.QAction(self.w)
-        separatorAfterPassivate.setSeparator(True)
-        depositAtomsCmdLst.append(separatorAfterPassivate)
-        depositAtomsCmdLst.append(self.transmuteAtomsAction)    
-        separatorAfterTransmute = QtGui.QAction(self.w)
-        separatorAfterTransmute.setSeparator(True)
-        depositAtomsCmdLst.append(separatorAfterTransmute)
-        depositAtomsCmdLst.append(self.w.modifyDeleteBondsAction)
-        depositAtomsCmdLst.append(self.w.modifySeparateAction)
-        depositAtomsCmdLst.append(self.w.makeChunkFromSelectedAtomsAction)
-                        
-        commandActionLists[2].extend(depositAtomsCmdLst)
-        
-        ##for action in self.w.buildToolsMenu.actions():
-            ##commandActionLists[2].append(action)
-        
-        # Command list for the subcontrol area button 'Bonds Tool'
-        # For others, this list will remain empty for now -- ninad070405 
-        bondsToolCmdLst = []
-        bondsToolCmdLst.append(self.bond1Action)
-        bondsToolCmdLst.append(self.bond2Action)
-        bondsToolCmdLst.append(self.bond3Action)
-        bondsToolCmdLst.append(self.bondaAction)
-        bondsToolCmdLst.append(self.bondgAction)
-        bondsToolCmdLst.append(self.cutBondsAction)
-        commandActionLists[3].extend(bondsToolCmdLst)
-                            
-        params = (subControlAreaActionList, commandActionLists, allActionsList)
-        
-        return params
-    
-    def updateCommandToolbar(self, bool_entering = True):
-        """
-        Update the command toolbar.
-        """        
-        obj = self
-        self.w.commandToolbar.updateCommandToolbar(self.w.toolsDepositAtomAction,
-                                                   obj, 
-                                                   entering = bool_entering)
-        return
-    
-    #======================    
-    # methods related to exiting this mode [bruce 040922 made these from
-    # old Done method, and added new code; there was no Flush method]
-    def haveNontrivialState(self):
-        return False
-    
-    def StateDone(self):
-        return None
-    # we never have undone state, but we have to implement this method,
-    # since our haveNontrivialState can return True
 
-    def StateCancel(self):
-        # to do this correctly, we'd need to remove the atoms we added
-        # to the assembly; we don't attempt that yet [bruce 040923,
-        # verified with Josh]
-        change_desc = "your changes are"
-        msg = "%s Cancel not implemented -- %s still there.\n\
-        You can only leave this mode via Done." % \
-              ( self.msg_commandName, change_desc )
-        self.warning( msg, bother_user_with_dialog = 1)
-        return True # refuse the Cancel
-    
-    
-    # Now uses superclass method selectAtomsMode.restore_patches(). mark 060207.
-    # [not true anymore, evidently -- so what does it use? bruce 071011]
-    # [guessing it's more like restore_patches_by_GraphicsMode than _by_Command 
-    # -- bruce 071012]
-    #    def restore_patches_by_GraphicsMode(self):
-    #        self.o.setDisplay(self.saveDisp) #bruce 041129; see notes for 
-    #            # bug 133
-    #        self.o.selatom = None
+        #note: its okay if the check_action is None
+        checked_action = self.flyoutToolbar.getCheckedBondToolAction()
+        self.changeBondTool(action = checked_action)
+        
+        bondToolActions =  self.flyoutToolbar.getBondToolActions()
+        for btn in self.propMgr.bondToolButtonRow.buttonGroup.buttons():
+            btnId = self.propMgr.bondToolButtonRow.buttonGroup.id(btn)
+            action = bondToolActions[btnId]
+            btn.setIconSize(QSize(24,24))
+            btn.setDefaultAction(action)
+             
+        self.win.win_update()
 
-    def clear(self):
-        self.new = None
-    
+        
+    def changeBondTool(self, action):
+        """
+        Change the bond tool (e.g. single, double, triple, aromatic 
+        and graphitic) depending upon the checked action.
+        @param: action is the checked bond tool action in the 
+        bondToolsActionGroup
+        """   
+        bondTool_commandName = 'BOND_TOOL'
+        
+        if action is not None:
+            objectName = action.objectName()
+            prefix = 'ACTION_'
+            #Note: objectName is a QString to convert it to a python string 
+            #first
+            objectName = str(objectName)
+            if objectName and objectName.startswith(prefix):
+                objectName = ''.join(objectName)
+                bondTool_commandName = objectName[len(prefix):]
+            
+        self.enterToolsCommand(bondTool_commandName)
+            
     #=== Cursor id
+    
     def get_cursor_id_for_active_tool(self):
         """
         Provides a cursor id (int) for updating cursor in graphics mode, 
@@ -1074,25 +573,10 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
         active tool)
         @see: BuildAtoms_GraphicsMode.update_cursor_for_no_MB_selection_filter_disabled
         """
-        if self.depositAtomsAction.isChecked(): 
-            cursor_id = 0
-        elif self.bond1Action.isChecked(): 
-            cursor_id = 1
-        elif self.bond2Action.isChecked(): 
-            cursor_id = 2
-        elif self.bond3Action.isChecked(): 
-            cursor_id = 3
-        elif self.bondaAction.isChecked(): 
-            cursor_id = 4
-        elif self.bondgAction.isChecked(): 
-            cursor_id = 5
-        elif self.cutBondsAction.isChecked(): 
-            cursor_id = 6
-        else: 
-            cursor_id = 0 
+        if hasattr(self.flyoutToolbar, 'get_cursor_id_for_active_tool'):
+            return self.flyoutToolbar.get_cursor_id_for_active_tool()
         
-        return cursor_id
-    
+        return 0    
     
     #== Transmute helper methods =======================
     
@@ -1120,7 +604,7 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
             return atomtype
             
         # For element that doesn't support hybridization
-        return elm.atomtypes[0]
+        return elm.atomtypes[0]    
     
     def transmutePressed(self):
         """
@@ -1206,36 +690,4 @@ class BuildAtoms_basicCommand(SelectAtoms_basicCommand):
         """
         self.propMgr.setElement(elementNumber)
         return
-    
-class BuildAtoms_Command(BuildAtoms_basicCommand):
-    """
-    BuildAtoms_Command  
-    @see: B{BuildAtoms_basicCommand}
-    @see: cad/doc/splitting_a_mode.py
-    """
-    GraphicsMode_class = BuildAtoms_GraphicsMode
-    
-     ##### START of code copied from SelectAtoms_Command (except that the 
-     ##### superclass name is different. 
-    
-    def __init__(self, commandSequencer):
-        
-        BuildAtoms_basicCommand.__init__(self, commandSequencer)
-        self._create_GraphicsMode()
-        self._post_init_modify_GraphicsMode()
-        return
-        
-    def _create_GraphicsMode(self):
-        GM_class = self.GraphicsMode_class
-        assert issubclass(GM_class, GraphicsMode_API)
-        args = [self] 
-        kws = {} 
-        self.graphicsMode = GM_class(*args, **kws)
-        return
-
-    def _post_init_modify_GraphicsMode(self):
-        pass
-    
-    ##### END of code copied from SelectAtoms_Command
-
     

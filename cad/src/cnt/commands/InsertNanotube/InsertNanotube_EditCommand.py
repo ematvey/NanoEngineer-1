@@ -1,12 +1,11 @@
 # Copyright 2007-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
-InsertNanotube_EditCommand.py
-InsertNanotube_EditCommand that provides an editCommand object for 
+InsertNanotube_EditCommand.py provides an editCommand object for 
 generating a nanotube (CNT or BNNT).  This command should be invoked only from 
 NanotubeProperties_EditCommand
 
 @author: Mark Sims, Ninad Sathaye
-@version: $Id: InsertNanotube_EditCommand.py 12832 2008-05-19 18:12:06Z ninadsathaye $
+@version: $Id: InsertNanotube_EditCommand.py 14391 2008-10-01 16:36:37Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -32,19 +31,19 @@ from cnt.model.NanotubeSegment import NanotubeSegment
 from utilities.Log  import greenmsg
 from geometry.VQT import V, vlen
 
-from command_support.GeneratorBaseClass import PluginBug, UserError
+from utilities.exception_classes import PluginBug, UserError
 from cnt.commands.InsertNanotube.InsertNanotube_PropertyManager import InsertNanotube_PropertyManager
 
 from utilities.constants import gensym
-from utilities.constants import black
 
 from cnt.temporary_commands.NanotubeLineMode import NanotubeLine_GM
 
 from utilities.prefs_constants import insertNanotubeEditCommand_cursorTextCheckBox_angle_prefs_key
 from utilities.prefs_constants import insertNanotubeEditCommand_cursorTextCheckBox_length_prefs_key
 from utilities.prefs_constants import insertNanotubeEditCommand_showCursorTextCheckBox_prefs_key
+from utilities.prefs_constants import cursorTextColor_prefs_key
 
-
+_superclass = EditCommand
 class InsertNanotube_EditCommand(EditCommand):
     """
     InsertNanotube_EditCommand that provides an editCommand object for 
@@ -56,24 +55,31 @@ class InsertNanotube_EditCommand(EditCommand):
     two end points for each nanotube. This uses NanotubeLineMode_GM  class as its
     GraphicsMode 
     """
+        
+    #Graphics Mode set to CntLine graphics mode
+    GraphicsMode_class = NanotubeLine_GM
+    
+    #Property Manager
+    PM_class = InsertNanotube_PropertyManager
+    
+    
     cmd              =  greenmsg("Insert Nanotube: ")
-    sponsor_keyword  =  'Nanotube'
     prefix           =  'Nanotube'   # used for gensym
     cmdname          = "Insert Nanotube"
+
     commandName      = 'INSERT_NANOTUBE'
-    featurename      = 'Insert Nanotube'
+    featurename      = "Insert Nanotube"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_NANOTUBE'
 
     command_should_resume_prevMode = True
-    command_has_its_own_gui = True
-    command_can_be_suspended = False
-
+    command_has_its_own_PM = True
     # Generators for DNA, nanotubes and graphene have their MT name 
     # generated (in GeneratorBaseClass) from the prefix.
     create_name_from_prefix  =  True 
 
-    #Graphics Mode set to CntLine graphics mode
-    GraphicsMode_class = NanotubeLine_GM
-
+    
     #required by NanotubeLine_GM
     mouseClickPoints = []
 
@@ -81,80 +87,52 @@ class InsertNanotube_EditCommand(EditCommand):
     #it only uses 
     flyoutToolbar = None
 
-    def __init__(self, commandSequencer, struct = None):
+    def __init__(self, commandSequencer):
         """
         Constructor for InsertNanotube_EditCommand
         """
 
-        EditCommand.__init__(self, commandSequencer)        
+        _superclass.__init__(self, commandSequencer)        
 
         #Maintain a list of segments created while this command was running. 
-        self._segmentList = []
-
-        self.struct = struct
-
-
-    def init_gui(self):
+        self._segmentList = []       
+        
+    def command_entered(self):
         """
-        Do changes to the GUI while entering this command. This includes opening 
-        the property manager, updating the command toolbar , connecting widget 
-        slots (if any) etc. Note: The slot connection in property manager and 
-        command toolbar is handled in those classes. 
-
-        Called once each time the command is entered; should be called only 
-        by code in modes.py
-
-        @see: L{self.restore_gui}
+        Overrides superclass method. 
+        @see: basecommand.command_entered() for documentation. 
         """
-        EditCommand.init_gui(self)  
-
+        _superclass.command_entered(self)
         if isinstance(self.graphicsMode, NanotubeLine_GM):
             self._setParamsForCntLineGraphicsMode()
             self.mouseClickPoints = []
-
+    
         #Clear the segmentList as it may still be maintaining a list of segments
         #from the previous run of the command. 
-        self._segmentList = []
-
-        prevMode = self.commandSequencer.prevMode 
-        if prevMode.commandName == 'BUILD_NANOTUBE':
-            #Following won't be necessary after Command Toolbar is 
-            #properly integrated into the Command/CommandSequencer API
-            try:
-                self.flyoutToolbar = prevMode.flyoutToolbar
-                #Need a better way to deal with changing state of the 
-                #corresponding action in the flyout toolbar. To be revised 
-                #during command toolbar cleanup 
-                self.flyoutToolbar.insertNanotubeAction.setChecked(True)
-            except AttributeError:
-                self.flyoutToolbar = None
-
-            if self.flyoutToolbar:
-                if not self.flyoutToolbar.insertNanotubeAction.isChecked():
-                    self.flyoutToolbar.insertNanotubeAction.setChecked(True)
-
-
-    def restore_gui(self):
+        self._segmentList = []    
+        
+    def command_will_exit(self):
         """
-        Do changes to the GUI while exiting this command. This includes closing 
-        this mode's property manager, updating the command toolbar ,
-        Note: The slot connection/disconnection in property manager and 
-        command toolbar is handled in those classes.
-        @see: L{self.init_gui}
-        """                    
-        EditCommand.restore_gui(self)
-
+        Overrides superclass method. 
+        @see: basecommand.command_will_exit() for documentation. 
+        """
         if isinstance(self.graphicsMode, NanotubeLine_GM):
             self.mouseClickPoints = []
-
         self.graphicsMode.resetVariables()   
-
-        if self.flyoutToolbar:
-            self.flyoutToolbar.insertNanotubeAction.setChecked(False)
-
-        self._segmentList = []
-
-
+        self._segmentList = []  
+        
+        _superclass.command_will_exit(self)
+        
+    def _getFlyoutToolBarActionAndParentCommand(self):
+        """
+        See superclass for documentation.
+        @see: self.command_update_flyout()
+        """
+        flyoutActionToCheck = 'insertNanotubeAction'
+        parentCommandName = None      
+        return flyoutActionToCheck, parentCommandName
+        
+    
     def runCommand(self):
         """
         Overrides EditCommand.runCommand
@@ -173,7 +151,7 @@ class InsertNanotube_EditCommand(EditCommand):
         @see: Command.keep_empty_group() which is overridden here. 
         """
 
-        bool_keep = EditCommand.keep_empty_group(self, group)
+        bool_keep = _superclass.keep_empty_group(self, group)
 
         if not bool_keep: 
             #Don't delete any CntSegements or NanotubeGroups at all while 
@@ -187,25 +165,9 @@ class InsertNanotube_EditCommand(EditCommand):
                 bool_keep = True
 
         return bool_keep
+        
 
-
-    def create_and_or_show_PM_if_wanted(self, showPropMgr = True):
-        """
-        Create the property manager object if one doesn't already exist 
-        and then show the propMgr if wanted by the user. 
-        @param showPropMgr: If True, show the property manager 
-        @type showPropMgr: boolean
-        """
-        EditCommand.create_and_or_show_PM_if_wanted(
-            self,
-            showPropMgr = showPropMgr)
-
-        self.propMgr.updateMessage("Specify two points in the 3D Graphics " \
-                                   "Area to define the endpoints of the "\
-                                   "nanotube."
-                               )
-
-    def createStructure(self, showPropMgr = True):
+    def createStructure(self):
         """
         Overrides superclass method. Creates the structure (NanotubeSegment) 
 
@@ -230,15 +192,7 @@ class InsertNanotube_EditCommand(EditCommand):
         self.graphicsMode.resetVariables()
 
 
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr
-        propMgr = InsertNanotube_PropertyManager(self.win, self)
-        return propMgr
-
+    
     def _getStructureType(self):
         """
         Subclasses override this method to define their own structure type. 
@@ -248,16 +202,7 @@ class InsertNanotube_EditCommand(EditCommand):
         """
         return self.win.assy.NanotubeSegment
 
-    def _createStructure(self):
-        """
-        creates and returns the structure (in this case a L{Group} object that 
-        contains the nanotube. 
-        @return : group containing the carbon nanotube chunks.
-        @rtype: L{Group}  
-        @note: This needs to return a CNT object once that model is implemented        
-        """
-        return self._createSegment()
-
+    
     def _finalizeStructure(self):
         """
         Finalize the structure. This is a step just before calling Done method.
@@ -281,7 +226,7 @@ class InsertNanotube_EditCommand(EditCommand):
         if len(self.mouseClickPoints) == 1:
             return
         else:
-            EditCommand._finalizeStructure(self)
+            _superclass._finalizeStructure(self)
 
 
     def _gatherParameters(self):
@@ -301,24 +246,8 @@ class InsertNanotube_EditCommand(EditCommand):
         structure and creates a new one using self._createStructure. This 
         was needed for the structures like this (Cnt, Nanotube etc) . .
         See more comments in the method.
-        @see: a note in self._createSegment() about use of ntSegment.setProps 
+        @see: a note in self._createStructure() about use of ntSegment.setProps 
         """    
-        assert self.struct
-        # parameters have changed, update existing structure
-        self._revertNumber()
-
-        # self.name needed for done message
-        if self.create_name_from_prefix:
-            # create a new name
-            name = self.name = gensym(self.prefix, self.win.assy) # (in _build_struct)
-            self._gensym_data_for_reusing_name = (self.prefix, name)
-        else:
-            # use externally created name
-            self._gensym_data_for_reusing_name = None
-                # (can't reuse name in this case -- not sure what prefix it was
-                #  made with)
-            name = self.name
-
         #@NOTE: Unlike editcommands such as Plane_EditCommand, this 
         #editCommand actually removes the structure and creates a new one 
         #when its modified. We don't yet know if the CNT object model 
@@ -340,7 +269,7 @@ class InsertNanotube_EditCommand(EditCommand):
         deletes all the segments created while this command was running
         @see: B{EditCommand.cancelStructure}
         """
-        EditCommand.cancelStructure(self)
+        _superclass.cancelStructure(self)
         self._removeSegments()
 
     def _removeSegments(self):
@@ -363,7 +292,7 @@ class InsertNanotube_EditCommand(EditCommand):
         self._segmentList = []	
         self.win.win_update()
 
-    def _createSegment(self):
+    def _createStructure(self):
         """
         Creates and returns the structure (in this case a L{Group} object that 
         contains the nanotube chunk. 
@@ -412,8 +341,8 @@ class InsertNanotube_EditCommand(EditCommand):
             #it can be retrieved while editing this object. 
 
             #WARNING 2008-03-05: Since self._modifyStructure calls 
-            #self._createStructure() (which in turn calls self._createSegment() 
-            #in this case) If in the near future, we actually permit modifying a
+            #self._createStructure() If in the near future, we actually permit 
+            #modifying a
             #structure (such as a nanotube) without actually recreating the  
             #entire structure, then the following properties must be set in 
             #self._modifyStructure as well. Needs more thought.
@@ -437,13 +366,16 @@ class InsertNanotube_EditCommand(EditCommand):
         This is used as a callback method in CntLine mode 
         @see: NanotubeLineMode.setParams, NanotubeLineMode_GM.Draw
         """
+        
+        text = ""
+        textColor = env.prefs[cursorTextColor_prefs_key] # Mark 2008-08-28
+        
         if endPoint1 is None or endPoint2 is None:
-            return
+            return text, textColor
         
         if not env.prefs[insertNanotubeEditCommand_showCursorTextCheckBox_prefs_key]:
-            return '', black
+            return text, textColor
 
-        textColor = black
         vec = endPoint2 - endPoint1
         ntLength = vlen(vec)
         

@@ -2,7 +2,7 @@
 '''
 PovraySceneProp.py - the PovraySceneProp class, including all methods needed by the POV-Ray Scene dialog.
 
-$Id: PovraySceneProp.py 12406 2008-04-09 01:58:17Z marksims $
+$Id: PovraySceneProp.py 13795 2008-08-05 18:16:50Z marksims $
 
 History:
 
@@ -21,7 +21,6 @@ from utilities.Comparison import same_vals
 class PovraySceneProp(QDialog, SponsorableMixin, GroupButtonMixin, Ui_PovrayScenePropDialog):
 
     cmdname = greenmsg("Insert POV-Ray Scene: ")
-    sponsor_keyword = 'DNA'
     prefix = 'POVRayScene'
     extension = ".pov"
 

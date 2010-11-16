@@ -1,7 +1,7 @@
 # Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author: Ninad, Mark
-@version: $Id: NanotubeSegment_PropertyManager.py 13151 2008-06-09 17:26:26Z marksims $
+@version: $Id: NanotubeSegment_PropertyManager.py 14164 2008-09-09 16:28:55Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 TODO: as of 2008-01-18
@@ -51,7 +51,7 @@ class NanotubeSegment_PropertyManager( DnaOrCnt_PropertyManager ):
     pmName        =  title
     iconPath      =  "ui/actions/Tools/Build Structures/Nanotube.png"
 
-    def __init__( self, win, editCommand ):
+    def __init__( self,  command ):
         """
         Constructor for the Cnt Segment Properties property manager.
         """
@@ -68,9 +68,7 @@ class NanotubeSegment_PropertyManager( DnaOrCnt_PropertyManager ):
         self.endPoint1 = V(0, 0, 0)
         self.endPoint2 = V(0, 0, 0)
         
-        _superclass.__init__( self, 
-                                    win,
-                                    editCommand)
+        _superclass.__init__( self, command)
 
         
         self.showTopRowButtons( PM_DONE_BUTTON | \
@@ -98,27 +96,27 @@ class NanotubeSegment_PropertyManager( DnaOrCnt_PropertyManager ):
         """
         Show this property manager. Overrides EditCommand_PM.show()
         This method also retrives the name information from the 
-        editCommand's structure for its name line edit field. 
+        command's structure for its name line edit field. 
         @see: NanotubeSegment_EditCommand.getStructureName()
         @see: self.close()
         """
         _superclass.show(self)
-        if self.editCommand is not None:
-            name = self.editCommand.getStructureName()
+        if self.command is not None:
+            name = self.command.getStructureName()
             if name is not None:
                 self.nameLineEdit.setText(name)
     
     def close(self):
         """
         Close this property manager. 
-        Also sets the name of the self.editCommand's structure to the one 
+        Also sets the name of the self.command's structure to the one 
         displayed in the line edit field.
         @see self.show()
         @see: NanotubeSegment_EditCommand.setStructureName
         """
-        if self.editCommand is not None:
+        if self.command is not None:
             name = str(self.nameLineEdit.text())
-            self.editCommand.setStructureName(name)
+            self.command.setStructureName(name)
         _superclass.close(self)
         
     def _connect_showCursorTextCheckBox(self):
@@ -191,14 +189,14 @@ class NanotubeSegment_PropertyManager( DnaOrCnt_PropertyManager ):
         # This is needed to update the endpoints since the Nanotube segment
         # may have been moved (i.e. translated or rotated). In that case,
         # the endpoints are not updated, so we recompute them here.
-        nanotubeChunk = self.struct.members[0]
+        nanotubeChunk = self.command.struct.members[0]
         self.endPoint1, self.endPoint2, radius = \
-            self.struct.nanotube.computeEndPointsFromChunk(nanotubeChunk)
+            self.command.struct.nanotube.computeEndPointsFromChunk(nanotubeChunk)
         
         if 0:
             print "\n--------------"
             print "setParameters():"
-            print "Struct=", self.struct
+            print "Struct=", self.command.struct
             print "N, M:", self.n, self.m
             print "type:", self.type
             print "endings:", self.endings
@@ -212,7 +210,7 @@ class NanotubeSegment_PropertyManager( DnaOrCnt_PropertyManager ):
         if 0:
             print "\n--------------"
             print "getParameters():"
-            print "Struct=", self.struct
+            print "Struct=", self.command.struct
             print "N, M:", self.n, self.m
             print "type:", self.type
             print "endings:", self.endings
@@ -231,9 +229,9 @@ class NanotubeSegment_PropertyManager( DnaOrCnt_PropertyManager ):
         @see: NanotubeSegment_EditCommand.editStructure()
         
         """
-        if self.editCommand is not None and self.editCommand.hasValidStructure():
+        if self.command is not None and self.command.hasValidStructure():
             
-            self.nanotube = self.editCommand.struct.nanotube
+            self.nanotube = self.command.struct.nanotube
             
             self.n, self.m = self.nanotube.getChirality()
             self.type = self.nanotube.getType()

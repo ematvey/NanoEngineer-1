@@ -3,7 +3,7 @@
 modelTree.py -- The NE1 model tree display widget, including
 its context menu commands.
 
-@version: $Id: ModelTree.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: ModelTree.py 14266 2008-09-17 18:22:26Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -107,7 +107,12 @@ def _accumulate_stats(node, stats):
     stats.n += 1
 
     stats.ngroups += int(isinstance(node, Group))
-    stats.nchunks += int(isinstance(node, Chunk))
+    if (isinstance(node, Chunk)):
+        stats.nchunks += 1
+        if (node.chunkHasOverlayText and not node.showOverlayText):
+            stats.canShowOverlayText += 1
+        if (node.chunkHasOverlayText and node.showOverlayText):
+            stats.canHideOverlayText += 1
     stats.njigs += int(isinstance(node, Jig))
     #e later, classify(node1, Node) into a list of classes, and get counts for all...
 
@@ -183,8 +188,8 @@ class modelTree(modelTreeGui.Ne1Model_api):
         """
         if permit_atom_chunk_coselection(): #bruce 060721
             return
-        from commands.SelectChunks.selectMolsMode import selectMolsMode
-        ## from selectAtomsMode import selectAtomsMode
+        from commands.SelectChunks.SelectChunks_Command import SelectChunks_Command
+        
         #bruce 050519 revised docstring and totally rewrote code.
         assy = self.assy
         win = self.win
@@ -206,11 +211,11 @@ class modelTree(modelTreeGui.Ne1Model_api):
         #  vs modes that change to fit it or to fit the actual selection.
         #  For now we only handle modes that change to fit the actual selection.) 
         selwhat_from_mode = None # most modes don't care
-        if isinstance( mode, selectMolsMode):
+        if isinstance( mode, SelectChunks_Command):
             # TODO: replace this by a method call or getattr on mode
             selwhat_from_mode = SELWHAT_CHUNKS
         #bruce 060403 commenting out the following, in advance of proposed removal of Select Atoms mode entirely:
-##        elif isinstance( mode, selectAtomsMode) and mode.commandName == selectAtomsMode.commandName:
+##        elif isinstance( mode, SelectAtoms_Command) and mode.commandName == SelectAtoms_Command.commandName:
 ##            #bruce 060210 added commandName condition to fix bug when current mode is Build (now a subclass of Select Atoms)
 ##            selwhat_from_mode = SELWHAT_ATOMS
         change_mode_to_fit = (selwhat_from_mode is not None) # used later; someday some modes won't follow this
@@ -277,19 +282,19 @@ class modelTree(modelTreeGui.Ne1Model_api):
 
     def resetAssy_and_clear(self): #bruce 050201 for Alpha, part of Huaicai's bug 369 fix
         """
-        This method should be called from the end of MWsemantics.__clear
+        This method should be called from the end of MWsemantics._make_and_init_assy
         to prevent a crash on (at least) Windows during File->Close when the mtree is
         editing an item's text, using a fix developed by Huaicai 050201,
         which is to run the QListView method self.clear().
            Neither Huaicai nor Bruce yet understands why this fix is needed or why
         it works, so the details of what this method does (and when it's called,
         and what's it's named) might change. Bruce notes that without this fix,
-        MWsemantics.__clear would change win.assy (but not tell the mt (self) to change
+        MWsemantics._make_and_init_assy would change win.assy (but not tell the mt (self) to change
         its own .assy) and call mt_update(), which in old code would immediately do
         self.clear() but in new code doesn't do it until later, so this might relate
         to the problem. Perhaps in the future, mt_update itself can compare self.assy
         to self.win.assy and do this immediate clear() if they differ, so no change
-        would be needed to MWsemantics.__clear(), but for now, we'll just do it
+        would be needed to MWsemantics._make_and_init_assy(), but for now, we'll just do it
         like this.
         """
         self.modelTreeGui.update_item_tree( unpickEverybody = True )
@@ -628,6 +633,10 @@ class modelTree(modelTreeGui.Ne1Model_api):
         #ninad 070320 - context menu option to edit color of multiple chunks
         if allstats.nchunks:
             res.append(("Edit Chunk Color...", self.cmEditChunkColor))
+        if allstats.canShowOverlayText:
+            res.append(("Show Overlay Text", self.cmShowOverlayText))
+        if allstats.canHideOverlayText:
+            res.append(("Hide Overlay Text", self.cmHideOverlayText))
 
         #bruce 070531 - rename node -- temporary workaround for inability to do this in MT, or, maybe we'll like it to stay
         if len(nodeset) == 1:
@@ -862,7 +871,11 @@ class modelTree(modelTreeGui.Ne1Model_api):
                 # (internal error, not user error)
         else:
             node = nodeset[0]
-            res = node.edit() #e rename method!
+            #UM 20080730: if its a protein chunk, enter build protein mode
+            if hasattr(node, 'isProteinChunk') and node.isProteinChunk():
+                res = node.protein.edit(self.win)
+            else:
+                res = node.edit() #e rename method!
             if res:
                 env.history.message(res) # added by bruce 050121 for error messages
             else:
@@ -873,7 +886,7 @@ class modelTree(modelTreeGui.Ne1Model_api):
         """
         put the selected subtrees (one or more than one) into a new Group (and update)
         """
-        ##e I wonder if option/alt/midButton should be like a "force" or "power" flag
+        ##e I wonder if option/alt/middleButton should be like a "force" or "power" flag
         # for cmenus; in this case, it would let this work even for a single element,
         # making a 1-item group. That idea can wait. [bruce 050126]
         #bruce 050420 making this work inside clipboard items too
@@ -1063,6 +1076,27 @@ class modelTree(modelTreeGui.Ne1Model_api):
             self.win.dispObjectColor(initialColor = m_QColor)
         else:         
             self.win.dispObjectColor()
+
+    def cmShowOverlayText(self):
+        """
+        Context menu entry for chunks.  Turns on the showOverlayText
+        flag in each chunk which has overlayText in some of its atoms.
+        """
+        nodeset = self.modelTreeGui.topmost_selected_nodes()
+        for m in nodeset:
+            if isinstance(m, Chunk):
+                m.showOverlayText = True
+
+    def cmHideOverlayText(self):
+        """
+        Context menu entry for chunks.  Turns off the showOverlayText
+        flag in each chunk which has overlayText in some of its atoms.
+        """
+        nodeset = self.modelTreeGui.topmost_selected_nodes()
+        for m in nodeset:
+            if isinstance(m, Chunk):
+                m.showOverlayText = False
+        
 
     def cmRenameNode(self): #bruce 070531
         """

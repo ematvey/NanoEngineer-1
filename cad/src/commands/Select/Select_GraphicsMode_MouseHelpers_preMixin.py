@@ -13,7 +13,7 @@ inherited by the subclass 'Select_basicGraphicsMode' _before_ it inherits the
 
 To be used as a Mixin class only for Select_basicGraphicsMode.
 
-@version: $Id: Select_GraphicsMode_MouseHelpers_preMixin.py 13233 2008-06-25 14:40:04Z russfish $
+@version: $Id: Select_GraphicsMode_MouseHelpers_preMixin.py 14346 2008-09-24 20:18:23Z brucesmith $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 
 
@@ -25,7 +25,6 @@ from model.chem import Atom
 from model.chunk import Chunk
 from model.jigs import Jig
 from utilities.debug import print_compact_stack
-debug_update_selobj_calls = False # do not commit with true
 
 from utilities.GlobalPreferences import DEBUG_BAREMOTION, DEBUG_BAREMOTION_VERBOSE
 
@@ -170,7 +169,7 @@ class Select_GraphicsMode_MouseHelpers_preMixin(commonGraphicsMode):
     # == START of Empty Space helper methods ===================================
 
     #& The Empty Space, Atom, Bond and Singlet helper methods should probably be
-    #& moved to selectAtomsMode.  I put them here because I think there is a
+    #& moved to SelectAtoms_GraphicsMode.  I put them here because I think there is a
     #& good chance that we'll allow intermixing of atoms, chunks and jigs
     #&(and other stuff) in any mode. Mark 060220.
 
@@ -231,9 +230,9 @@ class Select_GraphicsMode_MouseHelpers_preMixin(commonGraphicsMode):
         #selectMode.doObjectSpecificLeftDrag. Note that this method is
         #overridden in subclasses, so make sure to either set that flag in
         #those methods or always call the superclass method at the beginning.
-        # In case of selectMolsMode, the 'objects' are
+        # In case of SelectChunks_GraphicsMode, the 'objects' are
         # really the  selectedMovable. so it makes sense to set it in
-        #selectMolsMode.leftDragTranslation or call doObjectSpecificLeftDrag
+        #SelectChunks_GraphicsMode.leftDragTranslation or call doObjectSpecificLeftDrag
         #somewhere -- Ninad 2007-11-15
 
         #UPDATE 2007-11-15:
@@ -276,7 +275,7 @@ class Select_GraphicsMode_MouseHelpers_preMixin(commonGraphicsMode):
         @type  obj: instance
         @param event: Left drag mouse event
         @type  event: QMouseEvent instance
-        @see: selectAtomsMode.doObjectSpecificLeftDrag
+        @see: SelectAtoms_GraphicsMode.doObjectSpecificLeftDrag
         @see: self.doObjectSpecificLeftUp, self.objectSetup for comments
         """
         #current object is not clicked but is dragged. Important to set this
@@ -330,7 +329,7 @@ class Select_GraphicsMode_MouseHelpers_preMixin(commonGraphicsMode):
         @param a: Instance of class Atom
         @type a: B{Atom}
         @param event: the QMouseEvent.
-        @see: selectAtomsMode.atomLeftDown
+        @see: SelectAtoms_GraphicsMode.atomLeftDown
         """
         self.atomSetup(a, event)
 
@@ -341,7 +340,7 @@ class Select_GraphicsMode_MouseHelpers_preMixin(commonGraphicsMode):
         @param a: Instance of class Atom
         @type a: B{Atom}
         @param event: the QMouseEvent.
-        @see: selectAtomsMode.atomLeftUp
+        @see: SelectAtoms_GraphicsMode.atomLeftUp
         """
         pass
 
@@ -441,14 +440,14 @@ class Select_GraphicsMode_MouseHelpers_preMixin(commonGraphicsMode):
     def bondDrag(self, obj, event):
         """
         Subclasses should override this method
-        @see: selectAtomsMode.bondDrag
+        @see: SelectAtoms_GraphicsMode.bondDrag
         """
         pass
 
     def bondLeftDouble(self):
         """
         Subclasses should override this method
-        @see: selectAtomsMode.bondLeftDouble
+        @see: SelectAtoms_GraphicsMode.bondLeftDouble
         """
         pass
 
@@ -474,7 +473,7 @@ class Select_GraphicsMode_MouseHelpers_preMixin(commonGraphicsMode):
         chunk..typically pick or unpick the chunk(s) or do nothing.
 
         If an object left down happens, the left down method of that object
-        calls this method (chunkLeftDown) as it is the 'selectMolsMode' which
+        calls this method (chunkLeftDown) as it is the 'SelectChunks_GraphicsMode' which
         is supposed to select Chunk of the object clicked
         @param a_chunk: The chunk of the object clicked (example, if the  object
                       is an atom, then it is atom.molecule

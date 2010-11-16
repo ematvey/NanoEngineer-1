@@ -2,7 +2,7 @@
 
 #include "simulator.h"
 
-static char const rcsid[] = "$Id: newtables.c 12995 2008-05-30 00:06:10Z ericmessick $";
+static char const rcsid[] = "$Id: newtables.c 14419 2008-10-06 18:12:42Z ericmessick $";
 
 static struct bondStretch *
 getBondStretchEntry(int element1, int element2, char bondOrder);
@@ -1067,6 +1067,14 @@ initializeBondTable(void)
   int reloadSystemOverlay = 0;
   int reloadUserOverlay = 0;
 
+  if (UseAMBER) {
+    if (AmberNonbondedParametersFileName != NULL) {
+      read_amber_itp_file(AmberNonbondedParametersFileName);
+    }
+    if (AmberBondedParametersFileName != NULL) {
+      read_amber_itp_file(AmberBondedParametersFileName);
+    }
+  }
   if (bondStretchHashtable == NULL) {
     reloadSystemOverlay = 1;
     reloadUserOverlay = 1;

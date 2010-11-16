@@ -4,7 +4,7 @@ testmode.py -- Command/GraphicsMode for testing graphical exprs
 (implemented in the exprs module).
 
 @author: Bruce
-@version: $Id: testmode.py 13072 2008-06-04 05:31:54Z marksims $
+@version: $Id: testmode.py 14429 2008-10-15 19:27:49Z brucesmith $
 @copyright: 2006-2008 Nanorex, Inc.  See LICENSE file for details.
 
 How to use:
@@ -34,7 +34,7 @@ in built releases).
 import time
 
 from geometry.VQT import V, Q
-from commands.BuildAtoms.depositMode import depositMode
+## from commands.BuildAtoms.depositMode import depositMode
 
 from utilities.debug import print_compact_traceback
 from utilities.debug_prefs import Choice_boolean_True
@@ -49,24 +49,21 @@ annoyers = ['editToolbar', 'fileToolbar', 'helpToolbar', 'modifyToolbar',
             ## one for modes too -- not sure of its name, but I guess I'll let it keep showing too
             ]
 
-## superclass = selectAtomsMode
-superclass = depositMode
+## superclass = depositMode
+from commands.SelectAtoms.SelectAtoms_Command import SelectAtoms_Command # [bruce 080825 split testmode into C & GM]
+_superclass_C = SelectAtoms_Command
+_superclass_GM = _superclass_C.GraphicsMode_class
 
-class testmode(superclass):
-    # class constants -- some each for Command and GraphicsMode, once we split into those
-
-    # for Command
-    
-    commandName = 'TEST'
-    default_mode_status_text = "Mode: Test"
-    featurename = "Test Command: Exprs Package"
-
-    # for GraphicsMode
+class testmode_GM(_superclass_GM):
+    """
+    GraphicsMode for testing graphical exprs
+    """
+    # class constants for GraphicsMode
 
     ## check_target_depth_fudge_factor = 0.0001 # same as GLPane, tho it caused a demo_drag bug 070115 -- try lower val sometime ###e
     check_target_depth_fudge_factor = 0.00001 # this gives us another 10x safety factor in demo_drag [070116]
 
-    # unclassified (Command vs GraphicsMode)
+    # unclassified (Command vs GraphicsMode) [guessing for GraphicsMode -- bruce 080825]
     
     backgroundColor = 103/256.0, 124/256.0, 53/256.0
 
@@ -107,7 +104,7 @@ class testmode(superclass):
             # during the most recent call of testdraw.Draw
         import exprs.testdraw as testdraw
         try:
-            testdraw.Draw(self, self.o, superclass)
+            testdraw.Draw(self, self.o, _superclass_GM)
         except:
             #e history message?
             print_compact_traceback("exception in testdraw.Draw ignored: ")
@@ -121,29 +118,20 @@ class testmode(superclass):
         Caller will leave glstate in standard form for Draw. Implems are free to turn off depth buffer read or write.
         Warning: anything implems do to depth or stencil buffers will affect the standard selobj-check in bareMotion.
         """
-        ## superclass.Draw_after_highlighting(self, pickCheckOnly) # let testdraw do this if if wants to
+        ## _superclass_GM.Draw_after_highlighting(self, pickCheckOnly) # let testdraw do this if if wants to
         import exprs.testdraw as testdraw
         try:
-            testdraw.Draw_after_highlighting(self, pickCheckOnly, self.o, superclass)
+            testdraw.Draw_after_highlighting(self, pickCheckOnly, self.o, _superclass_GM)
         except:
             #e history message?
             print_compact_traceback("exception in testdraw.Draw_after_highlighting ignored: ")
         return        
 
-    def reload(self):
-        import exprs.testdraw as testdraw
-        #bruce 070611 bugfix for release builds: add try/except
-        try:
-            reload(testdraw)
-        except ImportError:
-            pass # print "testdraw reload ImportError, ignoring"
-        return
-        
     def leftDown(self, event):
         import exprs.testdraw as testdraw
         try:
-            testdraw.leftDown(self, event, self.o, superclass)
-                # note: if superclass.leftDown and/or gl_update should be called now, this must do it.
+            testdraw.leftDown(self, event, self.o, _superclass_GM)
+                # note: if _superclass_GM.leftDown and/or gl_update should be called now, this must do it.
                 # note: this might reload testdraw (inside self.emptySpaceLeftDown).
         except:
             #e history message?
@@ -157,13 +145,13 @@ class testmode(superclass):
         # Some issues:
         # - depositMode version deposits when in empty space; ours must not do that if there's a background object
         #   (unless that object says to, somehow), but should otherwise.
-        # - depositMode version sets "self.graphicsMode.ignore_next_leftUp_event = True # Fixes bug 1467",
+        # - depositMode version sets "self.ignore_next_leftUp_event = True # Fixes bug 1467",
         #   which I guess we should always set (even if not depositing) -- not sure. In theory, bg object should decide.
         #   Also in theory, good code would never need this, since leftUp would only do things its leftDown asked it to do.
         #   Guess: depositMode.leftUp doesn't follow that principle, and this flag works around that flaw by
         #   "turning off an assumption about what leftDown did".
         #   (For example (speculation), that it reset certain variables left over from prior drag??)
-        self.graphicsMode.ignore_next_leftUp_event = True
+        self.ignore_next_leftUp_event = True
             # I'm guessing this is always necessary, though I'm not sure.
             # Note that it will prevent the call of drag_handler.ReleasedOn -- this seems desirable,
             # since the press method (leftClick) was not called either, for the 2nd click of a double click --
@@ -183,16 +171,14 @@ class testmode(superclass):
                 method(event, self) #e protect from exceptions?
         else:
             print "fyi: testmode passing leftDouble to superclass (since no drag_handler)" ####
-            superclass.leftDouble(self, event)
+            _superclass_GM.leftDouble(self, event)
         return
 
-    _background_object = None #070322 new feature: can be set during self.Draw to something to handle clicks on background
-        # Note: this is stored in the Command instance, but usually accessed
-        # from the GraphicsMode instance using .command._background_object.
-        # [bruce 071010]
-    
     def get_obj_under_cursor(self, event): #070322 [assume part of GraphicsMode even though not in all subclasses of that]
-        "this is called in *some cases* by various mode event handler methods to find out what object the cursor is over"
+        """
+        this is called in *some cases* by various event handler methods
+        to find out what object the cursor is over
+        """
         # The kinds of calls of this method (whose interface assumptions we need to be sensitive to):
         # - depositMode.singletLeftUp indirectly calls it and checks whether the return value is an instance of Atom,
         #   handling it specially if so.
@@ -209,7 +195,7 @@ class testmode(superclass):
         #  there is not yet a good-enough way for hover-highlighting behavior to be different during a drag).
         # For some purposes, overriding the determination of selobj in GLPane would be more useful and more flexible
         # than overriding this method; to affect highlighting behavior, it would be essential. [070323 comment]
-        res = superclass.get_obj_under_cursor(self, event)
+        res = _superclass_GM.get_obj_under_cursor(self, event)
         #e here is where we might let some other mode attr replace or wrap objects in specified classes. [070323 comment]
         if res is None:
             res = self.command._background_object # usually None, sometimes set during draw to something else [070322]
@@ -226,8 +212,8 @@ class testmode(superclass):
                                        Choice_boolean_True,
                                        prefs_key = "A9 devel/testmode/reload on empty space leftDown" ) #070312, also in exprs/test.py
         if emptySpace_reload:
-            self.reload()
-        superclass.emptySpaceLeftDown(self, event) #e does testdraw need to intercept this? no... instead we override get_obj_under_cursor
+            self.command.reload()
+        _superclass_GM.emptySpaceLeftDown(self, event) #e does testdraw need to intercept this? no... instead we override get_obj_under_cursor
 
     # let superclass do these -- no need to define them here and let testdraw intercept them:
 ##    def leftDrag(self, event):
@@ -236,49 +222,6 @@ class testmode(superclass):
 ##    def leftUp(self, event):
 ##        pass
     
-    def Enter(self):
-        print
-        print "entering testmode again", time.asctime()
-        self.reload()
-##        self.assy = self.w.assy # [now done by basicCommand]
-        self.o.pov = V(0,0,0)
-        self.o.quat = Q(1,0,0,0)
-
-        res = superclass.Enter(self)
-        if 1:
-            # new 070103; needs reload??
-            import exprs.testdraw as testdraw
-            testdraw.end_of_Enter(self.o)
-        return res
-
-    def init_gui(self): #050528; revised 070123
-        ## self.w.modifyToolbar.hide()
-        self.hidethese = hidethese = []
-        win = self.w
-        for tbname in annoyers:
-            try:
-                try:
-                    tb = getattr(win, tbname)
-                except AttributeError: # someone might rename one of them
-                    ## import __main__
-                    if 0: ## __main__.USING_Qt3: # most of them are not defined in Qt4 so don't bother printing this then [bruce 070123]
-                        print "testmode: fyi: toolbar missing: %s" % tbname # someone might rename one of them
-                else:
-                    if tb.isVisible(): # someone might make one not visible by default
-                        tb.hide()
-                        hidethese.append(tb) # only if hiding it was needed and claims it worked
-            except:
-                # bug
-                print_compact_traceback("bug in hiding toolbar %r in testmode init_gui: " % tbname)
-            continue
-        return
-
-    def restore_gui(self): #050528
-        ## self.w.modifyToolbar.show()
-        for tb in self.hidethese:
-            tb.show()
-
-
     # middle* event methods, defined here to permit "New motion UI" to be prototyped in testmode [bruce 070224].
     #
     # Notes: there are 12 "middle" methods in all (4 key combos, and Down Drag Up),
@@ -321,15 +264,15 @@ class testmode(superclass):
         self._update_MMB_policy()
         if self._capture_MMB:
             if methodname.endswith('Down'):
-                superclass.leftDown(self, event) # don't go through self.leftDown for now -- it's only used for reload, gl_update, etc
+                _superclass_GM.leftDown(self, event) # don't go through self.leftDown for now -- it's only used for reload, gl_update, etc
             elif methodname.endswith('Drag'):
-                superclass.leftDrag(self, event)
+                _superclass_GM.leftDrag(self, event)
             elif methodname.endswith('Up'):
-                superclass.leftUp(self, event)
+                _superclass_GM.leftUp(self, event)
             else:
                 assert 0, "bad methodname %r" % (methodname,)
         else:
-            method = getattr(superclass, methodname)
+            method = getattr(_superclass_GM, methodname)
             method(self, event)
         return
         
@@ -368,13 +311,96 @@ class testmode(superclass):
             # no one reported a problem with this, but we might as well be paranoid about it [bruce 070122]
             key = -1
         if key == 32:
-            self._please_exit_loop = True
+            pass ## self._please_exit_loop = True
         else:
-            superclass.keyPressEvent(self, event) #060429 try to get ',' and '.' binding #bruce 070122 basicMode->superclass
+            _superclass_GM.keyPressEvent(self, event) #060429 try to get ',' and '.' binding #bruce 070122 basicMode->superclass
         return
     
     def keyReleaseEvent(self, event):
-        superclass.keyReleaseEvent(self, event) #bruce 070122 new feature (probably fixes some bugs), and basicMode->superclass
+        _superclass_GM.keyReleaseEvent(self, event) #bruce 070122 new feature (probably fixes some bugs), and basicMode->superclass
+
+##    # probably unused, but mentioned in real code, and might be added back (related to self.myloop):
+##    _please_exit_loop = False
+##    _in_loop = False
+##    _loop_start_time = 0
+
+    pass # end of class testmode_GM
+
+# ==
+
+class testmode(_superclass_C):
+    """
+    Command for testing graphical exprs
+    """
+    # class constants for Command
+    
+    GraphicsMode_class = testmode_GM
+    
+    commandName = 'testmode' # must be same as module basename, for 'custom mode'
+    featurename = "Test Command: Exprs Package"
+    from utilities.constants import CL_ENVIRONMENT_PROVIDING
+    command_level = CL_ENVIRONMENT_PROVIDING
+
+    def reload(self):
+        import exprs.testdraw as testdraw
+        #bruce 070611 bugfix for release builds: add try/except
+        try:
+            reload(testdraw)
+        except ImportError:
+            pass # print "testdraw reload ImportError, ignoring"
+        return
+        
+    _background_object = None #070322 new feature: can be set during self.Draw to something to handle clicks on background
+        # Note: this is stored in the Command instance, but usually accessed
+        # from the GraphicsMode instance using .command._background_object.
+        # [bruce 071010]
+
+    if 0:
+        ### TODO: port these methods to new command API!
+        # the code works without it, but presumably some of these side effects
+        # were desirable. [bruce 080929 comment, and 'if 0']
+
+        def Enter(self):
+            print
+            print "entering testmode again", time.asctime()
+            self.reload()
+    ##        self.assy = self.w.assy # [now done by basicCommand]
+            self.o.pov = V(0,0,0)
+            self.o.quat = Q(1,0,0,0)
+
+            res = _superclass_C.Enter(self)
+            if 1:
+                # new 070103; needs reload??
+                import exprs.testdraw as testdraw
+                testdraw.end_of_Enter(self.o)
+            return res
+
+        def init_gui(self): #050528; revised 070123
+            ## self.w.modifyToolbar.hide()
+            self.hidethese = hidethese = []
+            win = self.w
+            for tbname in annoyers:
+                try:
+                    try:
+                        tb = getattr(win, tbname)
+                    except AttributeError: # someone might rename one of them
+                        ## import __main__
+                        if 0: ## __main__.USING_Qt3: # most of them are not defined in Qt4 so don't bother printing this then [bruce 070123]
+                            print "testmode: fyi: toolbar missing: %s" % tbname # someone might rename one of them
+                    else:
+                        if tb.isVisible(): # someone might make one not visible by default
+                            tb.hide()
+                            hidethese.append(tb) # only if hiding it was needed and claims it worked
+                except:
+                    # bug
+                    print_compact_traceback("bug in hiding toolbar %r in testmode init_gui: " % tbname)
+                continue
+            return
+
+        def restore_gui(self): #050528
+            ## self.w.modifyToolbar.show()
+            for tb in self.hidethese:
+                tb.show()
 
     def makeMenus(self):
         ### WARNING: this copies and slightly modifies selectMode.makeMenus (not those of our superclass, depositMode!);
@@ -387,14 +413,12 @@ class testmode(superclass):
         # DANGER: if this copied code got changed for Qt4, we're introducing a Qt4 porting problem into testmode.
         # [bruce 070228]
     
-        selatom, selobj = self.update_selatom_and_selobj( None)
+        selatom, selobj = self.graphicsMode.update_selatom_and_selobj( None)
 
         # not doing:
         ## superclass.makeMenus(self) # this makes standard items for selobj if it's atom or bond or Highlightable, and a few more
         
         self.Menu_spec = []
-
-        ditch_generic = False #bruce 070228
         
         # Local minimize [now called Adjust Atoms in history/Undo, Adjust <what> here and in selectMode -- mark & bruce 060705]
         # WARNING: This code is duplicated in depositMode.makeMenus(). mark 060314.
@@ -403,46 +427,15 @@ class testmode(superclass):
             self.Menu_spec.append(( 'Adjust atom %s' % selatom, lambda e1 = None, a = selatom: self.localmin(a,0) ))
             self.Menu_spec.append(( 'Adjust 1 layer', lambda e1 = None, a = selatom: self.localmin(a,1) ))
             self.Menu_spec.append(( 'Adjust 2 layers', lambda e1 = None, a = selatom: self.localmin(a,2) ))
-            ditch_generic = True #bruce 070228
             
         # selobj-specific menu items. [revised by bruce 060405; for more info see the same code in depositMode]
         if selobj is not None and hasattr(selobj, 'make_selobj_cmenu_items'):
             try:
                 selobj.make_selobj_cmenu_items(self.Menu_spec)
-                ditch_generic = True #bruce 070228
             except:
                 print_compact_traceback("bug: exception (ignored) in make_selobj_cmenu_items for %r: " % selobj)
 
-        if not ditch_generic: #bruce 070228 added this cond; ###BUG: we still have a "Web help: test mode" added by something!
-        
-            # separator and other mode menu items.
-            if self.Menu_spec:
-                self.Menu_spec.append(None)
-            
-            # Enable/Disable Jig Selection.
-            # This is duplicated in depositMode.makeMenus() and selectMolsMode.makeMenus().
-            if self.o.jigSelectionEnabled:
-                self.Menu_spec.extend( [('Enable Jig Selection',  self.toggleJigSelection, 'checked')])
-            else:
-                self.Menu_spec.extend( [('Enable Jig Selection',  self.toggleJigSelection, 'unchecked')])
-                
-            self.Menu_spec.extend( [
-                # mark 060303. added the following:
-                None,
-                ('Edit Color Scheme...', self.w.colorSchemeCommand),
-                ])
-            pass
-
-##        self.Menu_spec.extend( [
-##            ('loop', self.myloop),
-##         ] )
-        
         return # from makeMenus
-
-    # probably unused, but mentioned in real code, and might be added back (related to self.myloop):
-    _please_exit_loop = False
-    _in_loop = False
-    _loop_start_time = 0
 
     pass # end of class testmode
 

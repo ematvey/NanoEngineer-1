@@ -5,7 +5,7 @@ for simulate or minimize (aka Run Dynamics, Minimize, Adjust --
 but I'm not sure it's used for all of those)
 
 @author: Bruce
-@version: $Id: sim_commandruns.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: sim_commandruns.py 14229 2008-09-15 17:52:11Z ericmessick $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -640,6 +640,40 @@ class Minimize_CommandRun(CommandRun):
     pass # end of class Minimize_CommandRun
 
 # ==
+
+class CheckAtomTypes_CommandRun(CommandRun):
+    def run(self):
+        if not self.part.molecules:
+            return
+        for chunk in self.part.molecules:
+            if (chunk.atoms):
+                for atom in chunk.atoms.itervalues():
+                    atom.setOverlayText("?")
+                chunk.showOverlayText = True
+
+        selection = self.part.selection_for_all()
+        simaspect = sim_aspect( self.part,
+                                selection.atomslist(),
+                                cmdname_for_messages = "CheckAtomTypes",
+                                anchor_all_nonmoving_atoms = False
+                                )
+
+        movie = Movie(self.assy)
+        #self._movie = movie
+
+        writemovie(self.part,
+                   movie,
+                   1,
+                   simaspect = simaspect,
+                   print_sim_warnings = True,
+                   cmdname = "Simulator",
+                   cmd_type = "Check AtomTypes",
+                   useGromacs = False,
+                   background = False,
+                   useAMBER = True,
+                   typeFeedback = True)
+
+        self.part.gl_update()
 
 def LocalMinimize_function( atomlist, nlayers ): #bruce 051207
     win = atomlist[0].molecule.part.assy.w # kluge!

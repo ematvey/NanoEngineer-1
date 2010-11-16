@@ -3,7 +3,7 @@
 _import_roots.py - import all toplevel files in the import dependency hierarchy
 
 @author: Bruce
-@version: $Id: _import_roots.py 13391 2008-07-10 21:58:51Z brucesmith $
+@version: $Id: _import_roots.py 13724 2008-07-31 22:30:11Z brucesmith $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 Note: most of the files we import here are for separate main programs, never
@@ -29,6 +29,10 @@ When no longer needed, they should be removed.
 # for something which wants to import either one (e.g. NE1,
 # or any script which imports anything from NE1, such as certain
 # build scripts).
+#
+# (The problem can even occur for a non-toplevel package name,
+# but only if NE1 itself wants to import the builtin or Python library
+# module of the same basename.)
 #
 # In the long run, this ought to be cleaned up, perhaps by renaming
 # our toplevel packages to avoid those conflicts, and/or making use

@@ -3,7 +3,7 @@
 fix_deprecated_elements.py - fix deprecated PAM elements in-place in models
 
 @author: Bruce
-@version: $Id: fix_deprecated_elements.py 12613 2008-04-17 06:40:08Z brucesmith $
+@version: $Id: fix_deprecated_elements.py 14197 2008-09-11 04:52:29Z brucesmith $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -59,7 +59,7 @@ def fix_deprecated_elements( changed_atoms):
             # set by the DNA Duplex Generator. Remove these here.
             # (This may be needed even after we fix the generator,
             #  due to old mmp files. REVIEW: can it ever cause harm?)
-            atom.setDisplay(diDEFAULT)
+            atom.setDisplayStyle(diDEFAULT)
         if deprecated_to == 'remove' or deprecated_to == 'X':
             # (Atom.kill might be unideal behavior for 'remove',
             #  but that's only on Pl3 which never occurs AFAIK, so nevermind)

@@ -3,7 +3,7 @@
 CommandToolbar.py - controls the main hierarchical toolbar for giving commands
 
 @author: Ninad
-@version: $Id: CommandToolbar.py 13487 2008-07-16 16:27:23Z brucesmith $
+@version: $Id: CommandToolbar.py 14382 2008-09-30 17:52:29Z ninadsathaye $
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
 
 
@@ -109,6 +109,44 @@ class CommandToolbar(Ui_CommandToolbar):
     The Command Area shows commands based on the checked 
     SubControl Area button.  Thus it could be empty in some situations.
     """
+    
+    _f_current_flyoutToolbar = None
+        #CommandToolbar._f_current_flyoutToolbar is the current flyout toolbar 
+        #that is displayed in the 'flyout area' of the command toolbar. 
+        #This attr value usually changes when the command stack changes or 
+        #when user clicks on a control button (exceptions apply). 
+        #Example: When Build > Dna command is entered, it sets this attr on the 
+        #commandToolbar class to the 'BuildDnaFlyout' object. 
+        #When that command is exited, BuildDnaFlyout is first 'deactivated' and 
+        #the self._f_current_flyoutToolbar is assigned a new value (The flyout 
+        #object of the next command entered. This can even be 'None' if the 
+        #next command doesn't have a flyoutToolbar)
+        #@see: self._setControlButtonMenu_in_flyoutToolbar()
+        #@see: self.resetToDefaultState()        
+        #In the above methods, this attr value is changed.
+        #@see: AbstractFlyout.deActivateFlyoutToolbar()        
+        #@see: bug 2937
+        #@see: self.command_update_flyout()
+        
+        
+       
+    _f_previous_flyoutToolbar = None
+        #Suppose user is in a command whose custom flyout toolbar is shown. 
+        #Now user clicks on another control button in the Command Toolbar, 
+        #so, that control button menu is shown in the flyout area (instead of 
+        #command specific custom flyout). When this happens, the 
+        #self._f_current_flyoutToolbar is set to None. But, the present value 
+        #of self._f_current_flyoutToolbar must be stored so as to 'deactivate'
+        #that flyout toolbar properly when user leaves the command for which
+        #that custom flyout is meant for. This is done by using the above
+        #class attr. 
+        #@see: self._setControlButtonMenu_in_flyoutToolbar()
+        #@see: self.resetToDefaultState()        
+        #In the above methods, this attr value is changed.
+        #@see: AbstractFlyout.deActivateFlyoutToolbar()        
+        #@see: bug 2937
+        #@see: self.command_update_flyout()
+        
 
     def __init__(self, win):
         """
@@ -118,7 +156,7 @@ class CommandToolbar(Ui_CommandToolbar):
         @type  win: L{MWsemantics}
         """        
         self.flyoutDictionary = None
-        
+                
         Ui_CommandToolbar.__init__(self, win)       
 
         self.setupUi()          
@@ -154,10 +192,28 @@ class CommandToolbar(Ui_CommandToolbar):
         the user sees when NE1 is started -- Build button in the control area
         of the toolbar checked and the flyout toolbar on the right hand side
         shows the sub-menu items of the build control area.
-        @see: SelectChunks_Command.init_gui() which calls this while entering 
-        the NE1 default select chunks mode. (fixes bugs like 2682)
-
+        @see: baseCommand.command_update_flyout() which calls this while entering
+        the NE1 default command 'SelectChunks_Command(fixes bugs like 2682, 2937)
+        
+        @see: self._setControlButtonMenu_in_flyoutToolbar()
         """
+        #First deactivate all the flyouts (i.e current flyout and previous 
+        #flyout if any) This fixes bugs like bug 2937. This ensures that 
+        #all the 'custom' flyouts (seen while in a command) are always 
+        #deactivated if the current command dosesn't have a flyout toolbar 
+        #Thus, clicking on a 'Control Ara button' in the command toolbar 
+        #will always ensure that it will display that control button's menu 
+        #in the flyout area instead of a command specific custom flyout. 
+        #See bug 2937 and self._setControlButtonMenu_in_flyoutToolbar()
+        for flyout in (self._f_current_flyoutToolbar, 
+                       self._f_previous_flyoutToolbar):
+            if flyout:
+                flyout.deActivateFlyoutToolbar()
+            
+        
+        self._f_current_flyoutToolbar = None
+        self._f_previous_flyoutToolbar = None
+                    
         self.cmdButtonGroup.button(0).setChecked(True)
         #Now update the command toolbar (flyout area) such that it shows 
         #the sub-menu items of the control  button
@@ -255,7 +311,34 @@ class CommandToolbar(Ui_CommandToolbar):
         @param btnId: The index of the toolbutton in the control area, 
                       that user clicked on. 
         @type  btnId: int
+        @see: AbstractFlyout.activateFlyoutToolbar() , another place 
+        where the self._f_current_flyoutToolbar value is changed. 
+        @see: self.resetToDefaultState()
         """
+        
+        #When the menu in the Control button is set in the flyout toolbar, 
+        #make sure to reset the self._f_current_flyoutToolbar value to 'None'
+        #This value may change again when baseCommand.command_update_flyout()
+        #is called (when command stack changes)
+        
+        #First store the _f_current_flyoutToolbar to _f_previous_flyoutToolbar. 
+        #before setting _f_current_flyoutToolbar to None. Note that when command 
+        #stack changes, both current flyout and previous flyout will be 'deactivated'
+        # if, the new command doesn't have a flyout toolbar of its own. 
+        #see baseCommand.command_update_flyout()
+        #@see: self.resetToDefaultState() which actually deactivates the current
+        #and previous flyouts.        
+        
+        #Why do we need to the value of current flyout to previous flyout? 
+        #-- consider steps in bug 2937. When user does step 2, two things happen
+        #a) We store the current flyout value to previous flyout and b) then 
+        #the current flyout is set to None. If we don't do (a), the Move flyout 
+        #will never be deactivated by the current command and cause bug 2937
+        if self._f_current_flyoutToolbar:
+            self._f_previous_flyoutToolbar = self._f_current_flyoutToolbar
+        
+        self._f_current_flyoutToolbar = None
+        
         self.flyoutToolBar.clear()
         menu = self.cmdButtonGroup.button(btnId).menu()
         self.flyoutToolBar.addActions(menu.actions())

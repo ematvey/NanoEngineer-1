@@ -3,7 +3,7 @@
 FuseChunks_Command.py
 
 @author: Mark
-@version: $Id: FuseChunks_Command.py 13494 2008-07-16 19:06:48Z marksims $
+@version: $Id: FuseChunks_Command.py 14356 2008-09-25 21:52:21Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -11,22 +11,20 @@ Originally by Mark as class 'fuseChunksMode'.
 Ninad 2008-01-25: Split Command and GraphicsMode classes
                  out of class fuseChunksMode. The graphicsMode class can be
                  found in FuseChunks_GraphicsMode.py
+                 
+TODO as of 2008-09-09:
+-refactor update ui related code. Example some methods call propMgr.updateMessage()
+etc. this needs to be in a central place... either in this callls or
+in PM._update_UI_do_updates()
 """
 
-
-from PyQt4.Qt import SIGNAL
-from PyQt4.Qt import QAction
-from ne1_ui.NE1_QWidgetAction import NE1_QWidgetAction
-
 import foundation.env as env
-import foundation.changes as changes
 from geometry.VQT import vlen
-
 from model.elements import Singlet
-from utilities.Log import redmsg, orangemsg
+
 from platform_dependent.PlatformDependent import fix_plurals
 from commands.Fuse.FusePropertyManager import FusePropertyManager
-from utilities.icon_utilities import geticon
+
 from utilities.constants import diINVISIBLE
 
 from commands.Move.Move_Command import Move_Command
@@ -45,6 +43,8 @@ from commands.Fuse.FuseChunks_GraphicsMode import Translate_in_FuseChunks_Graphi
 from commands.Fuse.FuseChunks_GraphicsMode import Rotate_in_FuseChunks_GraphicsMode
 from command_support.GraphicsMode_API import GraphicsMode_API
 
+from ne1_ui.toolbars.Ui_FuseFlyout import FuseFlyout
+
 class FuseChunks_Command(Move_Command, fusechunksBase):
     """
     Allows user to move chunks and fuse them to other chunks in the part.
@@ -54,10 +54,20 @@ class FuseChunks_Command(Move_Command, fusechunksBase):
     2. Fuse Atoms - atoms between chunks will be fused when they overlap each
        other.
     """
+       
     # class constants
+    PM_class = FusePropertyManager
+    GraphicsMode_class = FuseChunks_GraphicsMode
+    FlyoutToolbar_class = FuseFlyout
+    
     commandName = 'FUSECHUNKS'
-    default_mode_status_text = "Mode: Fuse Chunks"
     featurename = "Fuse Chunks Mode"
+    from utilities.constants import CL_ENVIRONMENT_PROVIDING
+    command_level = CL_ENVIRONMENT_PROVIDING
+
+    ### REVIEW: are the folowing all default values of instance variables?
+    # Note that they are all dangerously mutable -- if they can correctly
+    # be changed to None or (), that would be better. [bruce 080725 comment]
     bondable_pairs = [] # List of bondable singlets
     ways_of_bonding = {} # Number of bonds each singlet found
     bondable_pairs_atoms = [] # List of atom pairs that can be bonded
@@ -69,9 +79,7 @@ class FuseChunks_Command(Move_Command, fusechunksBase):
         # considered overlapping
 
     fuse_mode = '' # The Fuse mode, either 'Make Bonds' or 'Fuse Atoms'.
-    propMgr = None
-
-    GraphicsMode_class = FuseChunks_GraphicsMode
+       
 
     def _create_GraphicsMode(self):
         GM_class = self.GraphicsMode_class
@@ -82,94 +90,61 @@ class FuseChunks_Command(Move_Command, fusechunksBase):
 
         self.translate_graphicsMode = Translate_in_FuseChunks_GraphicsMode(*args, **kws)
         self.rotate_graphicsMode  = Rotate_in_FuseChunks_GraphicsMode(*args, **kws)
-
-
-    def init_gui(self):
-        if self.propMgr is None:
-            self.propMgr = FusePropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494
-            changes.keep_forever(self.propMgr)
-
-        self.propMgr.show()
-
+    
+        
+    def command_entered(self):
+        """
+        Extends superclass method. 
+        @see: baseCommand.command_entered() for documentation. 
+        """
+        super(FuseChunks_Command, self).command_entered()
         self.change_fuse_mode(str(self.propMgr.fuseComboBox.currentText()))
             # This maintains state of fuse mode when leaving/reentering mode,
             # and syncs the PM and glpane (and does a gl_update).
-
-        self.w.toolsFuseChunksAction.setChecked(1)
-
-        self.updateCommandToolbar(bool_entering = True)
-
-        # connect signals
-        #(these all need to be disconnected in restore_gui) [mark 050901]
-        self.connect_or_disconnect_signals(True)
-
+            
         if self.o.assy.selmols:
             self.graphicsMode.something_was_picked = True
 
-        #if self.propMgr.isTranslateGroupBoxActive:
-            ## toggle on the Move Free action in the Property Manager
-            #self.propMgr.transFreeButton.setChecked(True)
-            #self.graphicsMode.moveOption = 'MOVEDEFAULT'
-        #else:
-            #self.propMgr.rotateFreeButton.setChecked(True)
-            #self.graphicsrotateOption = 'ROTATEDEFAULT'
-
-    def restore_gui(self):
-        self.updateCommandToolbar(bool_entering = False)
-        self.connect_or_disconnect_signals(False)
-        self.w.toolsFuseChunksAction.setChecked(False)
-        self.propMgr.close()
-
-    def connect_or_disconnect_signals(self, connect):
-        if connect:
-            change_connect = self.w.connect
-        else:
-            change_connect = self.w.disconnect
-
-        change_connect(self.exitFuseAction, SIGNAL("triggered()"),
-                       self.w.toolsDone)
-
-        #Connect or disconnect signals in property manager
-        self.propMgr.connect_or_disconnect_signals(connect)
-
-        return
-
-    def Backup(self):
-        """
-        Undo any bonds made between chunks.
-        """
-        # This undoes only the last fused chunks.  Will work on supporting
-        # multiple undos when we get a single undo working.   Mark 050326
-
-        # Bust bonds between last pair/set of fused chunks.
-        if self.bondable_pairs_atoms:
-            for a1, a2 in self.bondable_pairs_atoms:
-                b = a1.get_neighbor_bond(a2)
-                if b: b.bust()
-
-
-            if self.merged_chunks:
-                nchunks_str = "%d" % (len(self.merged_chunks) + 1,)
-                msg = "Fuse Chunks: Bonds broken between %s chunks." % (nchunks_str)
-                env.history.message(msg)
-                msg = "Warning: Cannot separate the original chunks. You can " \
-                "do this yourself using <b>Modify > Separate</b>."
-                env.history.message(orangemsg(msg))
-
-                cnames = "Their names were: "
-                # Here are the original names...
-                for chunk in self.merged_chunks:
-                    cnames += '[' + chunk.name + '] '
-                env.history.message(cnames)
-
-            self.o.gl_update()
-
-        else:
-            msg = "Fuse Chunks: No bonds have been made yet.  Undo ignored."
-            env.history.message(redmsg(msg))
-
-
+    def command_enter_misc_actions(self):
+        self.w.toolsFuseChunksAction.setChecked(1)
+            
+    def command_exit_misc_actions(self):
+        self.w.toolsFuseChunksAction.setChecked(0)
+            
+    
+##    def Backup(self): # REVIEW: I suspect there is no way to call this method, so I commented it out. [bruce 080806 comment]
+##        """
+##        Undo any bonds made between chunks.
+##        """
+##        # This undoes only the last fused chunks.  Will work on supporting
+##        # multiple undos when we get a single undo working.   Mark 050326
+##
+##        # Bust bonds between last pair/set of fused chunks.
+##        if self.bondable_pairs_atoms:
+##            for a1, a2 in self.bondable_pairs_atoms:
+##                b = a1.get_neighbor_bond(a2)
+##                if b: b.bust()
+##
+##
+##            if self.merged_chunks:
+##                nchunks_str = "%d" % (len(self.merged_chunks) + 1,)
+##                msg = "Fuse Chunks: Bonds broken between %s chunks." % (nchunks_str)
+##                env.history.message(msg)
+##                msg = "Warning: Cannot separate the original chunks. You can " \
+##                "do this yourself using <b>Modify > Separate</b>."
+##                env.history.message(orangemsg(msg))
+##
+##                cnames = "Their names were: "
+##                # Here are the original names...
+##                for chunk in self.merged_chunks:
+##                    cnames += '[' + chunk.name + '] '
+##                env.history.message(cnames)
+##
+##            self.o.gl_update()
+##
+##        else:
+##            msg = "Fuse Chunks: No bonds have been made yet.  Undo ignored."
+##            env.history.message(redmsg(msg))
 
     def tolerance_changed(self, val):
         """
@@ -282,7 +257,9 @@ class FuseChunks_Command(Move_Command, fusechunksBase):
 
         ######### Overlapping Atoms methods #############
 
-    def find_overlapping_atoms(self):
+    def find_overlapping_atoms(self, 
+                               skip_hidden = True,
+                               ignore_chunk_picked_state = False):
         """
         Checks atoms of the selected chunk to see if they overlap atoms
         in other chunks of the same type (element).  Hidden chunks are skipped.
@@ -359,8 +336,65 @@ class FuseChunks_Command(Move_Command, fusechunksBase):
         tol_str = fusechunks_lambda_tol_natoms(self.tol, natoms)
         tolerenceLabel = tol_str
         self.propMgr.toleranceSlider.labelWidget.setText(tolerenceLabel)
+        
+    
+    def find_overlapping_atoms_to_delete_from_atomlists(self, 
+                                              atomlist_to_keep, 
+                                              atomlist_with_overlapping_atoms, 
+                                              tolerance = 1.1
+                                              ):
+        """
+        @param atomlist_to_keep: Atomlist which will be used as a reference atom
+               list. The atoms in this list will be used to find the atoms 
+               in the *other list* which overlap atom positions in *this list*.
+               Thus, the atoms in 'atomlist_to_keep' will be preserved (and thus
+               won't be appended to self.overlapping_atoms)
+        @type atomlist_to_keep: list
+        @param atomlist_with_overlapping_atoms: This list will be checked with 
+               the first list (atom_list_to_keep) to find overlapping atoms.
+               The atoms in this list that overlap with the atoms from the 
+               original list will be appended to self.overlapping_atoms
+               (and will be eventually deleted)
+        
+	"""
+        
+        overlapping_atoms_to_delete = []
+        
+        # Remember: chunk = a selected chunk  = atomlist to keep
+        # mol = a non-selected -- to find overlapping atoms from
+               
+        
+        # Loop through all the atoms in the selected chunk.
+        # Use values() if the loop ever modifies chunk or mol--
+        for a1 in atomlist_to_keep: 
+            # Singlets can't be overlapping atoms. SKIP those
+            if a1.is_singlet(): 
+                continue
+            
+            # Loop through all the atoms in atomlist_with_overlapping_atoms.
+            for a2 in atomlist_with_overlapping_atoms:
+                # Only atoms of the same type can be overlapping.
+                # This also screens singlets, since a1 can't be a 
+                # singlet.
+                if a1.element is not a2.element: 
+                    continue
 
+                # Compares the distance between a1 and a2.  
+                # If the distance
+                # is <= tol, then we have an overlapping atom.  
+                # I know this isn't a proper use of tol, 
+                # but it works for now.   Mark 050901
+                if vlen (a1.posn() - a2.posn()) <= tolerance:
+                    # Add this pair to the list--
+                    overlapping_atoms_to_delete.append( (a1,a2) ) 
+                    # No need to check other atoms in this chunk--
+                    break 
+                
+        return overlapping_atoms_to_delete
 
+    def _delete_overlapping_atoms(self):
+        pass
+    
     def fuse_atoms(self):
         """
         Deletes overlapping atoms found with the selected chunk(s).
@@ -408,68 +442,3 @@ class FuseChunks_Command(Move_Command, fusechunksBase):
             # overlapping atoms again, which generates errors.
 
         self.w.win_update()
-
-
-    #Command Toolbar to be revised ============================================
-
-    def getFlyoutActionList(self): #Ninad 20070618
-        """
-        Returns a tuple that contains mode spcific actionlists in the
-        added in the flyout toolbar of the mode.
-        CommandToolbar._createFlyoutToolBar method calls this
-        @return: params: A tuple that contains 3 lists:
-        (subControlAreaActionList, commandActionLists, allActionsList)
-        """
-
-        #'allActionsList' returns all actions in the flyout toolbar
-        #including the subcontrolArea actions
-        allActionsList = []
-
-        #Action List for  subcontrol Area buttons.
-        #In this mode, there is really no subcontrol area.
-        #We will treat subcontrol area same as 'command area'
-        #(subcontrol area buttons will have an empty list as their command area
-        #list). We will set  the Comamnd Area palette background color to the
-        #subcontrol area.
-
-        subControlAreaActionList =[]
-
-        self.exitFuseAction = NE1_QWidgetAction(self.w, win = self.w)
-        self.exitFuseAction.setText("Exit Fuse")
-        self.exitFuseAction.setCheckable(True)
-        self.exitFuseAction.setChecked(True)
-        self.exitFuseAction.setIcon(
-            geticon("ui/actions/Toolbars/Smart/Exit.png"))
-        subControlAreaActionList.append(self.exitFuseAction)
-
-        separator = QAction(self.w)
-        separator.setSeparator(True)
-        subControlAreaActionList.append(separator)
-
-        allActionsList.extend(subControlAreaActionList)
-
-        #Empty actionlist for the 'Command Area'
-        commandActionLists = []
-
-        #Append empty 'lists' in 'commandActionLists equal to the
-        #number of actions in subControlArea
-        for i in range(len(subControlAreaActionList)):
-            lst = []
-            commandActionLists.append(lst)
-
-        params = (subControlAreaActionList, commandActionLists, allActionsList)
-
-        return params
-
-    def updateCommandToolbar(self, bool_entering = True):#Ninad 20070618
-        """
-        Update the command toolbar
-        """
-        # object that needs its own flyout toolbar. In this case it is just
-        #the mode itself.
-
-        action = self.w.toolsFuseChunksAction
-        obj = self
-        self.w.commandToolbar.updateCommandToolbar(action,
-                                                   obj,
-                                                   entering =bool_entering)

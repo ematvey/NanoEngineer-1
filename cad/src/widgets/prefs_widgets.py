@@ -5,7 +5,7 @@ Note: also includes some code related to "connect with state"
 which should be refiled.
 
 @author: Bruce
-@version: $Id: prefs_widgets.py 13347 2008-07-07 22:01:59Z ninadsathaye $
+@version: $Id: prefs_widgets.py 14389 2008-10-01 16:22:03Z brucesmith $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -24,7 +24,7 @@ calling this a "ui/widgets" module without splitting it -- we'll see.
 """
 
 import foundation.env as env # for env.prefs
-from utilities.debug import print_compact_traceback
+from utilities.debug import print_compact_traceback, print_compact_stack
 
 from foundation.changes import Formula
 from widgets.widget_helpers import RGBf_to_QColor
@@ -35,8 +35,6 @@ from PyQt4.Qt import QPalette
 from foundation.undo_manager import wrap_callable_for_undo
 
 # public helper functions
-
-# [this comment is probably obs:] ### colorframe prefs are UNTESTED since local old funcs rewritten to use these
 
 def widget_destroyConnectionWithState(widget):
     """
@@ -242,12 +240,19 @@ def connect_checkbox_with_boolean_pref_OLD( qcheckbox, prefs_key ): #bruce 05081
     widget_setConnectionWithState(qcheckbox, conn)
     return
 
-class StateRef_API: ### TODO: FILL THIS IN, rename some methods
+class StateRef_API(object): ### TODO: FILL THIS IN, rename some methods
     """
     API for references to tracked state.
     """
+    #bruce 080930 added object superclass
     debug_name = ""
-    
+
+    def __repr__(self): #bruce 071002; 080930 revised, moved to superclass
+        # assume self.debug_name includes class name,
+        # as it does when made up by Preferences_StateRef.__init__
+        debug_name = self.debug_name or self.__class__.__name__.split('.')[-1]
+        return "<%s at %#x>" % (debug_name, id(self))
+
     # TODO: add support for queryable metainfo about type, whatsthis text, etc.
     # For example:
     # - self.defaultValue could be the default value (a constant value,
@@ -280,15 +285,9 @@ class Preferences_StateRef(StateRef_API): # note: compare to exprs.staterefs.Pre
             # to it, or verify consistency if both are provided (maybe the env.prefs.get call does that already).
         if not debug_name:
             debug_name = "Preferences_StateRef(%r)" % (pref_name or prefs_key,)
-                # this format is also important for __repr__
+                # used by __repr__ in place of classname
         self.debug_name = debug_name
         return
-    def __repr__(self): #bruce 071002
-        # assume self.debug_name includes class name,
-        # as it does when made up by our own __init__ method
-        assert self.debug_name.startswith(self.__class__.__name__)
-            # if fails, might be legit, but we'll need to revise this code
-        return "<%s at %#x>" % (self.debug_name, id(self))
     def set_value(self, value):
         # REVIEW: how can the caller tell that this is change-tracked?
         # Should StateRef_API define flags for client code queries about that?
@@ -307,6 +306,46 @@ def Preferences_StateRef_double( prefs_key, defaultValue = 0.0):
     return Preferences_StateRef( prefs_key, defaultValue)
 
 
+class Fallback_ObjAttr_StateRef(StateRef_API): #bruce 080930 experimental; useful when obj.attr is a property
+    ### TODO: make property docstring available thru self for use in tooltips of UI elements
+    def __init__(self, obj, attr, debug_name = None):
+        self.obj = obj
+        self.attr = attr
+        self.defaultValue = self.get_value() ### review: always safe this soon? always wanted?
+        if not debug_name:
+            debug_name = "Fallback_ObjAttr_StateRef(%r, %r)" % (obj, attr)
+                # used by __repr__ in place of classname
+        self.debug_name = debug_name
+        return
+    def set_value(self, value):
+        setattr( self.obj, self.attr, value)
+    def get_value(self):
+        return getattr( self.obj, self.attr)
+    pass
+
+class Setter_StateRef(StateRef_API): #bruce 080930 experimental, not known to be useful since getter is required in practice
+    """
+    A "write-mainly" stateref made from a setter/getter function pair,
+    or (if getter is not supplied) a write-only stateref made from a
+    setter function.
+    """
+    # see also: call_with_new_value, ObjAttr_StateRef
+    def __init__(self, setter, getter = None):
+        self.setter = setter
+        self.getter = getter
+        # kluge (present of this attr of self affects semantics) ###review -- is that true?
+        if getter is not None:
+            self.defaultValue = getter() ### review: always safe this soon? always wanted?
+                # todo: not always correct, should be overridable by option
+        return
+    def set_value(self, value):
+        self.setter(value)
+    def get_value(self):
+        if not self.getter:
+            assert 0, "can't get value from %r" % self
+        return self.getter()
+    pass
+    
 def ObjAttr_StateRef( obj, attr, *moreattrs): #bruce 070815 experimental; plan: use it with connectWithState for mode tracked attrs
     ###e refile -- staterefs.py? StateRef_API.py? a staterefs package?
     """
@@ -338,9 +377,14 @@ def ObjAttr_StateRef( obj, attr, *moreattrs): #bruce 070815 experimental; plan: 
     # since otherwise the retval of get_value would change sooner than the change-track message was sent.
     # Alternatively, all get_value calls could cause it to be compared at that time... but I'm not sure that's a good idea --
     # it might cause invals at the wrong times (inside update methods calling get_value).
-    assert 0, "ObjAttr_StateRef fallback is nim -- needed for %r" % (obj,)
-
-    pass
+    
+    # For some purposes, it might be useful to produce a "write only" reference,
+    # useable for changing the referred-to attribute, but not for subscribing to
+    # other changes of it. Or better, able to get the value but not to subscribe
+    # (i.e. it's not a change-trackable value). Let's try this now.
+    # [bruce 080930 experiment]
+    ## assert 0, "ObjAttr_StateRef fallback is nim -- needed for %r" % (obj,)
+    return Fallback_ObjAttr_StateRef( obj, attr )
 
 # ==
 
@@ -359,7 +403,7 @@ def connect_checkbox_with_boolean_pref( qcheckbox, prefs_key ): #bruce 050810, r
     widget_connectWithState( qcheckbox, stateref, QCheckBox_ConnectionWithState)
     return
 
-def connect_doubleSpinBox_with_pref(qDoubleSpinBox, prefs_key):
+def connect_doubleSpinBox_with_pref(qDoubleSpinBox, prefs_key): # by Ninad
     """
     Cause the QDoubleSpinbox to track the value of the given preference key AND
     causes changes to the Double spinbox to change the value of that prefs_key.
@@ -379,7 +423,7 @@ def connect_doubleSpinBox_with_pref(qDoubleSpinBox, prefs_key):
     widget_connectWithState( qDoubleSpinBox, stateref, QDoubleSpinBox_ConnectionWithState)
     return
 
-def connect_spinBox_with_pref(qSpinBox, prefs_key):
+def connect_spinBox_with_pref(qSpinBox, prefs_key): # by Ninad
     """
     Cause the QSpinbox to track the value of the given preference key AND
     causes changes to the Double spinbox to change the value of that prefs_key.
@@ -399,11 +443,31 @@ def connect_spinBox_with_pref(qSpinBox, prefs_key):
     widget_connectWithState( qSpinBox, stateref, QSpinBox_ConnectionWithState)
     return
 
+
+def connect_comboBox_with_pref(qComboBox, prefs_key): # by Ninad
+    """
+    Cause the QComboBox to track the value of the given preference key AND
+    causes changes to the combobox  to change the value of that prefs_key.
     
+    @param qComboBox: QComboBox  object which needs to be 'connected'
+        to the given <prefs_key> (preference key)
+    @type qComboBox B{QComboBox}
+    
+    @param prefs_key: The preference key to be assocuated with <qSpinBox>
+
+    @see: B{connect_checkbox_with_boolean_pref()}
+    @see: B{QComboBox_ConnectionWithState}    
+    @see: connect_doubleSpinBox_with_pref()
+    """
+    stateref = Preferences_StateRef( prefs_key) # note: no default value specified
+    widget_connectWithState( qComboBox, stateref, QComboBox_ConnectionWithState)
+    return
 
 # ==
 
-class _twoway_Qt_connection: #bruce 070814, experimental, modified from destroyable_Qt_connection
+class _twoway_Qt_connection(object):
+    #bruce 080930 added object superclass
+    #bruce 070814, experimental, modified from destroyable_Qt_connection
     ### TODO: RENAME; REVISE init arg order
     ### TODO: try to make destroyable_Qt_connection a super of this class
     """
@@ -415,7 +479,10 @@ class _twoway_Qt_connection: #bruce 070814, experimental, modified from destroya
 
     Main experimental aspect of API is the StateRef_API used by the stateref arg...
     """
-    def __init__(self, widget, signal, stateref, widget_setter, owner = None):
+    debug_name = ""
+    connected = False #bruce 080930
+    conn1 = None
+    def __init__(self, widget, signal, stateref, widget_setter, owner = None, debug_name = None):
         """
         ...StateRef_API used by the stateref arg...
         """
@@ -442,19 +509,29 @@ class _twoway_Qt_connection: #bruce 070814, experimental, modified from destroya
         if self.debug:
             print "\n_changes__debug_print: finished _twoway_Qt_connection.__init__ for %r containing %r" % (self, stateref)
                 ###REVIEW: what if subclass init is not done, and needed for %r to work?
+        self.debug_name = debug_name or "" # used by __repr__ in place of classname, if provided
         return
+    def __repr__(self): #bruce 080930
+        # assume self.debug_name includes class name, if that's needed
+        debug_name = self.debug_name or \
+                     self.stateref.debug_name or \
+                     self.__class__.__name__.split('.')[-1]
+        return "<%s at %#x>" % (debug_name, id(self))
     def connect(self):
         owner, sender, signal, slot = self.vars
         owner.connect(sender, signal, slot)
+        self.connected = True
     def disconnect(self):
         owner, sender, signal, slot = self.vars
         owner.disconnect(sender, signal, slot)
+        self.connected = False
     def destroy(self):
-        assert self.vars, "error to destroy twice: %r" % self # maybe make it legal and noop instead?
-        self.disconnect()
-        self.vars = None # error to disconnect self again
-        # and the other direction too
-        self.conn1.destroy()
+        if self.vars: #bruce 080930 make destroy twice legal and a noop
+            if self.connected:
+                self.disconnect()
+            if self.conn1:
+                self.conn1.destroy()
+            self.vars = None # error to use self after this, except for destroy
         return
     def connect_the_other_way(self):
         self.conn1 = Formula( self.usage_tracked_getter, self.careful_widget_setter, debug = self.debug )
@@ -473,9 +550,21 @@ class _twoway_Qt_connection: #bruce 070814, experimental, modified from destroya
             print "\n_changes__debug_print: %r setting %r to %r using %r" % \
                   ( self, self.widget, value, self.widget_setter )
         self.disconnect() # avoid possible recursion
-        self.widget_setter(value)
-            ## TODO: protect from exception -- but do what when it happens? destroy self?
-        self.connect()
+        try:
+            self.widget_setter(value)
+        except:
+            print_compact_traceback("bug: ignoring exception setting value of %r to %r: " % (self, value))
+            print_compact_stack(" fyi: prior exception came from: ")
+            self.destroy() #bruce 080930
+                # this seems to be safe, but debug output implies it fails to stop formula
+                # from continuing to call setter! but that seems unlikely... nevermind for now.
+                # Review: do we want subsequent use of self
+                # to be silently ok, smaller message, or error? If this destroy worked
+                # then I think it should be silently ok, but might not be now,
+                # depending on how refs to self continue to be used.
+            pass 
+        else:
+            self.connect()
             ### WARNING: .connect is slow, since it runs our Python code to set up an undo wrapper
             # around the slot! We should revise this to tell Qt to block the signals instead.
             # [We can use: bool QObject::blockSignals ( bool block ) ==> returns prior value of signalsBlocked,
@@ -501,17 +590,18 @@ class QDoubleSpinBox_ConnectionWithState( _twoway_Qt_connection):
         widget_setter = qspinbox.setValue
             # note: requires bugfix in PM_DoubleSpinBox.setValue,
             # or this will also set default value when used with a PM_DoubleSpinBox object.
-        self.qspinbox = qspinbox
+        self.qspinbox = qspinbox # review: is this reference needed?
         _twoway_Qt_connection.__init__(self, qspinbox, SIGNAL("valueChanged(double)"),
                                        stateref,
                                        widget_setter)
         return
     
     
-class QSpinBox_ConnectionWithState( _twoway_Qt_connection):
+class QSpinBox_ConnectionWithState( _twoway_Qt_connection): # by Ninad
+    # review: add a def connectWithState to a suitable PM class, which uses this? [bruce 080811 comment]
     def __init__(self, qspinbox, stateref):
         widget_setter = qspinbox.setValue           
-        self.qspinbox = qspinbox
+        self.qspinbox = qspinbox # review: is this reference needed?
         _twoway_Qt_connection.__init__(self, qspinbox, SIGNAL("valueChanged(int)"),
                                        stateref,
                                        widget_setter)
@@ -525,6 +615,19 @@ class QPushButton_ConnectionWithAction(destroyable_Qt_connection):
         slot = wrap_callable_for_undo( aCallable, cmdname = cmdname) # need to keep a ref to this
         destroyable_Qt_connection.__init__( self, sender, signal, slot) # this keeps a ref to slot
         return
+    
+class QComboBox_ConnectionWithState( _twoway_Qt_connection): # by Ninad
+    # review: add a def connectWithState to a suitable PM class, which uses this? [bruce 080811 comment]
+    def __init__(self, qcombobox, stateref):
+        widget_setter = qcombobox.setCurrentIndex           
+        self.qcombobox = qcombobox # review: is this reference needed?
+        _twoway_Qt_connection.__init__(self, 
+                                       qcombobox, 
+                                       SIGNAL("currentIndexChanged(int)"),
+                                       stateref,
+                                       widget_setter)
+        return
+    
     pass
 
 # still needed:

@@ -3,7 +3,7 @@
 NanotubeGroup.py - ...
 
 @author: Bruce, Mark
-@version: $Id: NanotubeGroup.py 13233 2008-06-25 14:40:04Z russfish $
+@version: $Id: NanotubeGroup.py 14410 2008-10-03 02:21:13Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -131,7 +131,7 @@ class NanotubeGroup(Group):
         @see: Group.edit()
         """
         commandSequencer = self.assy.w.commandSequencer
-        commandSequencer.userEnterCommand('BUILD_NANOTUBE')
+        commandSequencer.userEnterCommand('BUILD_NANOTUBE', always_update = True)
         currentCommand = commandSequencer.currentCommand
         assert currentCommand.commandName == 'BUILD_NANOTUBE'
         currentCommand.editStructure(self)
@@ -193,7 +193,6 @@ class NanotubeGroup(Group):
         @see: Chunk.draw_highlighted()
         @see: SelectChunks_GraphicsMode.draw_highlightedChunk()
         @see: SelectChunks_GraphicsMode._get_objects_to_highlight()
-        @see: SelectChunks_GraphicsMode._is_dnaGroup_highlighting_enabled()   #@
         """
         for c in self.getSegments():
             c.draw_highlighted(glpane, color)

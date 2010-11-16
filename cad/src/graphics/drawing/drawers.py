@@ -2,7 +2,7 @@
 """
 drawers.py - Miscellaneous drawing functions that are not used as primitives.
 
-@version: $Id: drawers.py 13392 2008-07-10 22:00:58Z brucesmith $
+@version: $Id: drawers.py 14190 2008-09-10 19:59:24Z protkiewicz $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -104,6 +104,18 @@ from OpenGL.GL import GL_VERTEX_ARRAY
 from OpenGL.GL import glVertexPointer
 from OpenGL.GL import GL_COLOR_MATERIAL
 from OpenGL.GL import GL_TRIANGLE_STRIP
+from OpenGL.GL import glTexEnvf
+from OpenGL.GL import GL_TEXTURE_ENV
+from OpenGL.GL import GL_TEXTURE_ENV_MODE
+from OpenGL.GL import GL_MODULATE
+from OpenGL.GL import glVertexPointer
+from OpenGL.GL import glNormalPointer
+from OpenGL.GL import glTexCoordPointer
+from OpenGL.GL import glDrawArrays
+from OpenGL.GL import glEnableClientState
+from OpenGL.GL import GL_VERTEX_ARRAY
+from OpenGL.GL import GL_NORMAL_ARRAY
+from OpenGL.GL import GL_TEXTURE_COORD_ARRAY
 
 from geometry.VQT import norm, vlen, V, Q, A
 
@@ -725,14 +737,14 @@ def drawGrid(scale, center, latticeType):
     glDisable(GL_LIGHTING)
 
     # bruce 041201:
-    #   Quick fix to prevent "hang" from drawing too large a cookieMode grid
+    #   Quick fix to prevent "hang" from drawing too large a BuildCrystal_Command grid
     # with our current cubic algorithm (bug 8). The constant 120.0 is still on
     # the large side in terms of responsiveness -- on a 1.8GHz iMac G5 it can
     # take many seconds to redraw the largest grid, or to update a selection
     # rectangle during a drag. I also tried 200.0 but that was way too large.
     # Since some users have slower machines, I'll be gentle and put 90.0 here.
     #   Someday we need to fix the alg to be quadratic by teaching this code
-    # (and the cookie baker code too) about the eyespace clipping planes. 
+    # (and the Crystal builder code too) about the eyespace clipping planes. 
     #   Once we support user prefs, this should be one of them (if the alg is
     # not fixed by then).
 
@@ -820,7 +832,7 @@ def drawrectangle(pt1, pt2, rt, up, color):
 # - use of glVertex instead of glVertex3f or so??? This seems unlikely, since we
 #   have other uses of it, but perhaps they work due to different arg types.
 # - use of GL_LINE_LOOP within OpenGL xor mode, and bugs in some OpenGL
-#   drivers?? I didn't check whether cookieMode does this too.
+#   drivers?? I didn't check whether BuildCrystal_Command does this too.
 ##def drawRubberBand(pt1, pt2, c2, c3, color):
 ##    """Huaicai: depth test should be disabled to make the xor work """
 ##    glBegin(GL_LINE_LOOP)
@@ -943,6 +955,9 @@ def drawPlane(color, w, h, textureReady, opacity,
 
     @pickCheckOnly This is used to draw the geometry only, used for OpenGL pick
       selection purpose.
+
+    @param tex_coords: texture coordinates to be explicitly provided (for 
+    simple image transformation purposes)
     """
     vs = [[-0.5, 0.5, 0.0], [-0.5, -0.5, 0.0],
           [0.5, -0.5, 0.0], [0.5, 0.5, 0.0]]
@@ -1006,32 +1021,29 @@ def drawHeightfield(color, w, h, textureReady, opacity,
                     SOLID=False, pickCheckOnly=False, hf=None):
     """
     Draw a heighfield using vertex and normal arrays. Optionally, it could be
-    texuture mapped.
+    texture mapped.
 
     @pickCheckOnly This is used to draw the geometry only, used for OpenGL pick
       selection purpose.
     """        
 
-    from OpenGL.GL import glTexEnvf
-    from OpenGL.GL import GL_TEXTURE_ENV
-    from OpenGL.GL import GL_TEXTURE_ENV_MODE
-    from OpenGL.GL import GL_MODULATE
-    from OpenGL.GL import glVertexPointer
-    from OpenGL.GL import glNormalPointer
-    from OpenGL.GL import glTexCoordPointer
-    from OpenGL.GL import glDrawArrays
-    from OpenGL.GL import glEnableClientState
-    from OpenGL.GL import GL_VERTEX_ARRAY
-    from OpenGL.GL import GL_NORMAL_ARRAY
-    from OpenGL.GL import GL_TEXTURE_COORD_ARRAY
-        
+    if not hf:
+        # Return if heightfield is not provided
+        return
+    
     glEnable(GL_COLOR_MATERIAL)
     glEnable(GL_LIGHTING)
 
-    ### glColor4fv(list(color) + [opacity])
-    ### glColor3fv(list(color))
-    glColor3f(1.0, 1.0, 1.0)
+    # Don't use opacity, otherwise the heighfield polygons should be sorted
+    # - something to implement later...
+    ## glColor3v(list(color))
     
+    if textureReady:
+        # For texturing, use white color (to be modulated by the texture)
+        glColor3f(1,1,1)
+    else:
+        glColor3fv(list(color))
+        
     glPushMatrix()
     glScalef(w, h, 1.0)
 

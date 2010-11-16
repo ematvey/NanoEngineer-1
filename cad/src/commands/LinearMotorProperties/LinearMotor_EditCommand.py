@@ -4,7 +4,7 @@ LinearMotor_EditCommand.py
 
 @author: Ninad
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: LinearMotor_EditCommand.py 12795 2008-05-16 15:39:12Z ninadsathaye $
+@version: $Id: LinearMotor_EditCommand.py 14356 2008-09-25 21:52:21Z ninadsathaye $
 
 History:
 ninad 2007-10-09: Created.
@@ -14,87 +14,20 @@ import foundation.env as env
 from utilities.Log   import redmsg, greenmsg, orangemsg
 from model.jigs_motors import LinearMotor
 from operations.jigmakers_Mixin import atom_limit_exceeded_and_confirmed
-from command_support.EditCommand import EditCommand
+from command_support.Motor_EditCommand import Motor_EditCommand
+from commands.LinearMotorProperties.LinearMotorPropertyManager import LinearMotorPropertyManager
 
-from commands.SelectAtoms.SelectAtoms_GraphicsMode import SelectAtoms_GraphicsMode
-
-class LinearMotor_EditCommand(EditCommand):
+class LinearMotor_EditCommand(Motor_EditCommand):
     """
     The LinearMotor_EditCommand class  provides an editCommand Object.
     The editCommand, depending on what client code needs it to do, may create
     a new linear motor or it may be used for an existing linear motor. 
-    """
-    cmd = greenmsg("Linear Motor: ")
-    #
-    prefix = '' # Not used by jigs.
-    # All jigs like rotary and linear motors already created their
-    # name, so do not (re)create it from the prefix.
-    create_name_from_prefix = False 
-    sponsor_keyword = 'Linear Motor'
-    propMgr = None
-
-    #See Command.anyCommand for details about the following flags
-    command_should_resume_prevMode = True
-    command_has_its_own_gui = True
+    """    
+    PM_class = LinearMotorPropertyManager    
+    cmd = greenmsg("Linear Motor: ")  
     commandName = 'LINEAR_MOTOR'
     featurename = "Linear Motor"
-
-    GraphicsMode_class = SelectAtoms_GraphicsMode    
-
-    def __init__(self, commandSequencer, struct = None):
-        """
-        Constructs an Edit Controller Object. The editCommand, 
-        depending on what client code needs it to do, may create a new 
-        Linear motor or it may be used for an existing linear motor. 
-
-        @param win: The NE1 main window.
-        @type  win: QMainWindow
-
-        @param struct: The model object (in this case a 'linear motor') that the
-                       this EditCommand may create and/or edit
-                       If struct object is specified, it means this 
-                       editCommand will be used to edit that struct. 
-        @type  struct: L{LinearMotor} or None
-
-        @see: L{LinearMotor.__init__}
-        """ 
-        EditCommand.__init__(self, commandSequencer)
-        self.struct = struct
-
-    def Enter(self):
-        """
-        Enter this command. 
-        @see: EditCommand.Enter
-        """
-        #See EditCommand.Enter for a detailed comment on why self.struct is 
-        #set to None while entering this command.
-        #May not be needed for RotaryMotor and Linear motor edit commands, 
-        # but safe to do it for now -- Ninad 2008-01-14
-        if self.struct:
-            self.struct = None
-
-        EditCommand.Enter(self)
-
-    def init_gui(self):
-        """
-        NOT IMPLEMENTED YET.
-        TODO: Move calls that create/ show PM  in editCommand.createStructure
-              out of that method. (That code was written before converting the 
-              editCommands into 'Commands'. After this conversion, a better 
-              implementation is necessary, in which PM creation and 
-              display will be handled  in init_gui method.
-        """
-        #Note: This method overrides EditCommand.init_gui. This is just to 
-        #prevent the call of self.create_and_or_show_PM_if_wanted. , As that 
-        # method is called in self.createStructure. (to be cleaned up)
-        pass 
-
-    def restore_gui(self):
-        """
-        """
-        if self.propMgr:
-            self.propMgr.close()
-
+       
     def _gatherParameters(self):
         """
         Return all the parameters from the Plane Property Manager.
@@ -134,8 +67,10 @@ class LinearMotor_EditCommand(EditCommand):
                                 self._checkMotorAtomLimits(len(atoms))
 
         if atomNumberRequirementMet:
+            self.win.assy.part.ensure_toplevel_group()
             motor = LinearMotor(self.win.assy)
             motor.findCenterAndAxis(atoms, self.win.glpane)
+            self.win.assy.place_new_jig(motor)
         else:
             motor = None
             env.history.message(redmsg(logMessage))
@@ -186,16 +121,7 @@ class LinearMotor_EditCommand(EditCommand):
         self.win.win_update() # Update model tree
         self.win.assy.changed()     
 
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager  object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr
-
-        propMgr = self.win.createLinearMotorPropMgr_if_needed(self)
-
-        return propMgr
+    
     ##=====================================##
 
     def _checkMotorAtomLimits(self, numberOfAtoms):
@@ -231,6 +157,3 @@ class LinearMotor_EditCommand(EditCommand):
             return (isAtomRequirementMet, logMessage)
 
         return (isAtomRequirementMet, logMessage)
-
-
-

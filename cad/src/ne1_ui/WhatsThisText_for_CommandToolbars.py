@@ -6,7 +6,7 @@ This file provides functions for setting the "What's This" text
 for widgets (typically QActions) in the Command Toolbar.
 
 @author: Mark
-@version:$Id: WhatsThisText_for_CommandToolbars.py 13378 2008-07-10 01:50:20Z marksims $
+@version:$Id: WhatsThisText_for_CommandToolbars.py 14019 2008-08-22 19:16:12Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -81,7 +81,7 @@ def whatsThisTextForCommandToolbarSimulationButton(button):
 
 def whatsThisTextForAtomsCommandToolbar(commandToolbar):
     """
-    "What's This" text for widgets in the Build Chunks Command Toolbar.
+    "What's This" text for widgets in the Build Atoms Command Toolbar.
     
     @note: This is a placeholder function. Currenly, all the tooltip text is 
            defined in BuildAtoms_Command.py.
@@ -117,7 +117,7 @@ def whatsThisTextForDnaCommandToolbar(commandToolbar):
     """
     "What's This" text for the Build DNA Command Toolbar
     """
-    commandToolbar.exitDnaAction.setWhatsThis(
+    commandToolbar.exitModeAction.setWhatsThis(
         """<b>Exit DNA</b>
         <p>
         Exits <b>Build DNA</b>.
@@ -195,7 +195,7 @@ def whatsThisTextForNanotubeCommandToolbar(commandToolbar):
     """
     "What's This" text for widgets in the Build Nanotube Command Toolbar.
     """
-    commandToolbar.exitNanotubeAction.setWhatsThis(
+    commandToolbar.exitModeAction.setWhatsThis(
         """<b>Exit Nanotube</b>
         <p>
         Exits <b>Build Nanotube</b>.
@@ -210,7 +210,7 @@ def whatsThisTextForNanotubeCommandToolbar(commandToolbar):
 
 def whatsThisTextForCrystalCommandToolbar(commandToolbar):
     """
-    "Tool Tip" text for widgets in the Build Crystal (Cookie) Command Toolbar.
+    "Tool Tip" text for widgets in the Build Crystal (crystal) Command Toolbar.
     """
     return
 

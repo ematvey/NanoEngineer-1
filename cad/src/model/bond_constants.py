@@ -4,7 +4,7 @@ bond_constants.py -- constants and simple functions for use with class Bond
 (which can be defined without importing that class).
 
 @author: Bruce
-@version: $Id: bond_constants.py 12438 2008-04-10 05:38:40Z brucesmith $
+@version: $Id: bond_constants.py 13895 2008-08-11 18:31:12Z ericmessick $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -34,14 +34,14 @@ from simulation.PyrexSimulator import thePyrexSimulator
 # If these need an order, their standard order is the same as the order of their numeric valences
 # (as in the constant list BOND_VALENCES).
 
-V_SINGLE = 6 * 1
-V_GRAPHITE = 6 * 4/3  # (this can't be written 6 * (1+1/3) or 6 * (1+1/3.0) - first one is wrong, second one is not an exact int)
-V_AROMATIC = 6 * 3/2
-V_DOUBLE = 6 * 2
-V_CARBOMERIC = 6 * 5/2 # for the bonds in a carbomer of order 2.5 (which alternate with aromatic bonds); saved as bondc as of 050920
-V_TRIPLE = 6 * 3
+V_SINGLE     = 6 * 1   #  6
+V_GRAPHITE   = 6 * 4/3 #  8 (this can't be written 6 * (1+1/3) or 6 * (1+1/3.0) - first one is wrong, second one is not an exact int)
+V_AROMATIC   = 6 * 3/2 #  9
+V_DOUBLE     = 6 * 2   # 12
+V_CARBOMERIC = 6 * 5/2 # 15 for the bonds in a carbomer of order 2.5 (which alternate with aromatic bonds); saved as bondc as of 050920
+V_TRIPLE     = 6 * 3   # 18
 
-V_UNKNOWN = 6 * 7/6 # not in most tables here, and not yet used; someday might be used internally by bond-type inference code
+V_UNKNOWN    = 6 * 7/6 #  7 not in most tables here, and not yet used; someday might be used internally by bond-type inference code
 
 BOND_VALENCES = [V_SINGLE, V_GRAPHITE, V_AROMATIC, V_DOUBLE, V_CARBOMERIC, V_TRIPLE]
     # when convenient (e.g. after A8), V_GRAPHITE should be renamed to V_GRAPHITIC [bruce 060629]
@@ -139,6 +139,12 @@ def find_Pl_bonds(atom1, atom2):
 # ==
 
 def min_max_valences_from_v6(v6):
+    """
+    Given a v6 value (an int representing a bond order times 6),
+    return a range of acceptable floating point bond orders.  V_SINGLE
+    returns 1.0, 1.0.  V_AROMATIC returns 1+delta, 2-delta, for small
+    delta.  etc...
+    """
     return BOND_MIN_VALENCES[v6], BOND_MAX_VALENCES[v6]
 
 def valence_to_v6(valence): #bruce 051215
@@ -225,6 +231,7 @@ def bonded_atoms_summary(bond, quat = Q(1,0,0,0)): #bruce 050705; direction feat
     return "%s %s%s%s %s" % (a1s, arrows[0], bondletter, arrows[1], a2s)
     
 def bond_left_atom(bond, quat = Q(1,0,0,0)): #bruce 070415, modified from bonded_atoms_summary, which ought to call this now ##e
+    # TODO: make this method name clearer: bond_leftmost_atom? bond_get_atom_on_left? [bruce 080807 comment]
     """
     Given a bond, and an optional quat describing the orientation it's shown in,
     order the atoms left to right based on that quat

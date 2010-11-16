@@ -1,8 +1,10 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: ExtrudePropertyManager.py 11749 2008-03-02 23:46:06Z ericmessick $
-The ExtrudePropertyManager class provides the Property Manager for the
+ExtrudePropertyManager.py - Property Manager for
 B{Extrude mode}.  The UI is defined in L{Ui_ExtrudePropertyManager}
+
+@version: $Id: ExtrudePropertyManager.py 14435 2008-10-30 21:42:25Z  $
+@copyight: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History: 
 
@@ -10,50 +12,39 @@ ninad 2007-01-10: Split the ui code out of extrudeMode while converting
 extrude dashboard to extrude property manager. 
 ninad 2007-07-25: code cleanup to create a propMgr object for extrude mode. Also
 moved many ui helper methods defined globally in extrudeMode.py to this class.
-
 """
 
 import math
 from PyQt4.Qt import SIGNAL
+from PyQt4.Qt import Qt
 from commands.Extrude.Ui_ExtrudePropertyManager import Ui_ExtrudePropertyManager
 
-
+_superclass = Ui_ExtrudePropertyManager
 class ExtrudePropertyManager(Ui_ExtrudePropertyManager):
     """
     The ExtrudePropertyManager class provides the Property Manager for the
     B{Extrude mode}.  The UI is defined in L{Ui_ExtrudePropertyManager}
     """
      
-    def __init__(self, parentMode):
+    def __init__(self, command):
         """
         Constructor for the B{Extrude} property manager.
         
-        @param parentMode: The parent mode where this Property Manager is used
-        @type  parentMode: L{depositMode} 
+        @param command: The parent mode where this Property Manager is used
+        @type  command: L{ExtrudeMode}
         """
-        self.extrudeSpinBox_circle_n = None         
-        self.suppress_valuechanged = 0
-        
-        Ui_ExtrudePropertyManager.__init__(self, parentMode)
-        
-        self.updateMessage()        
-        
-    
-    def ok_btn_clicked(self):
+        self.suppress_valuechanged = False
+                
+        _superclass.__init__(self, command)
+       
+    def show(self):
         """
-        Calls MainWindow.toolsDone to exit the current mode. 
-        @attention: this method needs to be renamed. (this should be done in 
-        PM_Dialog)
+        Extends superclass method. 
         """
-        self.w.toolsDone()
-    
-    def cancel_btn_clicked(self):
-        """
-        Calls MainWindow.toolsDone to exit the current mode. 
-        @attention: this method needs to be renamed. (this should be done in 
-        PM_Dialog)
-        """
-        self.w.toolsCancel()
+        _superclass.show(self)
+                
+        self.updateMessage()
+                
         
     def connect_or_disconnect_signals(self, connect):
         """
@@ -70,41 +61,66 @@ class ExtrudePropertyManager(Ui_ExtrudePropertyManager):
         
         # Connect or disconnect widget signals to slots
         
+        for toggle in self.extrude_pref_toggles:
+            change_connect(toggle, 
+                           SIGNAL("stateChanged(int)"), 
+                           self.command.toggle_value_changed)
+            
         change_connect(self.extrudeSpinBox_n,
                        SIGNAL("valueChanged(int)"),
-                       self.parentMode.spinbox_value_changed)
+                       self.command.spinbox_value_changed)
         
         change_connect(self.extrudeSpinBox_x,
                        SIGNAL("valueChanged(double)"),
-                       self.parentMode.spinbox_value_changed)
+                       self.command.spinbox_value_changed)
         
         change_connect(self.extrudeSpinBox_y,
                        SIGNAL("valueChanged(double)"),
-                       self.parentMode.spinbox_value_changed)
+                       self.command.spinbox_value_changed)
         
         change_connect(self.extrudeSpinBox_z,
                        SIGNAL("valueChanged(double)"),
-                       self.parentMode.spinbox_value_changed)
+                       self.command.spinbox_value_changed)
         
         change_connect(self.extrudeSpinBox_length,
                        SIGNAL("valueChanged(double)"),
-                       self.parentMode.length_value_changed)
+                       self.command.length_value_changed)
         
         slider = self.extrudeBondCriterionSlider
         
         change_connect(slider, 
                        SIGNAL("valueChanged(int)"), 
-                       self.parentMode.slider_value_changed)
+                       self.command.slider_value_changed)
         
-        if self.extrudeSpinBox_circle_n and self.parentMode.is_revolve: ###k??
-            change_connect(self.extrudeSpinBox_circle_n,
-                           SIGNAL("valueChanged(int)"),
-                           self.parentMode.circle_n_value_changed)
-            
         change_connect(self.extrude_productTypeComboBox,
                        SIGNAL("activated(int)"), 
-                       self.parentMode.ptype_value_changed)
-            
+                       self.command.ptype_value_changed)
+        
+    def keyPressEvent(self, event):
+        """
+        Extends superclass method. Provides a way to update 3D workspace
+        when user hits Enter key.
+        @see: self.preview_btn_clicked()
+        """
+        #The following implements a NFR Mark needs. While in extrude mode, 
+        #if user changes values in the spinboxes, don't immediatey update
+        #it on the 3D workspace -- because it takes long time to do so 
+        #on a big model. Instead provide a way to update , when, for example,
+        #user hits 'Enter' after changing a spinbox value or hits preview 
+        #button.  -- Ninad 2008-10-30
+        
+        if event.key() == Qt.Key_Return:
+            self.command.update_from_controls()
+        
+        _superclass.keyPressEvent(self, event)
+    
+    def preview_btn_clicked(self):
+        """
+        Provides a way to update 3D workspace when user hits Preview button
+        @see: a comment in self.keyPressEvent()
+        @see: extrudeMode.update_from_controls()
+        """
+        self.command.update_from_controls()
                 
     def set_extrude_controls_xyz(self, (x, y, z) ):
         self.set_extrude_controls_xyz_nolength((x, y, z))
@@ -190,20 +206,20 @@ class ExtrudePropertyManager(Ui_ExtrudePropertyManager):
         tol_str = tol_str + "%"
         return "Tolerance: %s => %s bonds" % (tol_str, nbonds_str)
         
-    def updateMessage(self):
+    def updateMessage(self, msg = ''):
         """
         Updates the message box with an informative message.
         """
-                
-        numCopies = self.extrudeSpinBox_n.value() - 1
         
-        if self.parentMode.product_type == "straight rod":
-            msg = "Drag one of the " + str(numCopies) + " copies on the right \
-                to position them. Bondpoints will highlight in blue and green \
-                pairs whenever bonds can be formed between them."
-        else:
-            msg = "Use the spinboxes below to position the copies. \
-                Bondpoints will highlight in blue and green pairs \
-                whenever bonds can be formed between them."
+        if not msg:                
+            numCopies = self.extrudeSpinBox_n.value() - 1            
+            if self.command.product_type == "straight rod":
+                msg = "Drag one of the " + str(numCopies) + " copies on the right \
+                    to position them. Bondpoints will highlight in blue and green \
+                    pairs whenever bonds can be formed between them."
+            else:
+                msg = "Use the spinboxes below to position the copies. \
+                    Bondpoints will highlight in blue and green pairs \
+                    whenever bonds can be formed between them."
 
         self.MessageGroupBox.insertHtmlMessage( msg, setAsDefault  =  True )

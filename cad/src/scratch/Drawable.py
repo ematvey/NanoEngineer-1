@@ -2,12 +2,10 @@
 """
 Drawable.py - shared properties of all drawable objects
 
-$Id: Drawable.py 11858 2008-03-07 04:58:31Z ericmessick $
+$Id: Drawable.py 14277 2008-09-18 05:24:46Z brucesmith $
 
 [not yet used]
 """
-
-import foundation.env as env
 
 from graphics.drawables.Selobj import Selobj_API
 
@@ -34,7 +32,7 @@ class Drawable(Selobj_API):
     together) or BaubleBaseOrWhateverYouCallIt (if you prefer a period
     in which that and Drawable coexist and are related but different),
     and then add this new superclass to the list of things
-    selectAtomsMode treats specially in its event handlers, which is
+    SelectAtoms_GraphicsMode treats specially in its event handlers, which is
     now Atom, Bond, Jig.
     
     (If you are willing to let me heavily influence Drawable, as you
@@ -50,16 +48,17 @@ class Drawable(Selobj_API):
     Chunk, maybe Jig or some of its subclasses), some methods you'll
     learn about when it tracebacks (like draw_in_abs_coords and maybe
     one for highlight color), and of course a draw method, and a drag
-    method, and special cases in lots of the places in selectAtomsMode
+    method, and special cases in lots of the places in SelectAtoms_GraphicsMode
     that now have them for Atom, Bond, Jig -- but these should of
     course be cases for Drawable, not for Bauble. And they might as
     well come first, so if we ever wanted to make something inherit
     from both Drawable and Atom or Bond or Jig, the Drawable API would
-    win out in terms of how selectAtomsMode interacted with it.
+    win out in terms of how SelectAtoms_GraphicsMode interacted with it.
 
-    *** __init__ must set self.glname using env.alloc_my_glselect_name
+    *** __init__ must set self.glname using alloc_my_glselect_name
     [note, this has been revised, bruce 080220; class Atom now sets
-     self._glname using assy.alloc_my_glselect_name]
+     self._glname using assy.alloc_my_glselect_name; glpane has this
+     method as well, as of before 080917]
     
     *** Needs a draw_in_abs_coords method
     
@@ -69,7 +68,7 @@ class Drawable(Selobj_API):
     that (tomorrow I can look and see if that scheme needs cleanup or
     could reasonably be extended as-is).
 
-    *** special cases go in selectAtomsMode, not here
+    *** special cases go in SelectAtoms_GraphicsMode, not here
     
     The code that looks at selobj may also need cases for this, but
     maybe not, if it doesn't need a context menu and doesn't traceback
@@ -101,7 +100,7 @@ class Drawable(Selobj_API):
     *** motion relative to the jig is a good idea
     
     As for what the Bauble drag method does (when called by the new
-    Drawable special case in selectAtomsMode leftDrag or whatever),
+    Drawable special case in SelectAtoms_GraphicsMode leftDrag or whatever),
     that is to actually modify its own relative posn in the jig, and
     then do gl_update so that everything (including its parent jig,
     thus itself) gets redrawn, soon after the event is done being
@@ -111,7 +110,7 @@ class Drawable(Selobj_API):
     mouse clicked on the Drawable (known from the depth buffer value
     -- the code for clicking on a Jig shows you how to figure this
     out, and the new code for doing this for Drawables also belongs in
-    selectAtomsMode), then interpret mouse motion as being in the
+    SelectAtoms_GraphicsMode), then interpret mouse motion as being in the
     plane through that point and parallel to the screen, so it's now a
     3d vector, then translate the object by that, then apply whatever
     constraints its position has (e.g. project to a plane it's
@@ -141,7 +140,7 @@ class Drawable(Selobj_API):
     see also class Bauble, and handles.py
     """
     def __init__(self):
-        self.glname = env.alloc_my_glselect_name(self)
+        self.glname = self.assy.alloc_my_glselect_name(self) # or self.glpane, or ... #bruce 080917 revised
 
     def draw_in_abs_coords(self, glpane, color):
         raise Exception, 'abstract method, must be overloaded'

@@ -7,7 +7,7 @@ Manager of the B{Build Atoms mode}.
     
 @author: Ninad
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: Ui_BuildAtomsPropertyManager.py 13151 2008-06-09 17:26:26Z marksims $
+@version:$Id: Ui_BuildAtomsPropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 
 History:
 Before Alpha9, (code that used Qt3 framework) Build Atoms mode had a 
@@ -16,18 +16,16 @@ this functionality was integrated into a Property Manager. Since then
 several changes have been made. 
 ninad 2007-08-29: Created: Rewrote all UI to make it use the 'PM' module 
                   classes. This deprecates class MMKitDialog.
-                  Split out old 'clipboard' functionality into new L{PasteMode}
+                  Split out old 'clipboard' functionality into new L{PasteFromClipboard_Command}
 
 """
 
 from PyQt4.Qt import Qt
 
-from PM.PM_Dialog          import PM_Dialog
 from PM.PM_GroupBox        import PM_GroupBox
 from PM.PM_CheckBox        import PM_CheckBox
 from PM.PM_ComboBox        import PM_ComboBox
 from PM.PM_LineEdit        import PM_LineEdit
-from PM.PM_DoubleSpinBox   import PM_DoubleSpinBox
 
 from PM.PM_CoordinateSpinBoxes import PM_CoordinateSpinBoxes
 from PM.PM_ToolButtonRow       import PM_ToolButtonRow
@@ -45,8 +43,10 @@ from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
 import foundation.env as env
 from utilities.prefs_constants import reshapeAtomsSelection_prefs_key
 
+from command_support.Command_PropertyManager import Command_PropertyManager
 
-class Ui_BuildAtomsPropertyManager(PM_Dialog):
+_superclass = Command_PropertyManager
+class Ui_BuildAtomsPropertyManager(Command_PropertyManager):
     """
     The Ui_BuildAtomsPropertyManager class defines UI elements for the Property 
     Manager of the B{Build Atoms mode}.
@@ -64,27 +64,21 @@ class Ui_BuildAtomsPropertyManager(PM_Dialog):
     """
        
     # The title that appears in the Property Manager header        
-    title = "Build Chunks"
+    title = "Build Atoms"
     # The name of this Property Manager. This will be set to
     # the name of the PM_Dialog object via setObjectName().
     pmName = title
     # The relative path to the PNG file that appears in the header
     iconPath = "ui/actions/Tools/Build Structures/Build Chunks.png"
     
-    def __init__(self, parentMode):
+    def __init__(self, command):
         """
         Constructor for the B{Build Atoms} property manager class that defines 
         its UI.
         
-        @param parentMode: The parent mode where this Property Manager is used
-        @type  parentMode: L{depositMode}        
-        """
-        self.parentMode = parentMode
-        self.w = self.parentMode.w
-        self.win = self.parentMode.w
-        self.pw = self.parentMode.pw        
-        self.o = self.win.glpane 
-        
+        @param command: The parent mode where this Property Manager is used
+        @type  command: L{depositMode}        
+        """              
         
         self.previewGroupBox = None
         self.regularElementChooser = None
@@ -103,7 +97,7 @@ class Ui_BuildAtomsPropertyManager(PM_Dialog):
         self.selectedAtomPosGroupBox = None
         self.showSelectedAtomInfoCheckBox = None
         
-        PM_Dialog.__init__(self, self.pmName, self.iconPath, self.title)
+        _superclass.__init__(self, command)
         
         self.showTopRowButtons(PM_DONE_BUTTON | PM_WHATS_THIS_BUTTON)        
         msg = ''
@@ -115,8 +109,14 @@ class Ui_BuildAtomsPropertyManager(PM_Dialog):
         """
         self._addPreviewGroupBox()  
         self._addAtomChooserGroupBox()
-        self._addBondToolsGroupBox()        
-        self._addSelectionOptionsGroupBox()
+        self._addBondToolsGroupBox() 
+        
+        #@@@TODO HIDE the bonds tool groupbox initially as the 
+        #by default, the atoms tool is active when BuildAtoms command is 
+        #finist invoked. 
+        self.bondToolsGroupBox.hide()        
+        
+        self._addSelectionOptionsGroupBox()        
         self._addAdvancedOptionsGroupBox()       
        
     def _addPreviewGroupBox(self):
@@ -379,7 +379,7 @@ class Ui_BuildAtomsPropertyManager(PM_Dialog):
                 inPmGroupBox, 
                 title        = "",
                 buttonList   = BOND_TOOL_BUTTONS,
-                checkedId    = 0,
+                checkedId    = None,
                 setAsDefault = True )
     
     def _addWhatsThisText(self):

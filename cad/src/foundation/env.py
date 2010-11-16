@@ -3,7 +3,7 @@
 env.py - for global variables and functions treated as "part of the environment".
 
 @author: Bruce
-@version: $Id: env.py 13123 2008-06-05 23:08:05Z brucesmith $
+@version: $Id: env.py 14420 2008-10-06 18:35:36Z brucesmith $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 This module is for various global or "dynamic" variables,
@@ -21,7 +21,7 @@ Also, certain basic routines for using/allocating some of these global variables
 
 Usage:
 
-'import env'
+'import foundation.env as env'
 
    ... use env.xxx as needed ...
    # Don't say "from env import xxx" since env.xxx might be reassigned dynamically.
@@ -293,18 +293,20 @@ def change_counter_for_changed_objects():
 #  so code can be incrementally switched to access it through assy
 #  or glpane; when all code does that, these will be removed
 #  and each assy will make its own glselect_name_dict.]
+# [bruce 080917: mostly completing this, but see comment in
+#  Assembly._init_glselect_name_dict for what remains.]
 
 from graphics.drawing.glselect_name_dict import glselect_name_dict
 
-_shared_glselect_name_dict = glselect_name_dict()
+_shared_glselect_name_dict = glselect_name_dict() # still used in class Assembly
 
-obj_with_glselect_name = _shared_glselect_name_dict.obj_with_glselect_name
-    # client code should be revised to use assy.object_for_glselect_name
-    # in place of env.obj_with_glselect_name.get
-
-alloc_my_glselect_name = _shared_glselect_name_dict.alloc_my_glselect_name
-
-dealloc_my_glselect_name = _shared_glselect_name_dict.dealloc_my_glselect_name
+##obj_with_glselect_name = _shared_glselect_name_dict.obj_with_glselect_name
+##    # client code should be revised to use assy.object_for_glselect_name
+##    # in place of env.obj_with_glselect_name.get
+##
+##alloc_my_glselect_name = _shared_glselect_name_dict.alloc_my_glselect_name
+##
+##dealloc_my_glselect_name = _shared_glselect_name_dict.dealloc_my_glselect_name
 
 # ==
 
@@ -387,11 +389,44 @@ def do_post_event_updates( warn_if_needed = False ):
 
     @see: _master_model_updater
     """
+    # Note: exceptions in one of these updaters can prevent redrawing
+    # for the rest of the session, so better protection is needed,
+    # but it doesn't fully work if added right here (at least for an AttributeError
+    # in the dna sequence editor in Edit Dna Strand Properties).
+    # It would be good to add it at a higher level at some point.
+    #
+    # Details: catching exceptions here and not propogating them upwards
+    # may make some bugs worse by turning them into infinite recursions
+    # (for reasons not yet analyzed). Or it may be that those bugs were
+    # *already* infinite recursions, since at least one such case is known
+    # (though it's not testable in current code, since Ninad fixed it thismorning).
+    # To reproduce that bug, this might work (untested):
+    # - remove def setComplementSequence from DnaSequenceEditor
+    #   (what was tested was having a ProteinSequenceEditor erroneously residing
+    #    in the private win attr meant for the DnaSequenceEditor)
+    # - edit a dna strand using the PM button of that name in Build DNA.
+    # 
+    # [bruce 080725 comment]
+
+    # note: importing from utilities.debug here adds an import cycle.
+    # This is not needed now (see above comment), but if ever needed,
+    # it could be fixed by moving this and nearby functions into a new module.
+    # [bruce 080725 comment]
+
     # do all model updaters before any ui updaters
     for function in _post_event_model_updaters:
         (function)(warn_if_needed)
     for function in _post_event_ui_updaters:
         (function)()
+
+    # make sure any change_counter values, saved by those updaters,
+    # will not be seen again if subsequent real changes occur
+    # [bruce 080805; should make model_change_indicator more useful
+    #  by making it change for every drag event during a drag
+    #  and not depend on undo checkpointing, but needs testing for
+    #  unanticipated bugs or performance impact]
+    change_counter_checkpoint()
+    
     return
 
 # ==

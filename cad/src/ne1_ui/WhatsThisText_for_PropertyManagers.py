@@ -8,7 +8,7 @@ for widgets in all NE1 Property Managers only.
 Edit WhatsThisText_for_MainWindow.py to set "What's This" and tooltip text 
 for widgets in the Main Window.
 
-@version: $Id: WhatsThisText_for_PropertyManagers.py 13482 2008-07-16 15:48:06Z marksims $
+@version: $Id: WhatsThisText_for_PropertyManagers.py 14459 2008-11-17 19:44:23Z marksims $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 """
@@ -151,7 +151,7 @@ def whatsThis_PeptideGeneratorPropertyManager(propMgr):
     propMgr.invertChiralityPushButton.setWhatsThis(
         """<b>Invert chirality</b>
         <p>
-        Inverts a chirality of the polypeptide bakcbone   
+        Inverts a chirality of the polypeptide backbone   
         </p>""")
 
     propMgr.aaTypesButtonGroup.setWhatsThis(
@@ -876,7 +876,7 @@ def whatsThis_ExtrudePropertyManager(propMgr):
     
 def whatsThis_CookiePropertyManager(propMgr):
     """
-    "What's This" text for widgets in the Crystal (Cookie) Property Manager.
+    "What's This" text for widgets in the Build Crystal Property Manager.
     """
     
     propMgr.surface100_btn.setWhatsThis(\
@@ -966,7 +966,7 @@ def whatsThis_CookiePropertyManager(propMgr):
         "<b>Show Model</b>"\
         "<p>"\
         "Allows you to view your current model from the Graphics Area in "\
-        "overlay with the Cookie Cutter lattice view"\
+        "overlay with the Crystal Cutter lattice view"\
         "</p>")
         
     propMgr.snapGridCheckBox.setWhatsThis(
@@ -1497,4 +1497,42 @@ def WhatsThis_EditProteinDisplayStyle_PropertyManager(propMgr):
         file is saved with a .txt entension so that it can loaded back using
         the <b>Load Favorite</b> button.
         """)   
+    return
+
+def whatsThis_OrderDna_PropertyManager(propMgr):
+    """
+    Add "What's This" text for widgets in the Color Scheme Property 
+    Manager.
+    """
+    propMgr.includeStrandsComboBox.setWhatsThis(
+        """<b>Include strands</b>
+        <p>
+        Strands to include in the DNA order file.
+        """)
+    
+    propMgr.numberOfBasesLineEdit.setWhatsThis(
+        """<b>Total nucleotides</b>
+        <p>
+        The total number of nucleotides (bases) that will be written to the 
+        DNA order file.
+        </p>
+        """)
+    
+    propMgr.numberOfXBasesLineEdit.setWhatsThis(
+        """<b>Unassigned</b>
+        <p>
+        The total number of unassigned "X" bases that will be written to the 
+        DNA order file. There should be 0 unassigned bases if the file will
+        be used to place an order.
+        </p>
+        """)
+    
+    propMgr.viewDnaOrderFileButton.setWhatsThis(
+        """<b>View DNA Order File</b>
+        <p>
+        View the DNA Order file in comma-separated values (CVS) format.
+        The file is temporary and should be saved via the text editor to a
+        permanant name/location.
+        </p>
+        """)
     return

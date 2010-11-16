@@ -1,9 +1,9 @@
 # Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
-shape.py -- handle freehand curves for selection and cookie-cutting
+shape.py -- handle freehand curves for selection and crystal-cutting
 
 @author: Josh, Huaicai, maybe others
-@version: $Id: shape.py 13408 2008-07-11 21:46:16Z brucesmith $
+@version: $Id: shape.py 14198 2008-09-11 06:54:23Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -11,7 +11,7 @@ History:
 By Josh. Portions rewritten or extended by at least Bruce & Huaicai,
 perhaps others.
 
-Bruce 071215 split classes CookieShape and Slab into their own modules.
+Bruce 071215 split classes CrystalShape and Slab into their own modules.
 
 Module classification and refactoring:  [bruce 071215]
 
@@ -47,7 +47,7 @@ from utilities.debug import print_compact_traceback
 from utilities import debug_flags 
 
 import foundation.env as env
-##from utilities.constants import color_difference
+##from utilities.constants import colors_differ_sufficiently
 from utilities.prefs_constants import DarkBackgroundContrastColor_prefs_key
 from utilities.prefs_constants import LightBackgroundContrastColor_prefs_key
 
@@ -67,7 +67,7 @@ def get_selCurve_color(selSense, bgcolor = white):
     # Problems with this when the user picks a light gradient (i.e. Blue Sky)
     # but the bgcolor is a dark color. Simply returning 
     # "DarkBackgroundContrastColor_prefs_key" works fine. Mark 2008-07-10
-    #if color_difference(bgcolor, black, minimum_difference = 0.51):
+    #if colors_differ_sufficiently(bgcolor, black):
     #    return env.prefs[DarkBackgroundContrastColor_prefs_key]
     #else:
     #    return env.prefs[LightBackgroundContrastColor_prefs_key]
@@ -127,7 +127,7 @@ def fill(mat, p, dir): # TODO: rename (less generic so searchable), and perhaps 
 class simple_shape_2d: 
     """
     common code for selection curve and selection rectangle;
-    also used in CookieShape.py
+    also used in CrystalShape.py
     """
     def __init__(self, shp, ptlist, origin, selSense, opts):
         """
@@ -346,7 +346,7 @@ class curve(simple_shape_2d): # bruce 041214 factored out simple_shape_2d
     def draw(self):
         """
         Draw two projections of the curve at the limits of the
-        thickness that defines the cookie volume.
+        thickness that defines the crystal volume.
         The commented code is for debugging.
         [bruce 041214 adds comment: the code looks like it
         only draws one projection.]

@@ -4,7 +4,7 @@ ListWidgetItems_Command_Mixin.py
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: ListWidgetItems_Command_Mixin.py 13076 2008-06-04 06:40:07Z ninadsathaye $
+@version:$Id: ListWidgetItems_Command_Mixin.py 14357 2008-09-25 21:53:46Z ninadsathaye $
 
 History:
 2008-05-27 -2008-05-29 Created and modified.
@@ -30,7 +30,11 @@ class ListWidgetItems_Command_Mixin:
     #crossover sites. 
     _structList = []
 
-    def Enter(self):
+    def command_entered(self):
+        """
+        @see baseCommand.command_entered() for documentation
+        @see MakeCrossovers_Command.command_entered()
+        """
         self._structList = []  
         
         

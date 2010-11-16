@@ -3,7 +3,7 @@
 Peptide.py -- Peptide generator helper classes, based on empirical data.
 
 @author: Mark Sims
-@version: $Id: Peptide.py 12900 2008-05-22 04:23:48Z brucesmith $
+@version: $Id: Peptide.py 13786 2008-08-05 16:08:33Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:

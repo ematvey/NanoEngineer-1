@@ -6,7 +6,7 @@ History:
 060817 Mark created dynamicTip class
 060818 Ninad moved DynamicTip class into this file DynamicTip.py and added more
 
-$Id: DynamicTip.py 13362 2008-07-09 06:47:32Z ericmessick $
+$Id: DynamicTip.py 14445 2008-11-10 02:21:28Z  $
 
 TODO: This needs refactoring into the part which has the mechanics
 of displaying the tooltip at the right time (some of the code for which
@@ -55,6 +55,14 @@ from utilities.prefs_constants import dynamicToolTipAtomDistanceDeltas_prefs_key
 from utilities.prefs_constants import dynamicToolTipBondLength_prefs_key
 from utilities.prefs_constants import dynamicToolTipAtomMass_prefs_key
 from utilities.prefs_constants import dynamicToolTipVdwRadiiInAtomDistance_prefs_key
+
+# russ 080715: For graphics debug tooltip.
+from OpenGL.GL import GL_DEPTH_COMPONENT
+from OpenGL.GL import GL_RGB
+from OpenGL.GL import GL_UNSIGNED_BYTE
+from OpenGL.GL import glReadPixels
+from OpenGL.GL import glReadPixelsf
+
 
 class DynamicTip: # Mark and Ninad 060817.
     """
@@ -155,6 +163,20 @@ class DynamicTip: # Mark and Ninad 060817.
         """
                 
         glpane = self.glpane
+
+        if 0: # russ 080715: Graphics debug tooltip.
+            (wX, wY) = glpane.MousePos
+            wZ = glReadPixelsf(wX, wY, 1, 1, GL_DEPTH_COMPONENT)[0][0]
+            gl_format, gl_type = GL_RGB, GL_UNSIGNED_BYTE
+            rgb = glReadPixels( wX, wY, 1, 1, gl_format, gl_type )[0][0]
+            # Comes back sign-wrapped, in spite of specifying unsigned_byte.
+            def us(b):
+                if b < 0:
+                    return 256 + b
+                else:
+                    return b
+            return ("xyz %d, %d, %f<br>rgb %u, %u, %u" %
+                    (wX, wY, wZ, us(rgb[0]), us(rgb[1]), us(rgb[2])))
         
         #ninad060831 - First I defined the following in the _init method of this class. But the preferences were 
         #not updated immediately when changed from prefs dialog. So I moved those definitions below and now it works fine
@@ -251,29 +273,31 @@ class DynamicTip: # Mark and Ninad 060817.
         glpane        = self.glpane
         atomposn      = None
         atomChunkInfo = None
+        selobj = glpane.selobj
                 
         #      ---- Atom Info ----
-        if isinstance(glpane.selobj, Atom):
-            selAtom     = glpane.selobj
-            atomInfoStr = selAtom.getToolTipInfo(self.isAtomPosition,
+        if isinstance(selobj, Atom):
+            atomInfoStr = selobj.getToolTipInfo(self.isAtomPosition,
                                                  self.isAtomChunkInfo, 
                                                  self.isAtomMass, 
                                                  atomDistPrecision)
             return atomInfoStr
            
         #       ----Bond Info----
-        if isinstance(glpane.selobj, Bond):
-            selBond     = glpane.selobj
-            bondInfoStr = selBond.getToolTipInfo(self.isBondChunkInfo, 
+        if isinstance(selobj, Bond):
+            bondInfoStr = selobj.getToolTipInfo(self.isBondChunkInfo, 
                                                  self.isBondLength, 
                                                  atomDistPrecision)
             return  bondInfoStr
             
         #          ---- Jig Info ----
-        if isinstance(glpane.selobj, Jig):
-            jig    = glpane.selobj
-            jigStr = jig.getToolTipInfo()
+        if isinstance(selobj, Jig):
+            jigStr = selobj.getToolTipInfo()
             return jigStr
+        
+        if isinstance(selobj, glpane.assy.Chunk):
+            chunkStr = selobj.getToolTipInfo()
+            return chunkStr
         
         #@@@ninad060818 In future if we support other object types in glpane, do we need a check for that? 
         # e.g. else: return "unknown object" .

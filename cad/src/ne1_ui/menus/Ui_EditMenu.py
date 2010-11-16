@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_EditMenu.py 13377 2008-07-09 23:21:16Z marksims $
+$Id: Ui_EditMenu.py 14453 2008-11-14 02:48:15Z  $
 """
 
 from PyQt4 import QtGui
@@ -37,8 +37,7 @@ def setupUi(win):
     win.editMenu.addAction(win.colorSchemeAction)
     win.editMenu.addAction(win.lightingSchemeAction)
     win.editMenu.addSeparator()
-    win.editMenu.addAction(win.editRenameAction)
-    win.editMenu.addAction(win.editRenameObjectsAction)
+    win.editMenu.addAction(win.editRenameSelectionAction)
     win.editMenu.addAction(win.editAddSuffixAction)
 
 def retranslateUi(win):

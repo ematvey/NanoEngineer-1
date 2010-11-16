@@ -1,35 +1,25 @@
 # Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
-ThumbView.py - a simpler OpenGL widget, similar to GLPane 
+ThumbView.py - a simpler OpenGL widget, similar to GLPane
+(which unfortunately has a lot of duplicated but partly modified
+code copied from GLPane)
 
 @author: Huaicai
-@version: $Id: ThumbView.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: ThumbView.py 14264 2008-09-17 18:13:59Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 
-import math
 from Numeric import dot
 
 from OpenGL.GL import GL_NORMALIZE
-from OpenGL.GL import GL_SMOOTH
-from OpenGL.GL import glShadeModel
-from OpenGL.GL import GL_DEPTH_TEST
 from OpenGL.GL import glEnable
-from OpenGL.GL import GL_CULL_FACE
 from OpenGL.GL import GL_MODELVIEW
 from OpenGL.GL import glMatrixMode
 from OpenGL.GL import glLoadIdentity
-from OpenGL.GL import glViewport
-from OpenGL.GL import GL_VIEWPORT
-from OpenGL.GL import glGetIntegerv
-from OpenGL.GL import glOrtho
-from OpenGL.GL import glFrustum
 from OpenGL.GL import glClearColor
 from OpenGL.GL import GL_COLOR_BUFFER_BIT
 from OpenGL.GL import GL_DEPTH_BUFFER_BIT
 from OpenGL.GL import glClear
-from OpenGL.GL import glTranslatef
-from OpenGL.GL import glRotatef
 from OpenGL.GL import GL_STENCIL_INDEX
 from OpenGL.GL import glReadPixelsi
 from OpenGL.GL import GL_DEPTH_COMPONENT
@@ -59,7 +49,7 @@ from OpenGL.GL import glPopMatrix
 from OpenGL.GL import glDepthFunc
 from OpenGL.GL import GL_LEQUAL
 
-from OpenGL.GLU import gluPickMatrix, gluUnProject
+from OpenGL.GLU import gluUnProject
 
 from PyQt4.Qt import Qt
 
@@ -67,7 +57,6 @@ from geometry.VQT import V, Q, A
 from graphics.drawing.drawers import drawFullWindow
 from graphics.drawing.gl_lighting import _default_lights
 from graphics.drawing.gl_lighting import setup_standard_lights
-from graphics.drawing.setup_draw import setup_drawer
 from model.assembly import Assembly
 import foundation.env as env
 from utilities import debug_flags
@@ -105,7 +94,13 @@ class ThumbView(GLPane_minimal):
     # Note: classes GLPane and ThumbView share lots of code,
     # which ought to be merged into their common superclass GLPane_minimal
     # [bruce 070914 comment; since then some of it has been merged, some
-    #  still needs to be]
+    #  still needs to be] [I merged a bunch more now -- bruce 080912]
+
+    # class constants and/or default values of instance variables [not sure which are which]
+
+    SIZE_FOR_glSelectBuffer = 500
+        # different value from that in GLPane_minimal
+        # [I don't know whether this matters -- bruce 071003 comment]
     
     shareWidget = None #bruce 051212
     always_draw_hotspot = False #bruce 060627
@@ -123,13 +118,8 @@ class ThumbView(GLPane_minimal):
         
         GLPane_minimal.__init__(self, parent, shareWidget, useStencilBuffer)
         
-        self.glselectBufferSize = 500
-            # different value from that in GLPane_minimal
-            # [I don't know whether this matters -- bruce 071003 comment]
-        
         self.elementMode = None
         
-        self.initialised = False
         #@@@Add the QGLWidget to the parentwidget's grid layout. This is done 
         #here for improving the loading speed. Needs further optimization and 
         #a better place to put this code if possible. -- Ninad 20070827        
@@ -192,12 +182,17 @@ class ThumbView(GLPane_minimal):
 
     assy = property(__get_assy) #bruce 080220, for per-assy glname dict
     
-    def _setup_lighting(self): # as of bruce 060415, this is mostly duplicated between GLPane (has comments) and ThumbView ###@@@
+    def _setup_lighting(self):
         """
         [private method]
         Set up lighting in the model.
         [Called from both initializeGL and paintGL.]
         """
+        # note: there is some duplicated code in this method
+        # in GLPane_lighting_methods (has more comments) and ThumbView,
+        # but also significant differences. Should refactor sometime.
+        # [bruce 060415/080912 comment]
+        
         glEnable(GL_NORMALIZE)
 
         glMatrixMode(GL_PROJECTION)
@@ -219,23 +214,7 @@ class ThumbView(GLPane_minimal):
         
         setup_standard_lights( lights)
         return
-    
-    def initializeGL(self):
-                
-        self._setup_lighting()
-
-        glShadeModel(GL_SMOOTH)
-        glEnable(GL_DEPTH_TEST)
-        glEnable(GL_CULL_FACE)
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()
         
-        if not self.isSharing():
-            ## setup_drawer()
-            self._setup_display_lists() # defined in GLPane_minimal. [bruce 071030]
-
-        return
-    
     def resetView(self):
         """
         Reset the view.
@@ -262,59 +241,6 @@ class ThumbView(GLPane_minimal):
         else:
             self.backgroundGradient = gradient
                 
-    def resizeGL(self, width, height):
-        """
-        Called by QtGL when the drawing window is resized.
-        """
-        self.width = width
-        self.height = height
-           
-        glViewport(0, 0, self.width, self.height)
-        
-        self.trackball.rescale(width, height)
-        
-        if not self.initialised:
-            self.initialised = True
-
-
-    def _setup_projection(self, glselect = False): #bruce 050608 split this out; 050615 revised docstring
-        """
-        Set up standard projection matrix contents using aspect, vdist, and 
-        some attributes of self.
-        
-        @warning: leaves matrixmode as GL_PROJECTION.
-                  Optional arg glselect should be False (default) or a 4-tuple
-                  (to prepare for GL_SELECT picking).
-        """
-        glMatrixMode(GL_PROJECTION)
-        glLoadIdentity()
-
-        scale = self.scale #bruce 050608 used this to clarify following code
-        near, far = self.near, self.far
-
-        #bruce 080219 moved these from one of two callers into here,
-        # to fix bug when insert from partlib is first operation in NE1
-        self.aspect = (self.width + 0.0) / (self.height + 0.0)
-        self.vdist = 6.0 * scale
-
-        if glselect:
-            x, y, w, h = glselect
-            gluPickMatrix(
-                x, y,
-                w, h,
-                glGetIntegerv( GL_VIEWPORT ) #k is this arg needed? it might be the default...
-            )
-         
-        if self.ortho:
-            glOrtho( - scale * self.aspect, scale * self.aspect,
-                     - scale,          scale,
-                       self.vdist * near, self.vdist * far )
-        else:
-            glFrustum( - scale * near * self.aspect, scale * near * self.aspect,
-                       - scale * near              ,  scale * near,
-                         self.vdist * near         , self.vdist * far)
-        return
-    
     def paintGL(self):        
         """
         Called by QtGL when redrawing is needed. For every redraw, color & 
@@ -331,10 +257,10 @@ class ThumbView(GLPane_minimal):
         self.setDepthRange_setup_from_debug_pref()
         self.setDepthRange_Normal()
         
-        from utilities.debug_prefs import debug_pref, Choice_boolean_True, Choice_boolean_False
+        from utilities.debug_prefs import debug_pref, Choice_boolean_False
         if debug_pref("always setup_lighting?", Choice_boolean_False):
             #bruce 060415 added debug_pref("always setup_lighting?"), in GLPane and ThumbView [KEEP DFLTS THE SAME!!];
-            # see comments in GLPane
+            # see comments in GLPane_lighting_methods
             self._setup_lighting() #bruce 060415 added this call
             
         self.backgroundColor = env.prefs[backgroundColor_prefs_key]
@@ -360,18 +286,15 @@ class ThumbView(GLPane_minimal):
                 
             drawFullWindow(_bgGradient)# gradient color
         
-##        self.aspect = (self.width + 0.0) / (self.height + 0.0)
-##        self.vdist = 6.0 * self.scale
         self._setup_projection()
-        
-        glMatrixMode(GL_MODELVIEW)
-        glLoadIdentity()    
-        glTranslatef(0.0, 0.0, -self.vdist)
-       
-        q = self.quat
-        
-        glRotatef(q.angle * 180.0 / math.pi, q.x, q.y, q.z)
-        glTranslatef(self.pov[0], self.pov[1], self.pov[2])
+
+        self._setup_modelview()
+##        glMatrixMode(GL_MODELVIEW)
+##        glLoadIdentity()    
+##        glTranslatef(0.0, 0.0, - self.vdist)
+##        q = self.quat
+##        glRotatef(q.angle * 180.0 / math.pi, q.x, q.y, q.z)
+##        glTranslatef(self.pov[0], self.pov[1], self.pov[2])
 
         if self.model_is_valid():
             #bruce 080117 [testing this at start of paintGL to skip most of it]:
@@ -382,28 +305,13 @@ class ThumbView(GLPane_minimal):
             # E.g. the partlib has no model when first entered.
             # Fixing this by only not drawing the model itself in that case [UNTESTED].
             # (The GLPane always has a model, so has no similar issue.)
+            #
             # I'm not moving the coordinate transforms into this if statement,
             # since I don't know if they might be depended on by non-paintGL
-            # drawing (e.g. for highlighting, called selection in some method
-            # names and comments). [bruce 080220]
+            # drawing (e.g. for highlighting, which btw is called "selection"
+            # in some method names and comments in this file). [bruce 080220]
             self.drawModel()
    
-    def __getattr__(self, name): # in class ThumbView
-        if name == 'lineOfSight':
-            return self.quat.unrot(V(0, 0, -1))
-        elif name == 'right':
-            return self.quat.unrot(V(1, 0, 0))
-        elif name == 'left':
-            return self.quat.unrot(V(-1, 0, 0))
-        elif name == 'up':
-            return self.quat.unrot(V(0, 1, 0))
-        elif name == 'down':
-            return self.quat.unrot(V(0, -1, 0))
-        elif name == 'out':
-            return self.quat.unrot(V(0, 0, 1))
-        else:
-            raise AttributeError, 'ThumbView has no "%s"' % name #bruce 060209 revised text
-    
     def mousePressEvent(self, event):
         """
         Dispatches mouse press events depending on shift and
@@ -538,7 +446,7 @@ class ThumbView(GLPane_minimal):
         # update [bruce 070402 comment]:
         # sharing that code would now be a bit more complicated (but is still desirable),
         # since GLPane.rescale_around_point is now best called by basicMode.rescale_around_point_re_user_prefs.
-        # The real lesson is that even ThumbViews ought to use some kind of "edit mode" (like full-fledged modes,
+        # The real lesson is that even ThumbViews ought to use some kind of "graphicsMode" (like full-fledged modes,
         # even if some aspects of them would not be used), to handle mouse bindings. But this is likely to be
         # nontrivial since full-fledged modes might have extra behavior that's inappropriate but hard to
         # turn off. So if we decide to make ThumbView zoom compatible with that of the main graphics area,
@@ -546,11 +454,18 @@ class ThumbView(GLPane_minimal):
         # into this class.
         
         dScale = 1.0/1200.0
-        if modifiers & Qt.ShiftModifier: dScale *= 0.5
-        if modifiers & Qt.ControlModifier: dScale *= 2.0
+        if modifiers & Qt.ShiftModifier:
+            dScale *= 0.5
+        if modifiers & Qt.ControlModifier:
+            dScale *= 2.0
         self.scale *= 1.0 + dScale * event.delta()
-            ##: The scale variable needs to set a limit, otherwise, it will set self.near = self.far = 0.0
-            ##  because of machine precision, which will cause OpenGL Error. Huaicai 10/18/04
+            ### BUG: The scale variable needs to set a limit; otherwise, it will
+            # set self.near = self.far = 0.0 because of machine precision,
+            # which will cause OpenGL Error. [Huaicai 10/18/04]
+            # NOTE: this bug may have been fixed in other defs of wheelEvent.
+            # TODO: review, and fix it here too (or, better, use common code).
+            # See also the longer comment above in this method.
+            # [bruce 080917 addendum]
         self.updateGL()
         return
 
@@ -598,21 +513,23 @@ class ThumbView(GLPane_minimal):
         """
         Use the OpenGL picking/selection to select any object. Return the
         selected object, otherwise, return None. Restore projection and 
-        model/view matrices before returning.
+        modelview matrices before returning.
         """
-        ####@@@@ WARNING: The original code for this, in GLPane, has been duplicated and slightly modified
-        # in at least three other places (search for glRenderMode to find them). This is bad; common code
-        # should be used. Furthermore, I suspect it's sometimes needlessly called more than once per frame;
-        # that should be fixed too. [bruce 060721 comment]
+        ### NOTE: this code is similar to (and was copied and modified from)
+        # GLPane_highlighting_methods.do_glselect_if_wanted, but also differs
+        # in significant ways (too much to make it worth merging, unless we
+        # decide to merge the differing algorithms as well). It's one of
+        # several instances of hit-test code that calls glRenderMode.
+        # [bruce 060721/080917 comment]
         wZ = glReadPixelsf(wX, wY, 1, 1, GL_DEPTH_COMPONENT)
         gz = wZ[0][0]
         
-        if gz >= GL_FAR_Z: ##Empty space was clicked
+        if gz >= GL_FAR_Z: # Empty space was clicked
             return None
         
         pxyz = A(gluUnProject(wX, wY, gz))
         pn = self.out
-        pxyz -= 0.0002*pn
+        pxyz -= 0.0002 * pn
             # Note: if this runs before the model is drawn, this can have an
             # exception "OverflowError: math range error", presumably because
             # appropriate state for gluUnProject was not set up. That doesn't
@@ -624,37 +541,45 @@ class ThumbView(GLPane_minimal):
             # and made the scale unreasonable? (To mitigate, we should prevent
             # those from doing anything unless we have a valid model, and also
             # reset that scale when loading a new model (latter is probably
-            # already done, but I didn't check).) [bruce 080220 comment]
+            # already done, but I didn't check). See also the comments
+            # in def wheelEvent.) [bruce 080220 comment]
         dp = - dot(pxyz, pn)
         
-        #Save projection matrix before it's changed.
+        # Save projection matrix before it's changed.
         glMatrixMode(GL_PROJECTION)
         glPushMatrix()
         
         current_glselect = (wX, wY, 1, 1) 
         self._setup_projection(glselect = current_glselect) 
         
-        glSelectBuffer(self.glselectBufferSize)
+        glSelectBuffer(self.SIZE_FOR_glSelectBuffer)
         glRenderMode(GL_SELECT)
         glInitNames()
         glMatrixMode(GL_MODELVIEW)
         # Save model view matrix before it's changed.
         glPushMatrix()
+
+        # Draw model using glRenderMode(GL_SELECT) as set up above 
         try:
             glClipPlane(GL_CLIP_PLANE0, (pn[0], pn[1], pn[2], dp))
             glEnable(GL_CLIP_PLANE0)
             self.drawModel()
-            glDisable(GL_CLIP_PLANE0)
         except:
-            print_compact_traceback("exception in mode.Draw() during GL_SELECT; ignored; restoring modelview matrix: ")
+            #bruce 080917 fixed predicted bugs in this except clause (untested)
+            print_compact_traceback("exception in ThumbView.drawModel() during GL_SELECT; ignored; restoring matrices: ")
+            glDisable(GL_CLIP_PLANE0)
+            glMatrixMode(GL_PROJECTION)
+            glPopMatrix()
+            glMatrixMode(GL_MODELVIEW)
             glPopMatrix()
             glRenderMode(GL_RENDER)
             return None
         else:
+            glDisable(GL_CLIP_PLANE0)
             # Restore model/view matrix
             glPopMatrix()
         
-        #Restore project matrix and set matrix mode to Model/View
+        # Restore projection matrix and set matrix mode to Model/View
         glMatrixMode(GL_PROJECTION)
         glPopMatrix()
         glMatrixMode(GL_MODELVIEW)
@@ -662,15 +587,19 @@ class ThumbView(GLPane_minimal):
         glFlush()
         
         hit_records = list(glRenderMode(GL_RENDER))
-        if debug_flags.atom_debug and 0:
-            print "%d hits" % len(hit_records)
-        for (near, far, names) in hit_records: # see example code, renderpass.py
-            if debug_flags.atom_debug and 0:
-                print "hit record: near, far, names:", near, far, names
-                # e.g. hit record: near, far, names: 1439181696 1453030144 (1638426L,)
-                # which proves that near/far are too far apart to give actual depth,
-                # in spite of the 1-pixel drawing window (presumably they're vertices
-                # taken from unclipped primitives, not clipped ones).
+        ## print "%d hits" % len(hit_records)
+        for (near, far, names) in hit_records:
+            ## print "hit record: near, far, names:", near, far, names
+            # note from testing: near/far are too far apart to give actual depth,
+            # in spite of the 1-pixel drawing window (presumably they're vertices
+            # taken from unclipped primitives, not clipped ones).
+            ### REVIEW: this just returns the first candidate object found.
+            # The clip plane may restrict the set of candidates well enough to
+            # make sure that's the right one, but this is untested and unreviewed.
+            # (And it's just my guess that that was Huaicai's intention in
+            #  setting up clipping, since it's not documented. I'm guessing that
+            #  the plane is just behind the hitpoint, but haven't confirmed this.)
+            # [bruce 080917 comment]
             if names:
                 name = names[-1]
                 assy = self.assy
@@ -709,7 +638,7 @@ class ThumbView(GLPane_minimal):
         glClear(GL_STENCIL_BUFFER_BIT)
         
         glDepthMask(GL_FALSE) # turn off depth writing (but not depth test)
-        #glDisable(GL_DEPTH_TEST)
+        ## glDisable(GL_DEPTH_TEST)
         glStencilFunc(GL_ALWAYS, 1, 1)
         glStencilOp(GL_KEEP, GL_KEEP, GL_REPLACE)
         glEnable(GL_STENCIL_TEST)
@@ -724,7 +653,7 @@ class ThumbView(GLPane_minimal):
         Restore OpenGL settings changed by _preHighlight to standard values.
         """
         glDepthMask(GL_TRUE)
-        #glEnable(GL_DEPTH_TEST)
+        ## glEnable(GL_DEPTH_TEST)
         glStencilOp(GL_KEEP, GL_KEEP, GL_KEEP)
         glDisable(GL_STENCIL_TEST)
         
@@ -849,7 +778,7 @@ class MMKitView(ThumbView):
     # note: as of 080403 this is constructed only by PM_PreviewGroupBox.py
     # and required (assert isinstance(self.elementViewer, MMKitView)) by
     # PM_Clipboard.py, PM_MolecularModelingKit.py, and PM_PartLib.py.
-    # I think that means it is used for MMKit atoms, PasteMode clipboard,
+    # I think that means it is used for MMKit atoms, PasteFromClipboard_Command clipboard,
     # and PartLib parts. [bruce 080403 comment]
     always_draw_hotspot = True
         #bruce 060627 to help with bug 2028
@@ -884,15 +813,12 @@ class MMKitView(ThumbView):
                 self.model.draw(self)
         return
 
-    def model_is_valid(self): #bruce 080117, revised 080220
+    def model_is_valid(self): #bruce 080117, revised 080220, 080913
         """
         whether our model is currently valid for drawing
         [overrides GLPane_minimal method]
         """
-        assy = self.assy
-        if assy is not None:
-            return assy.assy_valid
-        return False
+        return self.assy and self.assy.assy_valid
 
     def _get_assy(self): #bruce 080220
         """
@@ -1083,8 +1009,8 @@ class MMKitView(ThumbView):
             self.lastHotspotChunk = None
         return
     
-    def setDisplay(self, mode):
-        self.displayMode = mode
+    def setDisplay(self, disp):
+        self.displayMode = disp
         return
     
     def _fitInWindow(self):
@@ -1099,8 +1025,14 @@ class MMKitView(ThumbView):
         else: ## Assembly
             part = self.model.part
             bbox = part.bbox
-        self.scale = bbox.scale() 
-       
+        self.scale = bbox.scale()
+
+        # guess: the following is a KLUGE for width and height
+        # being the names of Qt superclass methods
+        # but also being assigned to ints by our own code.
+        # I don't know why it could ever be needed, since resizeGL
+        # sets them -- maybe this can be called before that ever is??
+        # [bruce 080912 comment]
         if isinstance(self.width, int):
             width = self.width 
         else:
@@ -1111,7 +1043,7 @@ class MMKitView(ThumbView):
             height = float(self.height()) 
             
         aspect = width / height
-        
+            # REVIEW: likely bug: integer division is possible [bruce 080912 comment]
         
         ##aspect = float(self.width) / self.height
         if aspect < 1.0:

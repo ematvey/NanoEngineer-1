@@ -5,7 +5,7 @@ which are neither chemical nor PAM pseudoatoms
 (for example, virtual site indicators)
 
 @author: Bruce
-@version: $Id: elements_data_other.py 12883 2008-05-21 18:59:48Z brucesmith $
+@version: $Id: elements_data_other.py 13895 2008-08-11 18:31:12Z ericmessick $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details. 
 
 See also: the "handle" Ah5, which is defined as a PAM5 pseudoelement
@@ -18,11 +18,11 @@ _DIRECTIONAL_BOND_ELEMENTS_OTHER = ()
 
 # ==
 
-_defaultRad_Color = {
+_defaultRadiusAndColor = {
     "Vs0" : (1.0, [0.8, 0.8, 0.8]), #bruce 080515 guess, "very light gray"
     }
   
-_altRad_Color = {
+_alternateRadiusAndColor = {
     }
                  
 # Format of _mendeleev: see elements_data.py
@@ -35,10 +35,18 @@ _mendeleev = [
 
  ]
 
+#    symb   hybridization     FC   need prov c-rad geometry
+_otherAtomTypeData = [
+    ["Vs0", None,              0,    0,  0,  0.00, None],
+]
+
 # ==
 
 def init_other_elements( periodicTable):
-    periodicTable.addElements( _mendeleev, _defaultRad_Color, _altRad_Color,
+    periodicTable.addElements( _mendeleev,
+                               _defaultRadiusAndColor,
+                               _alternateRadiusAndColor,
+                               _otherAtomTypeData,
                                _DIRECTIONAL_BOND_ELEMENTS_OTHER,
                                default_options = dict()
                               )

@@ -5,7 +5,7 @@
 #define CHECK_VALID_BOND(b) { \
     NULLPTR(b); NULLPTR((b)->a1); NULLPTR((b)->a2); }
 
-static char const rcsid[] = "$Id: part.c 12830 2008-05-19 17:44:24Z ericmessick $";
+static char const rcsid[] = "$Id: part.c 14256 2008-09-17 03:59:27Z ericmessick $";
 
 // This is the default value for the p->parseError() function.
 // p->parseError() is called by routines in this file while a part is
@@ -222,6 +222,26 @@ addBondToAtom(struct bond *b, struct atom *a)
     a->num_bonds++;
     a->bonds = (struct bond **)accumulator(a->bonds, sizeof(struct bond *) * a->num_bonds, 0);
     a->bonds[a->num_bonds - 1] = b;
+}
+
+// return the n'th atom which is bonded to a, or NULL
+struct atom *
+getBondedAtom(struct atom *a, int n)
+{
+    struct bond *b;
+    
+    if (a == NULL || n < 0 || a->num_bonds <= n) {
+        return NULL;
+    }
+    b = a->bonds[n];
+    if (b->a1 == a) {
+        return b->a2;
+    }
+    if (b->a2 == a) {
+        return b->a1;
+    }
+    fprintf(stderr, "getBondedAtom(): malformed bond\n");
+    return NULL;
 }
 
 // Fill in the bend data structure for a bend centered on the given

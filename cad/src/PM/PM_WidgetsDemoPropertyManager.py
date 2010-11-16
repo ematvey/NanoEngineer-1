@@ -2,7 +2,7 @@
 """
 PM_WidgetsDemoPropertyManager.py - Displays all the PM module widgets in a PM.
 
-$Id: PM_WidgetsDemoPropertyManager.py 11657 2008-02-26 04:05:05Z ericmessick $
+$Id: PM_WidgetsDemoPropertyManager.py 14180 2008-09-09 23:31:27Z brucesmith $
 """
 
 from PyQt4.Qt import Qt, SIGNAL
@@ -64,7 +64,7 @@ class PM_WidgetsDemoPropertyManager(PM_Dialog, GeneratorBaseClass):
     pmName = title
     iconPath = "ui/actions/Properties Manager/info.png"
 
-    def __init__(self, win, commandrun = None):
+    def __init__(self, win, command = None):
        
         self.win = win
                 

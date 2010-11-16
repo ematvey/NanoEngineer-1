@@ -2,7 +2,7 @@
 """
 glprefs.py - Attributes from drawing-related prefs stored in the prefs db cache.
 
-@version: $Id: glprefs.py 13207 2008-06-19 18:07:40Z russfish $
+@version: $Id: glprefs.py 14412 2008-10-03 17:30:12Z russfish $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -45,14 +45,10 @@ from utilities.prefs_constants import selectionColorStyle_prefs_key
 from utilities.prefs_constants import selectionColor_prefs_key
 from utilities.prefs_constants import haloWidth_prefs_key
 
-import graphics.drawing.drawing_globals as drawing_globals
-if drawing_globals.quux_module_import_succeeded:
-    import quux
-
 import foundation.env as env #bruce 051126
 
 # grantham 20051118; revised by bruce 051126
-class glprefs:
+class GLPrefs:
 
     def __init__(self):
         ##  self.override_material_specular = None
@@ -62,12 +58,11 @@ class glprefs:
         ##  self.override_light_specular = None
         ##     # Set to 4-element sequence to override light specular component.
 
-        #bruce 051126 KLUGE: make sure env.prefs exists
-        # (could use cleanup, but that's not trivial.)
-        import foundation.preferences as preferences
-        self.update()
+        # Russ 080915: Don't set prefs vars in drawing_globals the first time.
+        self.update(noPrefsVars = True)
+        return
 
-    def update(self): #bruce 051126 added this method
+    def update(self, noPrefsVars = False): #bruce 051126 added this method
         """
         Update attributes from current drawing-related prefs stored in prefs db
         cache. This should be called at the start of each complete redraw, or
@@ -112,32 +107,14 @@ class glprefs:
             self.specular_shininess = 20.0
             self.specular_whiteness = 1.0
             self.specular_brightness = 1.0
+            pass
+        
+        # Russ 080915: Break import cycle between drawing_globals and glprefs.
+        if not noPrefsVars:
+            from graphics.drawing.drawing_globals import updatePrefsVars
+            updatePrefsVars()
+            pass
 
-        drawing_globals.allow_color_sorting = env.prefs.get(
-            drawing_globals.allow_color_sorting_prefs_key,
-            drawing_globals.allow_color_sorting_default)
-
-        drawing_globals.use_color_sorted_dls = env.prefs.get(
-            drawing_globals.use_color_sorted_dls_prefs_key,
-            drawing_globals.use_color_sorted_dls_default)
-
-        drawing_globals.use_color_sorted_vbos = env.prefs.get(
-            drawing_globals.use_color_sorted_vbos_prefs_key,
-            drawing_globals.use_color_sorted_vbos_default)
-
-        drawing_globals.use_drawing_variant = env.prefs.get(
-            drawing_globals.use_drawing_variant_prefs_key,
-            drawing_globals.use_drawing_variant_default)
-
-        drawing_globals.use_c_renderer = (
-            drawing_globals.quux_module_import_succeeded and
-            env.prefs.get(drawing_globals.use_c_renderer_prefs_key,
-                          drawing_globals.use_c_renderer_default))
-
-        if drawing_globals.use_c_renderer:
-            quux.shapeRendererSetMaterialParameters(self.specular_whiteness,
-                                                    self.specular_brightness,
-                                                    self.specular_shininess);
         return
 
     def materialprefs_summary(self): #bruce 051126
@@ -146,6 +123,9 @@ class glprefs:
         display lists, so that memoized display lists should become invalid (due
         to changes in this object) if and only if this value becomes different.
         """
+        # Russ 080915: This has to be inside the function to avoid an import cycle.
+        import graphics.drawing.drawing_globals as drawing_globals
+
         res = (self.enable_specular_highlights,)
         if self.enable_specular_highlights:
             res = res + ( self.specular_shininess,
@@ -169,6 +149,11 @@ class glprefs:
                               drawing_globals.use_color_sorted_vbos_default),)
         res += (env.prefs.get(drawing_globals.use_drawing_variant_prefs_key,
                               drawing_globals.use_drawing_variant_default),)
+        res += (env.prefs.get(drawing_globals.use_sphere_shaders_prefs_key,
+                              drawing_globals.use_sphere_shaders_default),)
+        res += (env.prefs.get(
+            drawing_globals.use_batched_primitive_shaders_prefs_key,
+            drawing_globals.use_batched_primitive_shaders_default),)
 
         # russ 080530: Selection style preference controls select_dl contents.
         res += (env.prefs[selectionColorStyle_prefs_key],)
@@ -179,4 +164,4 @@ class glprefs:
 
     pass # end of class glprefs
 
-drawing_globals.glprefs = glprefs()
+# end

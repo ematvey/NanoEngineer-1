@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_SelectMenu.py 12540 2008-04-14 01:36:58Z marksims $
+$Id: Ui_SelectMenu.py 14443 2008-11-07 05:22:52Z  $
 """
 
 from PyQt4 import QtGui
@@ -22,6 +22,7 @@ def setupUi(win):
     win.selectionMenu.addAction(win.selectDoublyAction)
     win.selectionMenu.addAction(win.selectExpandAction)
     win.selectionMenu.addAction(win.selectContractAction)
+    win.selectionMenu.addAction(win.selectByNameAction)
     
 def retranslateUi(win):
     """

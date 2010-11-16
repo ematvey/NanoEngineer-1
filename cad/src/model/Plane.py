@@ -2,7 +2,7 @@
 """
 @author: Ninad
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: Plane.py 13288 2008-07-01 18:23:17Z brucesmith $
+@version:$Id: Plane.py 14379 2008-09-30 17:09:01Z ninadsathaye $
 
 History:
 ninad 2007-05-21: Created. 
@@ -47,7 +47,7 @@ from utilities.Log     import redmsg
 from model.ReferenceGeometry import ReferenceGeometry 
 from graphics.drawables.DirectionArrow import DirectionArrow
 from graphics.drawables.ResizeHandle import ResizeHandle  
-from utilities.constants import LOWER_LEFT, LABELS_ALONG_ORIGIN
+from utilities.constants import PLANE_ORIGIN_LOWER_LEFT, LABELS_ALONG_ORIGIN
 from graphics.drawing.texture_helpers import load_image_into_new_texture_name
 
 try:
@@ -87,8 +87,7 @@ class Plane(ReferenceGeometry):
     mutable_attrs   = ('center', 'quat', 'gridColor', 'gridLineType',  
                        'gridXSpacing', 'gridYSpacing')
     
-    icon_names      = ["modeltree/Plane.png", "modeltree/Plane-hide.png"]
-    sponsor_keyword = 'Plane'    
+    icon_names      = ["modeltree/Plane.png", "modeltree/Plane-hide.png"] 
     copyable_attrs  = ReferenceGeometry.copyable_attrs + mutable_attrs
     cmdname         = 'Plane'
     mmp_record_name = "plane"
@@ -165,7 +164,7 @@ class Plane(ReferenceGeometry):
         self.gridLineType = 3
         self.gridXSpacing = 4.0
         self.gridYSpacing = 4.0       
-        self.originLocation = LOWER_LEFT
+        self.originLocation = PLANE_ORIGIN_LOWER_LEFT
         self.displayLabelStyle = LABELS_ALONG_ORIGIN
         
         if not READ_FROM_MMP:
@@ -201,7 +200,7 @@ class Plane(ReferenceGeometry):
         Compute the plane's current bounding box.
         """
 
-        # The move absolute method moveAbsolute() in modifyMode relies on a 
+        # The move absolute method moveAbsolute() in Move_Command relies on a 
         # 'bbox' attribute for the movables. This attribute is really useless 
         # for Planes otherwise. Instead of modifying that method, I added the 
         # attribute bbox here to fix BUG 2473.
@@ -351,11 +350,11 @@ class Plane(ReferenceGeometry):
         @type  highlighted: bool
         
         @see: self.draw_after_highlighting() which draws things like filled 
-        plane , grids etc after the main drawing code is finished.
+        plane, grids etc after the main drawing code is finished.
         """
         
         #IMPORTANT NOTE: See also self.draw_after_highlighting() which draws 
-        #some more things suxh as filled plane etc after the main drawing code
+        #some more things such as filled plane etc after the main drawing code
         #is finished. It makes sure that plane get selected even when you click
         #on the filled portion of it. -- Ninad 2008-06-20
         
@@ -389,8 +388,8 @@ class Plane(ReferenceGeometry):
                 drawLineLoop(color, corners_pos, width = 2)
             else:  
                 #Following draws the border of the plane in orange color 
-                #for it's front side (side that was in front 
-                #when the plane was created and a brown border for the backside.
+                #for its front side (side that was in front 
+                #when the plane was created) and a brown border for the backside.
                 if dot(self.getaxis(), glpane.lineOfSight) < 0:
                     bordercolor = brown #backside
                 else:
@@ -407,14 +406,14 @@ class Plane(ReferenceGeometry):
     
     def draw_after_highlighting(self,  glpane, dispdef, pickCheckOnly = False):
         """
-        Things to draw after highlighting. Subclasses should override this 
-        method. This API method ensures that , when user clicks on the filled
+        Things to draw after highlighting. Subclasses can override this 
+        method. This API method ensures that, when user clicks on the filled
         area of a plane, the plane gets selected. 
                 
         @param pickCheckOnly: This flag in conjunction with this API method
                 allows selection of the plane when you click inside the plane 
                  (i.e. not along the highlighted plane borders) . 
-                 (Note flag copied over from the old implementation 
+                 (Note: flag copied over from the old implementation 
                  before 2008-06-20)
         @type pickCheckOnly: boolean
         
@@ -429,7 +428,7 @@ class Plane(ReferenceGeometry):
         anythingDrawn = False
         
         if self.hidden:
-            return False
+            return anythingDrawn
         
         self.pickCheckOnly = pickCheckOnly
         
@@ -480,18 +479,18 @@ class Plane(ReferenceGeometry):
                               self.height, 
                               textureReady,
                               self.opacity, 
-                              SOLID=True, 
-                              pickCheckOnly=self.pickCheckOnly,
-                              hf=self.heightfield)
+                              SOLID = True, 
+                              pickCheckOnly = self.pickCheckOnly,
+                              hf = self.heightfield)
             else:
                 drawPlane(fill_color, 
                           self.width, 
                           self.height, 
                           textureReady,
                           self.opacity, 
-                          SOLID=True, 
-                          pickCheckOnly=self.pickCheckOnly,
-                          tex_coords=self.tex_coords)
+                          SOLID = True, 
+                          pickCheckOnly = self.pickCheckOnly,
+                          tex_coords = self.tex_coords)
      
             glPopMatrix()
             
@@ -504,7 +503,6 @@ class Plane(ReferenceGeometry):
             glPopName()
         
         return anythingDrawn
-            
 
     def setWidth(self, newWidth):
         """
@@ -670,6 +668,10 @@ class Plane(ReferenceGeometry):
 
         @param event: The mouse event.
         @type  event: QEvent
+        
+        @see: PlanePropertyManager._update_UI_do_updates()
+        @see: PlanePropertyManager.update_spinboxes()
+        @see: Plane_EditCommand.command_update_internal_state()
         """ 
 
         #NOTE: mouseray contains all the points 
@@ -746,18 +748,20 @@ class Plane(ReferenceGeometry):
             self.setHeight(new_h)            
 
         self.recomputeCenter(totalOffset)
-        #update the width,height spinboxes(may be more in future)--Ninad20070601
-        if self.editCommand and self.editCommand.propMgr:
-            self.editCommand.propMgr.update_spinboxes()
-
+        
+        #assy.changed() required to make sure that the PM.update_UI() gets 
+        #called (because model is changed) and the spinboxes (or other UI 
+        #elements in the PM) get updated. 
+        self.assy.changed()
+        
+       
 
     def edit(self):
         """
         Overrides node.edit and shows the property manager.
         """
-
         commandSequencer = self.win.commandSequencer
-        commandSequencer.userEnterTemporaryCommand('REFERENCE_PLANE')
+        commandSequencer.userEnterCommand('REFERENCE_PLANE', always_update = True)
         currentCommand = commandSequencer.currentCommand
         assert currentCommand.commandName == 'REFERENCE_PLANE'
         #When a Plane object read from an mmp file is edited, we need to assign 
@@ -956,17 +960,6 @@ class Plane(ReferenceGeometry):
                         for t in [0, 1]:
                             x0 = float(x) / float(wi - 1) 
                             y0 = float(y+t) / float(he - 1) 
-                            
-                            # transform according to current texture coordinates
-                            """
-                            nx = (self.tex_coords[1][0] * (x0) + self.tex_coords[0][0] * (1.0 - x0)) * (1.0 - y0) + \
-                                 (self.tex_coords[2][0] * (x0) + self.tex_coords[3][0] * (1.0 - x0)) * y0
-                            ny = (self.tex_coords[0][1] * (x0) + self.tex_coords[1][1] * (1.0 - x0)) * (1.0 - y0) + \
-                                 (self.tex_coords[3][1] * (x0) + self.tex_coords[2][1] * (1.0 - x0)) * y0
-                              
-                            x0 = nx
-                            y0 = ny
-                            """
                             
                             # get data point (the image is converted to grayscale)
                             r0 = scale * pix[x, y+t]

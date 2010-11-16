@@ -3,7 +3,8 @@
 EditCommand.py
 
 @author: Bruce Smith, Mark Sims, Ninad Sathaye, Will Ware
-@version: $Id: EditCommand.py 12795 2008-05-16 15:39:12Z ninadsathaye $
+@version: $Id: EditCommand.py 14391 2008-10-01 16:36:37Z ninadsathaye $
+@copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
 
@@ -34,15 +35,17 @@ TODO:
 """
 
 import foundation.changes as changes
+from foundation.FeatureDescriptor import register_abstract_feature_class
+
 from utilities.Comparison import same_vals
 
 from utilities.constants import permit_gensym_to_reuse_name
-from command_support.GeneratorBaseClass import AbstractMethod
+from utilities.exception_classes import AbstractMethod
 
 from commands.Select.Select_Command import Select_Command
-from utilities.debug import print_compact_stack
 
 
+_superclass = Select_Command
 class EditCommand(Select_Command):
     """
     EditCommand class that provides a editCommand object. 
@@ -72,12 +75,13 @@ class EditCommand(Select_Command):
     cmdname  =  "" 
     _gensym_data_for_reusing_name = None
     commandName = 'EditCommand'
-    default_mode_status_text = ""
     featurename = "Undocumented Edit Command" # default wiki help featurename
-
-    propMgr = None
+    from utilities.constants import CL_ABSTRACT
+    command_level = CL_ABSTRACT
+    __abstract_command_class = True
+ 
     flyoutToolbar = None
-
+    
     def __init__(self, commandSequencer):
         """
         Constructor for the class EditCommand.        
@@ -89,71 +93,35 @@ class EditCommand(Select_Command):
 
         self.struct               =  None
         self.existingStructForEditing  =  False
-
-        ##bruce 060616 added the following kluge to make sure both cmdname 
-        ##and cmd are set properly.
-        #if not self.cmdname and not self.cmd:
-            #self.cmdname = "Generate something"
-        #if self.cmd and not self.cmdname:
-            ## deprecated but common, as of 060616
-            #self.cmdname = self.cmd # fallback
-            #try:
-                #cmdname = self.cmd.split('>')[1]
-                #cmdname = cmdname.split('<')[0]
-                #cmdname = cmdname.split(':')[0]
-                #self.cmdname = cmdname
-            #except:
-                #if debug_flags.atom_debug:
-                    #print "fyi: %r guessed wrong \
-                    #about format of self.cmd == %r" % (self, self.cmd,)
-
-        #elif self.cmdname and not self.cmd:
-            ## this is intended to be the usual situation, but isn't yet, 
-            ##as of 060616
-            #self.cmd = greenmsg(self.cmdname + ": ")
-
+        
         Select_Command.__init__(self, commandSequencer)
         return
-
-    def Enter(self):
+         
+    #=== START   NEW COMMAND API methods  ======================================
+   
+    
+    
+    def command_enter_misc_actions(self):
+        pass
+    
+    def command_exit_misc_actions(self):
+        pass     
+    
+    
+    def command_will_exit(self):
         """
-
+        Overrides superclass method. 
+        @see: baseCommand.command_will_exit() for documentation
         """
-        #@@TODO: Should the structure always be reset while entering,
-        #(for instance), Plane_EditCommand PM? The client must explicitely use, 
-        #for example, editCommand.editStructre(self) so that this command
-        #knows what to edit. But that must be done after entering the command. 
-        #see Plane.edit for example.
-        #setting self.struct to None is needed in Enter as
-        #update_props_if_needed_before_closing is called which may update 
-        #the cosmetic props of the old structure from some previous run. 
-        #This will be cleaned up (the update_props_... method was designed 
-        # for the 'guest Property Managers' i.e. at the time when the 
-        #editCommand was not a 'command'. ) -- Ninad 2007-12-26
-
-        #UPDATE: For BuildDna_EditCommand, setting the struct to None
-        #is a bug. #(The BuildDna edit command gets 'segments' from the 
-        #temporary command  'DnaDuplex_EditCommand' and during this process
-        #it reenters the BuildDna_EditCommand (from the temporary mode)
-        #so, don't set self.struct to None. Do it in subclasses instead. OR 
-        #better fix the update_props_if_needed_before_closing problem soon 
-        #-- Ninad 2008-01-09
-        ##if self.struct:
-            ##self.struct = None                    
-        Select_Command.Enter(self)
-
-    def init_gui(self):
-        """
-        """
-        self.create_and_or_show_PM_if_wanted()  
-
-    def restore_gui(self):
-        """
-        """
-        if self.propMgr:
-            self.propMgr.close()
-
-
+        if self.commandSequencer.exit_is_forced:
+            pass
+        elif self.commandSequencer.exit_is_cancel:
+            self.cancelStructure()
+        else:
+            self.preview_or_finalize_structure(previewing = False)
+        
+        _superclass.command_will_exit(self)
+                    
     def runCommand(self):
         """        
         Used to run this editCommand . Depending upon the
@@ -165,29 +133,11 @@ class EditCommand(Select_Command):
         Default implementation, subclasses should override this method.
         NEED TO DOCUMENT THIS FURTHER ?
         """
-        self.existingStructForEditing = False
-        if self.struct:
-            self.struct = None
+        self.existingStructForEditing = False        
+        self.struct = None
         self.createStructure()
 
-    def create_and_or_show_PM_if_wanted(self, showPropMgr = True):
-        """
-        Create the property manager object if one doesn't already exist 
-        and then show the propMgr if wanted by the user
-        @param showPropMgr: If True, show the property manager 
-        @type showPropMgr: boolean
-        """
-        if not self.propMgr:                 
-            self.propMgr = self._createPropMgrObject()
-            #IMPORTANT keep this propMgr permanently -- needed to fix bug 2563
-            changes.keep_forever(self.propMgr)
-
-        if not showPropMgr:
-            return     
-
-        self.propMgr.show()
-
-    def createStructure(self, showPropMgr = True):
+    def createStructure(self):
         """
         Default implementation of createStructure method. 
         Might be overridden in  subclasses. Creates an instance (object)
@@ -198,26 +148,17 @@ class EditCommand(Select_Command):
         Example: If its a plane editCommand, this method will create an 
                 object of class Plane. 
 
-        This method also creates a propMgr objects if it doesn't
-        exist , shows the property manager and sets the model (the plane) 
-        in preview state.
-
         @see: L{self.editStructure} (another top level command that facilitates
               editing an existing object (existing structure). 
         """
-
+        
         assert not self.struct
-
+        
         self.struct = self._createStructure()
 
-        if not self.struct:
-            return
-
-        self.create_and_or_show_PM_if_wanted(showPropMgr = showPropMgr)
-
-        if not showPropMgr:
-            return
-
+        if not self.hasValidStructure():
+            return                 
+       
         if self.struct:
             #When a structure is created first, set the self.previousParams 
             #to the struture parameters. This makes sure that it doesn't 
@@ -225,8 +166,7 @@ class EditCommand(Select_Command):
             # self.preview_or_finalize_structure  -- Ninad 2007-10-11
             self.previousParams = self._gatherParameters()
             self.preview_or_finalize_structure(previewing = True)        
-            self.win.assy.place_new_geometry(self.struct)
-
+            
 
     def editStructure(self, struct = None):
         """
@@ -246,42 +186,11 @@ class EditCommand(Select_Command):
               editCommand
         @see: L{Plane.edit} and L{Plane_EditCommand._createPropMgrObject} 
         """
-
-        if struct is not None:
-            self.struct = struct                
-            self.propMgr = None
-
-        assert self.struct
-
-        if not self.propMgr:
-            self.propMgr = self._createPropMgrObject()
-
-        assert self.propMgr
-
-        #Following is needed to make sure that when a dna line is drawn 
-        #(using DNA Line mode), it takes input and gives output to the 
-        # currently active editCommand 
-        #(see selectMolsMode.provideParametersForTemporaryMode where we are 
-        # using self.win.dnaEditCommand) Fixes bug 2588
-
-        #Following line of code that fixed bug 2588 mentioned in above comment 
-        # was disabled on 2007-12-20, aftter dnaDuplexEditCommand was 
-        #converted in to a command on command sequencer. The bug doesn't appear
-        # right now. (but there is another unrelated bug due to the missing 
-        # 'endpoints' because of which the propMgr always reset its values
-        #even when editing an existing structure. It will be fixed after dna 
-        #data model implementation
-        ##self.win.dnaEditCommand = self
-
-        #Important to set the edit controller for the property manager 
-        #because we are reusing the propMgr object so it needs to know the 
-        # current edit controller. 
-        self.propMgr.setEditCommand(self)
-
+        assert struct        
+        self.struct = struct
         self.existingStructForEditing = True
         self.old_props = self.struct.getProps()
-        self.propMgr.show() 
-
+        
     def hasValidStructure(self):
         """
         Tells the caller if this edit command has a valid structure.
@@ -322,7 +231,6 @@ class EditCommand(Select_Command):
         raise AbstractMethod()
 
 
-
     def _createStructure(self):
         """
         Create the model object which this edit controller  creates) 
@@ -331,13 +239,7 @@ class EditCommand(Select_Command):
         """
         raise AbstractMethod()
 
-    def _createPropMgrObject(self):
-        """
-        Abstract method (overridden in subclasses). Creates a property manager 
-        object (that defines UI things) for this editCommand. 
-        """
-        raise AbstractMethod()
-
+   
     def _modifyStructure(self, params):
         """
         Abstract method that modifies the structure (i.e. the object created 
@@ -378,7 +280,7 @@ class EditCommand(Select_Command):
         (self.previousParams)
         @see: self.preview_or_finalize_structure
         """
-
+        
         #For certain edit commands, it is possible that self.struct is 
         #not created. If so simply return (don't use assert self.struct)
         ##This is a commented out stub code for the edit controllers 
@@ -387,9 +289,11 @@ class EditCommand(Select_Command):
         #The following code is now used.  Need to improve comments and 
         # some refactoring -- Ninad 2007-10-24
 
-        if self.struct is None:                
+        if not self.hasValidStructure():  
             self.struct = self._createStructure()
             self.previousParams = self._gatherParameters()
+            self.win.assy.changed()
+            self.win.win_update()
             return  
 
         self.win.assy.current_command_info(cmdname = self.cmdname) 
@@ -440,6 +344,9 @@ class EditCommand(Select_Command):
         some parameters or hits cancel. Subclasses can override this method. 
         @see: BuildDna_EditCommand.cancelStructure
         """
+        if self.struct is None:
+            return 
+        
         self.win.assy.current_command_info(cmdname = self.cmdname + " (Cancel)")
         if self.existingStructForEditing: 
             if self.old_props:
@@ -482,3 +389,11 @@ class EditCommand(Select_Command):
             permit_gensym_to_reuse_name(prefix, name)
         self._gensym_data_for_reusing_name = None
         return
+
+    pass # end of class EditCommand
+
+register_abstract_feature_class( EditCommand )
+    # this is so "export command table" lists it as a separate kind of feature
+    # [bruce 080905]
+
+# end

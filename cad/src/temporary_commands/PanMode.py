@@ -3,7 +3,7 @@
 Pan mode functionality.
 
 @author:    Mark Sims
-@version:   $Id: PanMode.py 11951 2008-03-14 04:44:50Z ericmessick $
+@version:   $Id: PanMode.py 14362 2008-09-26 16:05:18Z ninadsathaye $
 @copyright: 2005-2007 Nanorex, Inc.  See LICENSE file for details.
 @license:   GPL
 """
@@ -46,23 +46,25 @@ class PanMode_GM( TemporaryCommand_Overdrawing.GraphicsMode_class ):
 class PanMode(TemporaryCommand_Overdrawing): # TODO: rename to PanTool or PanCommand or TemporaryCommand_Pan or ...
     """
     Encapsulates the Pan tool functionality.
-    """
-    
+    """    
     # class constants
     
     commandName = 'PAN'
-    default_mode_status_text = "Tool: Pan"
     featurename = "Pan Tool"
+    from utilities.constants import CL_VIEW_CHANGE
+    command_level = CL_VIEW_CHANGE
 
-    GraphicsMode_class = PanMode_GM
-
-    def init_gui(self):
-        self.win.panToolAction.setChecked(1) # toggle on the Pan Tool icon
-        return    
-        
-    def restore_gui(self):
-        self.win.panToolAction.setChecked(0) # toggle off the Pan Tool icon
-
-    pass
-
-# end
+    GraphicsMode_class = PanMode_GM    
+     
+    def command_enter_misc_actions(self):
+        """
+        See superclass method for documentation
+        """
+        self.win.panToolAction.setChecked(True)
+    
+    def command_exit_misc_actions(self):
+        """
+        See superclass method for documentation
+        """
+        self.win.panToolAction.setChecked(False)
+    

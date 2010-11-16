@@ -4,7 +4,7 @@ PAM_Atom_methods.py - methods for class Atom, which are only meant
 to be called on PAM Atoms.
 
 @author: Bruce, Mark, Ninad
-@version: $Id: PAM_Atom_methods.py 13286 2008-07-01 17:54:32Z brucesmith $
+@version: $Id: PAM_Atom_methods.py 13841 2008-08-07 21:53:35Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -201,7 +201,7 @@ class PAM_Atom_methods:
         assert self.element.pam
         ladder = self.molecule.ladder
         res = []
-        if ladder: # in case dna updater failed or is not enabled
+        if ladder:
             dnaladder_menu_spec = ladder.dnaladder_menu_spec(self)
             if dnaladder_menu_spec:
                 if res: # never happens yet
@@ -924,6 +924,20 @@ class PAM_Atom_methods:
         
         if chunk and not chunk.isNullChunk():
             return chunk.getDnaStrand()
+                    
+        return None
+    
+    def getDnaSegment(self):
+        """
+        Returns the DnaSegment(group) node to which this atom belongs to. 
+        
+        Returns None if there isn't a parent DnaSegment group.
+        @see: Chunk.getDnaSegment() which is used here. 
+        """
+        chunk = self.molecule
+        
+        if chunk and not chunk.isNullChunk():
+            return chunk.getDnaSegment()
                     
         return None
     

@@ -3,7 +3,7 @@
 #include <limits.h>
 #include "simulator.h"
 
-static char const rcsid[] = "$Id: readmmp.c 13413 2008-07-12 21:54:31Z ericmessick $";
+static char const rcsid[] = "$Id: readmmp.c 13802 2008-08-06 04:46:47Z ericmessick $";
 
 struct mmpStream 
 {
@@ -764,7 +764,10 @@ readMMP(char *filename)
       makeLinearMotor(p, name, force, stiffness, &center, &axis, atomListLength, atomList); BAILP();
     }
 		
-    else if (!strncmp(tok, "end", 3)) {
+    else if (!strcmp(tok, "end")) {
+      break;
+    }
+    else if (!strcmp(tok, "end1")) {
       break;
     }
 

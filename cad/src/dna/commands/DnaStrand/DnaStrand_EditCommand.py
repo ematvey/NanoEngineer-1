@@ -2,7 +2,7 @@
 """
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: DnaStrand_EditCommand.py 13368 2008-07-09 20:25:52Z ninadsathaye $
+@version:$Id: DnaStrand_EditCommand.py 14391 2008-10-01 16:36:37Z ninadsathaye $
 
 Histort
 Created on 2008-02-14
@@ -28,7 +28,7 @@ from geometry.VQT import  vlen
 from geometry.VQT import  norm
 from Numeric import dot
 
-from prototype.test_connectWithState import State_preMixin
+from exprs.State_preMixin import State_preMixin
 from exprs.attr_decl_macros import Instance, State
 from exprs.__Symbols__ import _self
 from exprs.Exprs import call_Expr
@@ -44,17 +44,22 @@ from dna.commands.DnaStrand.DnaStrand_GraphicsMode import DnaStrand_GraphicsMode
 from dna.commands.DnaStrand.DnaStrand_ResizeHandle import DnaStrand_ResizeHandle
 from dna.model.Dna_Constants import getNumberOfBasePairsFromDuplexLength
 from dna.model.Dna_Constants import getDuplexLength
-from dna.commands.BuildDuplex.B_Dna_PAM3_SingleStrand import B_Dna_PAM3_SingleStrand
+from dna.generators.B_Dna_PAM3_SingleStrand_Generator import B_Dna_PAM3_SingleStrand_Generator
 
 from command_support.EditCommand import EditCommand 
 
 from utilities.constants import noop
 from utilities.constants import red, black
+
 from utilities.Comparison import same_vals
 
 from utilities.prefs_constants import dnaStrandEditCommand_cursorTextCheckBox_changedBases_prefs_key
 from utilities.prefs_constants import dnaStrandEditCommand_cursorTextCheckBox_numberOfBases_prefs_key
 from utilities.prefs_constants import dnaStrandEditCommand_showCursorTextCheckBox_prefs_key
+from utilities.prefs_constants import cursorTextColor_prefs_key
+
+from dna.commands.DnaStrand.DnaStrand_PropertyManager import DnaStrand_PropertyManager
+
 
 CYLINDER_WIDTH_DEFAULT_VALUE = 0.0
 HANDLE_RADIUS_DEFAULT_VALUE = 1.5
@@ -71,26 +76,33 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
     DnaStrand_Editcommand, shows its property manager and also shows the 
     resize handles if any.
     """
+        
+    #Graphics Mode 
+    GraphicsMode_class = DnaStrand_GraphicsMode
+    
+    #Property Manager
+    PM_class = DnaStrand_PropertyManager
+    
     cmd              =  'Dna Strand'
-    sponsor_keyword  =  'DNA'
     prefix           =  'Strand '   # used for gensym
     cmdname          = "DNA_STRAND"
+    
     commandName       = 'DNA_STRAND'
-    featurename       = 'Edit_Dna_Strand'
-
+    featurename       = "Edit Dna Strand"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_DNA'
 
     command_should_resume_prevMode = True
-    command_has_its_own_gui = True
-    command_can_be_suspended = False
-
+    command_has_its_own_PM = True
+    
     # Generators for DNA, nanotubes and graphene have their MT name 
     # generated (in GeneratorBaseClass) from the prefix.
     create_name_from_prefix  =  True 
 
     call_makeMenus_for_each_event = True 
 
-    #Graphics Mode 
-    GraphicsMode_class = DnaStrand_GraphicsMode
+    
 
     #@see: self.updateHandlePositions for details on how these variables are 
     #used in computation. 
@@ -141,19 +153,16 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
         ))
 
 
-    def __init__(self, commandSequencer, struct = None):
+    def __init__(self, commandSequencer):
         """
         Constructor for DnaDuplex_EditCommand
         """
 
-        glpane = commandSequencer
+        glpane = commandSequencer.assy.glpane
         State_preMixin.__init__(self, glpane)        
         EditCommand.__init__(self, commandSequencer)
-        self.struct = struct
-
-        #DnaSegment object to which this strand belongs 
-        self._parentDnaSegment = None
-
+        
+        
         #It uses BuildDna_EditCommand.flyoutToolbar ( in other words, that 
         #toolbar is still accessible and not changes while in this command)
         flyoutToolbar = None
@@ -164,32 +173,31 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
 
         #This is used for comarison purpose in model_changed method to decide
         #whether to update the sequence. 
-        self._previousNumberOfBases = None
-
-    def init_gui(self):
+        self._previousNumberOfBases = None                
+        
+    #New Command API method -- implemented on 2008-08-27
+    
+    def command_update_UI(self):
         """
-        Initialize gui. 
-        """
-        #@see DnaSegment_EditCommand.init_gui() for a detailed note. 
-        #This command implements similar thing 
-        self.create_and_or_show_PM_if_wanted(showPropMgr = False)
-
-    def model_changed(self):
+        Overrides superclass method. 
+        @see: baseCommand.command_update_UI()
+        """     
         #This MAY HAVE BUG. WHEN --
         #debug pref 'call model_changed only when needed' is ON
         #See related bug 2729 for details. 
 
         #The following code that updates te handle positions and the strand 
         #sequence fixes bugs like 2745 and updating the handle positions
-        #updating handle positions in model_changed instead of in 
+        #updating handle positions in command_update_UI instead of in 
         #self.graphicsMode._draw_handles() is also a minor optimization
         #This can be further optimized by debug pref 
-        #'call model_changed only when needed' but its NOT done because of an 
-        # issue menitoned in bug 2729   - Ninad 2008-04-07    
-
-        EditCommand.model_changed(self) #This also calls the 
-                                        #propMgr.model_changed 
-
+        #'call command_update_UI only when needed' but its NOT done because of
+        #an issue mentioned in bug 2729   - Ninad 2008-04-07
+        
+        
+        if self.propMgr:
+            self.propMgr.update_UI()
+            
         if self.grabbedHandle is not None:
             return
 
@@ -206,8 +214,7 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
             self.updateHandlePositions()
             #NOTE: The following also updates self._previousParams
             self._updateStrandSequence_if_needed()
-
-
+            
     def keep_empty_group(self, group):
         """
         Returns True if the empty group should not be automatically deleted. 
@@ -231,26 +238,11 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
 
         return bool_keep
 
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager  object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr
-        propMgr = self.win.createDnaStrandPropMgr_if_needed(self)
-        return propMgr
-
+    
     def _gatherParameters(self):
         """
-        Return the parameters from the property manager UI.
-
-        @return: All the parameters (get those from the property manager):
-                 - numberOfBases
-                 - dnaForm
-                 - basesPerTurn
-                 - endPoint1
-                 - endPoint2
-        @rtype:  tuple
+        Return the parameters from the property manager UI. Delegates this to
+        self.propMgr
         """     
         return self.propMgr.getParameters()
 
@@ -273,8 +265,15 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
         See more comments in the method.
         """        
 
-
-        assert self.struct
+        #It could happen that the self.struct is killed before this method 
+        #is called. For example: Enter Edit Dna strand, select the strand, hit 
+        #delete and then hit Done to exit strand edit. Whenever you hit Done, 
+        #modify structure gets called (if old params don't match new ones) 
+        #so it needs to return safely if the structure was not valid due
+        #to some previous operation 
+        if not self.hasValidStructure():
+            return 
+        
         # parameters have changed, update existing structure
         self._revertNumber()
 
@@ -291,13 +290,11 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
                 #  made with)
             name = self.name
 
-        self.dna = B_Dna_PAM3_SingleStrand()
+        self.dna = B_Dna_PAM3_SingleStrand_Generator()
 
         numberOfBases, \
                      dnaForm, \
                      dnaModel, \
-                     basesPerTurn, \
-                     duplexRise, \
                      color_junk = params
         #see a note about color_junk in DnaSegment_EditCommand._modifyStructure()
 
@@ -311,21 +308,28 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
             if resizeEndAxisAtom:
                 dnaSegment = resizeEndAxisAtom.molecule.parent_node_of_class(
                     self.assy.DnaSegment)
-
-                resizeEnd_final_position = self._get_resizeEnd_final_position(
-                    resizeEndAxisAtom, 
-                    abs(numberOfBasesToAddOrRemove),
-                    duplexRise )
-
-                self.dna.modify(dnaSegment, 
-                                resizeEndAxisAtom,
-                                numberOfBasesToAddOrRemove, 
-                                basesPerTurn, 
-                                duplexRise,
-                                resizeEndAxisAtom.posn(),
-                                resizeEnd_final_position,
-                                resizeEndStrandAtom = resizeEndStrandAtom
-                            )                        
+                
+                if dnaSegment:
+                    #A DnaStrand can have multiple DNA Segments with different 
+                    #basesPerTurn and duplexRise so make sure that while 
+                    #resizing the strand, use the dna segment of the 
+                    #resizeEndAxisAtom. Fixes bug 2922 - Ninad 2008-08-04
+                    basesPerTurn = dnaSegment.getBasesPerTurn()                
+                    duplexRise = dnaSegment.getDuplexRise() 
+                                            
+                    resizeEnd_final_position = self._get_resizeEnd_final_position(
+                        resizeEndAxisAtom, 
+                        abs(numberOfBasesToAddOrRemove),
+                        duplexRise )
+    
+                    self.dna.modify(dnaSegment, 
+                                    resizeEndAxisAtom,
+                                    numberOfBasesToAddOrRemove, 
+                                    basesPerTurn, 
+                                    duplexRise,
+                                    resizeEndAxisAtom.posn(),
+                                    resizeEnd_final_position,
+                                    resizeEndStrandAtom = resizeEndStrandAtom )                        
 
         return  
 
@@ -436,8 +440,13 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
         a complimentary sequence to the mate strand.
         @see: Chunk.setStrandSequence
         """
+        if not self.hasValidStructure(): 
+            #Fixes bug 2923            
+            return
+        
         sequenceString = self.propMgr.sequenceEditor.getPlainSequence()
-        sequenceString = str(sequenceString)      
+        sequenceString = str(sequenceString)     
+        
         #assign strand sequence only if it not the same as the current sequence
         seq = self.struct.getStrandSequence()
         
@@ -453,12 +462,7 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
         """
         EditCommand.editStructure(self, struct)        
         if self.hasValidStructure():
-            self._updatePropMgrParams()            
-
-            #TO BE REVISED post dna data model - 2008-02-14
-            if isinstance(self.struct.dad , self.assy.DnaSegment):
-                self._parentDnaSegment = self.struct.dad   
-
+            self._updatePropMgrParams()   
             #For Rattlesnake, we do not support resizing of PAM5 model. 
             #So don't append the exprs handles to the handle list (and thus 
             #don't draw those handles. See self.model_changed() 
@@ -482,8 +486,6 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
                 #numberOfBases, 
                 #dnaForm,
                 #dnaModel,
-                #basesPerTurn,
-                #duplexRise, 
                 #color
 
         self._previousNumberOfBases = self.struct.getNumberOfBases()
@@ -492,9 +494,7 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
 
         params_for_propMgr = ( numberOfBases,
                                None, 
-                               None,
-                               None, 
-                               None,                               
+                               None,                          
                                color )
 
 
@@ -817,17 +817,11 @@ class DnaStrand_EditCommand(State_preMixin, EditCommand):
         #GraphicscMode._draw_handles-- Ninad 2008-04-05
         self.update_numberOfBases()
         
+        text = ""
+        textColor = env.prefs[cursorTextColor_prefs_key] # Mark 2008-08-28
+        
         if not env.prefs[dnaStrandEditCommand_showCursorTextCheckBox_prefs_key]:
-            return '', black
-
-
-        #Note: for Rattlesnake rc2, the text color is green when bases are added
-        #, red when subtracted black when no change. But this implementation is 
-        #changed based on Mark's user experience. The text is now always shown
-        #in black color. -- Ninad 2008-04-17
-        textColor = black     
-
-        text = ""  
+            return text, textColor
         
         numberOfBases = self.propMgr.numberOfBasesSpinBox.value()
         

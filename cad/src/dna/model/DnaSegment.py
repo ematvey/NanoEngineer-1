@@ -12,7 +12,7 @@ DnaSegment.py
       -- may be some more?
 
 @author: Bruce
-@version: $Id: DnaSegment.py 13367 2008-07-09 20:23:40Z ninadsathaye $
+@version: $Id: DnaSegment.py 14450 2008-11-12 18:50:23Z  $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 import foundation.env as env
@@ -67,6 +67,9 @@ class DnaSegment(DnaStrandOrSegment):
     iconPath = "ui/modeltree/DnaSegment.png"
     hide_iconPath = "ui/modeltree/DnaSegment-hide.png"
     
+    copyable_attrs = DnaStrandOrSegment.copyable_attrs + ('_duplexRise', 
+                                                          '_basesPerTurn')
+    
     def __init__(self, name, assy, dad, members = (), editCommand = None):
         
         self._duplexRise = 3.18 #Default value.
@@ -88,15 +91,10 @@ class DnaSegment(DnaStrandOrSegment):
         Edit this DnaSegment. 
         @see: DnaSegment_EditCommand
         """
-        
         commandSequencer = self.assy.w.commandSequencer       
-        
-        if commandSequencer.currentCommand.commandName != "DNA_SEGMENT":
-            commandSequencer.userEnterTemporaryCommand('DNA_SEGMENT')
-            
+        commandSequencer.userEnterCommand('DNA_SEGMENT')
         assert commandSequencer.currentCommand.commandName == 'DNA_SEGMENT'
         commandSequencer.currentCommand.editStructure(self)
-        
         
     def draw_highlighted(self, glpane, color):
         """
@@ -106,8 +104,7 @@ class DnaSegment(DnaStrandOrSegment):
         @param color: The highlight color
         @see: Chunk.draw_highlighted()
         @see: SelectChunks_GraphicsMode.draw_highlightedChunk()
-        @see: SelectChunks_GraphicsMode._get_objects_to_highlight()
-        @see: SelectChunks_GraphicsMode._is_dnaGroup_highlighting_enabled()        
+        @see: SelectChunks_GraphicsMode._get_objects_to_highlight()        
         """            
         #Note: As of 2008-04-07, there is no 'highlightPolicy' for 
         #a DnaSegment like in DnaStrand. 
@@ -117,7 +114,14 @@ class DnaSegment(DnaStrandOrSegment):
             if isinstance(c, DnaAxisChunk):
                 c.draw_highlighted(glpane, color)   
                 
-    
+    def getNumberOfNucleotides(self):
+        """
+        Method provided for conveneince. Returns the number of basepairs 
+        of this dna segment. 
+        @see: PM_DnaSearchResultTable
+        """
+        return self.getNumberOfAxisAtoms()
+                
     def getNumberOfBasePairs(self):  
         #@REVIEW: Is it okay to simply return the number of axis atoms within 
         #the segment (like done below)? But what if there is a bare axis atom 
@@ -128,8 +132,17 @@ class DnaSegment(DnaStrandOrSegment):
         numberOfBasePairs = self.getNumberOfAxisAtoms()
             
         return numberOfBasePairs
-        
     
+    def getDefaultToolTipInfo(self):
+        """
+        """
+        tooltipString = ""
+        n = self.getNumberOfAxisAtoms()
+        tooltipString += "<font color=\"#0000FF\">Parent segment:</font> %s"%(self.name)
+        tooltipString += "<br><font color=\"#0000FF\">Number of axis atoms: </font> %d"%(n)
+        return tooltipString
+    
+
     def getNumberOfAxisAtoms(self): 
         """
         Returns the number of axis atoms present within this dna segment 
@@ -263,6 +276,7 @@ class DnaSegment(DnaStrandOrSegment):
                 content_strand_chunks.extend(ladder.strand_chunks())
                 
         return content_strand_chunks
+            
     
     def getAllAxisAtoms(self):
         allAtomList = []
@@ -272,6 +286,49 @@ class DnaSegment(DnaStrandOrSegment):
                 
         return allAtomList
     
+    def get_all_content_strand_atoms(self):
+        """
+        Return a list of all strand atoms contained within this DnaSegment
+        """
+        ladders = self.getDnaLadders()        
+        
+        strand_rails = []        
+        for ladder in ladders:
+            strand_rails.extend(ladder.strand_rails)
+            
+        strand_atoms = []
+        for rail in strand_rails:
+            strand_atoms.extend(rail.baseatoms)
+        return strand_atoms
+    
+    def get_all_content_three_prime_ends(self):
+        """
+        Return a list of all the three prime end base atoms, contained within
+        this DnaSegment
+        @see:self.get_all_content_strand_atoms()
+        @see:self.get_all_content_five_prime_ends()
+        """
+        strand_atoms = self.get_all_content_strand_atoms()
+        
+        three_prime_end_atoms = filter(lambda atm: atm.isThreePrimeEndAtom(), 
+                                       strand_atoms)
+        return three_prime_end_atoms
+    
+    
+    def get_all_content_five_prime_ends(self):
+        """
+        Return a list of all the five prime end base atoms, contained within
+        this DnaSegment
+        @see:self.get_all_content_strand_atoms()
+        @see:self.get_all_content_three_prime_ends()
+        """
+        strand_atoms = self.get_all_content_strand_atoms()
+        
+        five_prime_end_atoms = filter(lambda atm: atm.isFivePrimeEndAtom(), 
+                                       strand_atoms)
+        return five_prime_end_atoms
+           
+  
     def is_PAM3_DnaSegment(self):
         """
         Returns true if all the baseatoms in the DnaLadders of this segment
@@ -308,6 +365,31 @@ class DnaSegment(DnaStrandOrSegment):
                     ladderList.append(ladder)
         
         return ladderList
+    
+    def get_wholechain(self):
+        """
+        Return the 'wholechain' of this DnaSegment. Method provided for 
+        convenience.
+        Delegates this to self.get_segment_wholechain()
+        """
+        return self.get_segment_wholechain()
+    
+    def get_segment_wholechain(self):
+        """
+        @return: the 'wholechain' of this DnaSegment
+                 (same as wholechain of each of its DnaAxisChunks),
+                 or None if it doesn't have one
+                 (i.e. if it's empty -- should never happen
+                 if called on a live DnaSegment not modified since
+                 the last dna updater run).
+        
+        @see: Wholechain
+        @see: get_strand_wholechain
+        """
+        for member in self.members:
+            if isinstance(member, DnaAxisChunk):
+                return member.wholechain
+        return None
 
     def get_all_content_chunks(self):
         """
@@ -323,17 +405,35 @@ class DnaSegment(DnaStrandOrSegment):
         
         """
         all_content_chunk_list = []
-                    
+                            
         for member in self.members:
             if isinstance(member, DnaAxisChunk):
                 ladder = member.ladder
                 all_content_chunk_list.extend(ladder.all_chunks())
-            elif isinstance(member, Chunk):
-                if member.isAxisChunk() or member.isStrandChunk():
-                    #This code will only be called when dna_updater is disabled
-                    #the conditional check should be removed post dna_data model
-                    all_content_chunk_list.append(member)
-        
+                
+        ##TEST CODE =======================                                                    
+        #Now search for any strand chunks whose strand atoms are not connected 
+        #to the axis atoms, but still logically belong to the DnaSegment. 
+        #A hairpin loop is an example of such a strand chunk
+        axis_end_atoms = self.getAxisEndAtoms()
+        for atm in axis_end_atoms:
+            if not atm:
+                continue
+            strand_atoms = atm.strand_neighbors()
+            ##print "~~~~~~~~~~~~~~~~"
+            for s_atom in strand_atoms:
+                rail = s_atom.molecule.get_ladder_rail()
+                next_rail_base_atoms = rail.neighbor_baseatoms
+                ##print "*** next_rail_base_atoms = ", next_rail_base_atoms
+                for a in next_rail_base_atoms:
+                    if a is None:
+                        continue
+                    ##print "***a.axis_neighbor() = ", a.axis_neighbor()
+                    if not a.axis_neighbor(): 
+                        if a.molecule not in all_content_chunk_list:
+                            all_content_chunk_list.append(a.molecule)
+        ##===================================
+                        
         return all_content_chunk_list 
     
     def getAxisEndAtomAtPosition(self, position):
@@ -397,9 +497,6 @@ class DnaSegment(DnaStrandOrSegment):
             quat = glpane.quat
             vec = atmPosition2 - atmPosition1
             vec = quat.rot(vec)
-            ##print "~~~~~~~~~~~~~~~~~~~~~~"
-            ##print "***vec =", vec
-            ##print "***vec[0] = 0?", vec[0] == 0.0
             if vec[0] < 0.0:
                 atm1, atm2 = atm2, atm1
             elif vec[0] == 0.0 and vec[1] < 0.0:

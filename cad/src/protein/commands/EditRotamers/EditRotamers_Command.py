@@ -1,7 +1,7 @@
 # Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author:    Piotr
-@version:   $Id:$
+@version:   $Id: EditRotamers_Command.py 14380 2008-09-30 17:30:40Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -10,7 +10,7 @@ from commands.SelectChunks.SelectChunks_GraphicsMode import SelectChunks_Graphic
 from command_support.EditCommand import EditCommand
 from utilities.constants import red
 from protein.commands.EditRotamers.EditRotamers_PropertyManager import EditRotamers_PropertyManager
-
+from utilities.GlobalPreferences import MODEL_AND_SIMULATE_PROTEINS
 # == GraphicsMode part
 
 _superclass_for_GM = SelectChunks_GraphicsMode
@@ -29,55 +29,36 @@ class EditRotamers_Command(EditCommand):
     
     """
     # class constants
-    
-    commandName = 'EDIT_ROTAMERS'
-    default_mode_status_text = ""
-    featurename = "Edit Rotamers"
-         
-    hover_highlighting_enabled = True
     GraphicsMode_class = EditRotamers_GraphicsMode
-   
     
-    command_can_be_suspended = False
+    PM_class = EditRotamers_PropertyManager
+           
+    commandName = 'EDIT_ROTAMERS'
+    featurename = "Edit Rotamers"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_PROTEIN'
+    
+    if MODEL_AND_SIMULATE_PROTEINS:
+        command_parent = 'MODEL_AND_SIMULATE_PROTEIN'
+            
     command_should_resume_prevMode = True 
-    command_has_its_own_gui = True
+    command_has_its_own_PM = True
     
     flyoutToolbar = None
-
-    def init_gui(self):
+    
+    def _getFlyoutToolBarActionAndParentCommand(self):
         """
-        Initialize GUI for this mode 
+        See superclass for documentation.
+        @see: self.command_update_flyout()
         """
-        previousCommand = self.commandSequencer.prevMode 
-        if previousCommand.commandName == 'BUILD_PROTEIN':
-            try:
-                self.flyoutToolbar = previousCommand.flyoutToolbar
-                self.flyoutToolbar.editRotamersAction.setChecked(True)
-            except AttributeError:
-                self.flyoutToolbar = None
-            if self.flyoutToolbar:
-                if not self.flyoutToolbar.editRotamersAction.isChecked():
-                    self.flyoutToolbar.editRotamersAction.setChecked(True)         
-            
-                
-        if self.propMgr is None:
-            self.propMgr = EditRotamers_PropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494.
-            #This bug is mitigated as propMgr object no longer gets recreated
-            #for modes -- niand 2007-08-29
-            changes.keep_forever(self.propMgr)  
-            
-        self.propMgr.show()
-            
-        
-    def restore_gui(self):
-        """
-        Restore the GUI 
-        """
-        EditCommand.restore_gui(self)
-        if self.flyoutToolbar:
-            self.flyoutToolbar.editRotamersAction.setChecked(False)    
-        
+        flyoutActionToCheck = 'editRotamersAction'
+        if MODEL_AND_SIMULATE_PROTEINS:
+            parentCommandName = 'MODEL_AND_SIMULATE_PROTEIN'    
+        else:
+            parentCommandName = None
+        return flyoutActionToCheck, parentCommandName
+    
     def keep_empty_group(self, group):
         """
         Returns True if the empty group should not be automatically deleted. 

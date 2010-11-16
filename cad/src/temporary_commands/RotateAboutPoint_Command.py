@@ -3,7 +3,7 @@
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id$
+@version: $Id: RotateAboutPoint_Command.py 14382 2008-09-30 17:52:29Z ninadsathaye $
 
 History:
 
@@ -13,8 +13,8 @@ conference. This may be revised further.
 -- Need documentation
 """
 
-from temporary_commands.LineMode import LineMode
-from temporary_commands.LineMode import LineMode_GM
+from temporary_commands.LineMode.Line_Command import Line_Command
+from temporary_commands.LineMode.Line_GraphicsMode import Line_GraphicsMode
 import foundation.env as env
 from utilities.prefs_constants import atomHighlightColor_prefs_key
 from model.chem import Atom # for isinstance check as of 2008-04-17
@@ -22,11 +22,11 @@ from model.chem import Atom # for isinstance check as of 2008-04-17
 from geometry.VQT import cross, norm, Q
 from Numeric import dot
 
+from utilities.debug import print_compact_stack
 
+_superclass_for_GM = Line_GraphicsMode
 
-_superclass_for_GM = LineMode_GM
-
-class RotateAboutPoint_GraphicsMode(LineMode_GM):
+class RotateAboutPoint_GraphicsMode(Line_GraphicsMode):
 
     pivotAtom = None
 
@@ -75,12 +75,21 @@ class RotateAboutPoint_GraphicsMode(LineMode_GM):
     def leftUp(self, event):
         """
         Event handler for Left Mouse button left-up event
+        @see: Line_Command._f_results_for_caller_and_prepare_for_new_input()
         """
         if  self.command.mouseClickLimit is None:
             if len(self.command.mouseClickPoints) == 2:
                 self.endPoint2 = None
                 self.command.rotateAboutPoint()
-                self.command.restore_gui()
+                try:
+                    self.command._f_results_for_caller_and_prepare_for_new_input()
+                except AttributeError:
+                    print_compact_traceback(
+                        "bug: command %s has no attr"\
+                        "'_f_results_for_caller_and_prepare_for_new_input'.")
+                    self.command.mouseClickPoints = []
+                    self.resetVariables()
+        
                 self.glpane.gl_update()
             return
 
@@ -93,7 +102,8 @@ class RotateAboutPoint_GraphicsMode(LineMode_GM):
             self._standardAxisVectorForDrawingSnapReference = None
             self.glpane.gl_update()
             self.command.rotateAboutPoint()
-            self.command.Done(exit_using_done_or_cancel_button = False)
+            #Exit this GM's command (i.e. the command 'RotateAboutPoint')
+            self.command.command_Done()
             return
 
 
@@ -113,12 +123,12 @@ class RotateAboutPoint_GraphicsMode(LineMode_GM):
             self.glpane.setCursor(self.win.rotateAboutPointCursor)
 
 
-class RotateAboutPoint_Command(LineMode):
-
+class RotateAboutPoint_Command(Line_Command):
+    
+   
     GraphicsMode_class = RotateAboutPoint_GraphicsMode
 
     commandName = 'RotateAboutPoint'
-    default_mode_status_text = ""
     featurename = "Rotate About Point"
         # (I don't know if this featurename is ever user-visible;
         #  if it is, it's probably wrong -- consider overriding
@@ -127,6 +137,8 @@ class RotateAboutPoint_Command(LineMode):
         #  The default implementation returns this constant
         #  or (if it's not overridden in subclasses) something
         #  derived from it. [bruce 071227])
+    from utilities.constants import CL_REQUEST
+    command_level = CL_REQUEST
 
     def rotateAboutPoint(self):
         """
@@ -170,10 +182,9 @@ class RotateAboutPoint_Command(LineMode):
         cross_prod_2 = norm(cross(lineVector, rot_axis))
 
         if dot(cross_prod_1, cross_prod_2) < 0:
-            quat2 = Q(rot_axis,  theta)
+            quat2 = Q(rot_axis, theta)
         else:
-            quat2 = Q(rot_axis,  - theta)
-
+            quat2 = Q(rot_axis, - theta)
 
         movables = self.graphicsMode.getMovablesForLeftDragging()
         self.assy.rotateSpecifiedMovables(
@@ -182,25 +193,24 @@ class RotateAboutPoint_Command(LineMode):
             commonCenter = startPoint)
 
         self.glpane.gl_update()
-
-
-    def restore_gui(self):
-        """
-        Restore the GUI
-        """
-
-        prevMode = self.commandSequencer.prevMode
-        #Clean this up -- acceptParamsFromTemporaryMode is only needed for the
-        #unchecking the 'RotateAboutPoint checkbox in the previous mode
-        #(ie in the Mov Property Manager. )
-
-        if hasattr(prevMode, 'acceptParamsFromTemporaryMode'):
-            params = ()
-            prevMode.acceptParamsFromTemporaryMode(
-                self.commandName,
-                params)
-            #clear the list
-            self.mouseClickPoints = []
-
-        self.graphicsMode.resetVariables()
         return
+
+    def _results_for_request_command_caller(self):
+        """
+        @return: tuple of results to return to whatever "called"
+                 self as a "request command"
+        
+        [overrides Line_GraphicsMode method]
+        @see: Line_Command._f_results_for_caller_and_prepare_for_new_input()
+        """
+        #bruce 080801 split this out of former restore_gui method (now inherited).
+        
+        # note (updated 2008-09-26): superclass Line_Command.command_entered()
+        # sets self._results_callback,and superclass command_will_exit()
+        #calls it with this method's return value
+        return ()
+    
+    
+        pass # end of class RotateAboutPoint_Command
+
+# end

@@ -40,7 +40,7 @@ def _replace_atom(atom, newatom): # move into chem.py, at least in part
     newatom.molecule = mol
     mol.atoms[key] = newatom
     atom.molecule = None
-    # tell chunk to inval its atom list??
+    }# tell chunk to inval its atom list??
     assert not newatom.jigs
     newatom.jigs = atom.jigs
     atom.jigs = []
@@ -56,7 +56,7 @@ def _replace_atom(atom, newatom): # move into chem.py, at least in part
             bond.atom2 = newatom
     if mol._hotspot is atom:
         mol._hotspot is newatom
-    # and more... see above
+    }# and more... see above
     return
 
 def in_some_other_func():

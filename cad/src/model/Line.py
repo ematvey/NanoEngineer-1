@@ -2,7 +2,7 @@
 """
 @author: Ninad
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: Line.py 12879 2008-05-21 16:22:55Z russfish $
+@version:$Id: Line.py 13795 2008-08-05 18:16:50Z marksims $
 
 History:
 Ninad 20070703 : Created 
@@ -32,7 +32,6 @@ class Line(ReferenceGeometry):
     sym = "Line" 
     is_movable = True 
     icon_names = ["modeltree/plane.png", "modeltree/plane-hide.png"]
-    sponsor_keyword = 'Line' 
     copyable_attrs = ReferenceGeometry.copyable_attrs 
     mmp_record_name = "line"
     

@@ -11,7 +11,7 @@ yet. [That goal may be impractical and not really necessary, given
 the kinds of things in it so far -- bruce 080220 comment]
 
 @author: Eric Messick
-@version: $Id: GlobalPreferences.py 13051 2008-06-03 19:26:21Z brucesmith $
+@version: $Id: GlobalPreferences.py 14420 2008-10-06 18:35:36Z brucesmith $
 @copyright: 2006-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -284,7 +284,7 @@ pref_drop_onto_Group_puts_nodes_at_top()
 # ==
 
 def _kluge_global_mt_update():
-    from foundation import env
+    import foundation.env as env
         # note: this doesn't cause a module import cycle,
         # but it might be an undesirable inter-package import.
         # (it's also done in a few other places in this file.)
@@ -453,5 +453,68 @@ def pref_skip_redraws_requested_only_by_Qt():
     return res
 
 pref_skip_redraws_requested_only_by_Qt()
+
+# ==
+
+def debug_pref_support_Qt_4point2(): #bruce 080725
+    res = debug_pref("support Qt 4.2 (next session)?",
+                     Choice_boolean_False,
+                     prefs_key = True
+                    )
+    return res
+
+# ==
+
+ENABLE_PROTEINS = debug_pref("Enable Proteins? (next session)",
+                             Choice_boolean_True,
+                             non_debug = True,
+                             prefs_key = "v1.2/Enable Proteins?"
+                            )
+
+MODEL_AND_SIMULATE_PROTEINS = debug_pref("Enable model and simulate protein flyout? (next session)",
+    Choice_boolean_True,
+    non_debug = True,
+    prefs_key = "v1.2/Enable model and simulate protein flyout?"
+ )
+
+# ==
+
+def _debug_pref_keep_signals_always_connected(): #Ninad 2008-08-13
+    #If the above flag, if True, signals are connected when PM is created 
+    # (always True by default) If this is False, the signals are connected
+    #in show() method of the PM and disconnected in the close() method
+    
+    ##Based on Bruce's comment 2008-09-23: 
+    ## The following bug is unlikely because presumably the user can never see 
+    ## the old PM object and the underlying call is a memory leak 
+    ## issue than anything else (harder to fix) -- 
+    ## What happens when you are in something with signals (e.g. extrude) and do 
+    ## file->close or file->open.
+    ## A bug could happen if the signals remain connected to the old command 
+    ##object. ....
+
+    res = debug_pref("Keep signals always connected (next session)?",
+                     #bruce 080925 revised menu text
+                     Choice_boolean_True,
+                     prefs_key = True
+                    )
+    return res
+
+KEEP_SIGNALS_ALWAYS_CONNECTED = _debug_pref_keep_signals_always_connected()
+
+# ==
+
+def _debug_pref_break_strands_feature(): #Ninad 2008-08-18
+    #debug flag for experimental code Ninad is
+    #working on (various break strands options). 
+    #Note that this flag is also used in BreakStrand_Command
+    #UPDATE 2008-08-19: This preference is set to True by default
+    res = debug_pref("DNA: debug new break strands options feature (next session)",
+                     Choice_boolean_False,
+                     prefs_key = True
+                    )
+    return res
+
+DEBUG_BREAK_OPTIONS_FEATURE = _debug_pref_break_strands_feature()
 
 # end

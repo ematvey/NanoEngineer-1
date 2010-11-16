@@ -1,7 +1,7 @@
 # Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author:    Urmi
-@version:   $Id: ColorScheme_Command.py 12835 2008-05-19 18:58:51Z urmim $
+@version:   $Id: ColorScheme_Command.py 14380 2008-09-30 17:30:40Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -29,47 +29,19 @@ class ColorScheme_Command(EditCommand):
     """
     
     """
-    # class constants
+    # class constants  
     
-    # not sure which class should it inherit
-    
+    #@TODO: may be it should inherit Select_Command. Check. 
+       
     commandName = 'COLOR_SCHEME'
-    default_mode_status_text = ""
     featurename = "Color Scheme"
+    from utilities.constants import CL_GLOBAL_PROPERTIES
+    command_level = CL_GLOBAL_PROPERTIES
          
-    hover_highlighting_enabled = True
     GraphicsMode_class = ColorScheme_GraphicsMode
-   
     
-    command_can_be_suspended = False
+    PM_class = ColorScheme_PropertyManager
+    
     command_should_resume_prevMode = True 
-    command_has_its_own_gui = True
-    
-    flyoutToolbar = None
-
-    def init_gui(self):
-        """
-        Initialize GUI for this mode 
-        """
-        
-        
-        if self.propMgr is None:
-            self.propMgr = ColorScheme_PropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494.
-            #This bug is mitigated as propMgr object no longer gets recreated
-            #for modes -- niand 2007-08-29
-            changes.keep_forever(self.propMgr)  
-            
-        self.propMgr.show()
-            
-        
-    def restore_gui(self):
-        """
-        Restore the GUI 
-        """
-            
-        if self.propMgr is not None:
-            self.propMgr.close()
-    
-   
+    command_has_its_own_PM = True
     

@@ -13,7 +13,7 @@ See also: class Node_api in modelTreeGui.py (which is only the part
 of the API needed by the ModelTree).
 
 @author: Josh
-@version: $Id: Utility.py 13305 2008-07-02 17:29:03Z brucesmith $
+@version: $Id: Utility.py 14458 2008-11-17 18:14:29Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -39,6 +39,8 @@ from foundation.state_constants import S_PARENT, S_DATA, S_CHILD
 from utilities.icon_utilities import imagename_to_pixmap
 
 from foundation.Assembly_API import Assembly_API
+
+from widgets.simple_dialogs import grab_text_line_using_dialog
 
 debug_undoable_attrs = False
 
@@ -225,8 +227,7 @@ class Node( StateMixin):
             name_msg = " (exception in `self.name`)"
         return "<%s at %#x%s>" % (classname, id(self), name_msg)
 
-    def setAssy(self, assy):
-        #bruce 051227, Node method [used in depositMode; TODO: rename to avoid confusion with GLPane method]
+    def set_assy(self, assy): #bruce 051227, Node method [used in PartLibrary_Command]
         """
         Change self.assy from its current value to assy,
         cleanly removing self from the prior self.assy if that is not assy.
@@ -329,33 +330,27 @@ class Node( StateMixin):
             # important to do this in subclass, not in self or Node
         return
 
-    def parent_node_of_class(self, class_or_classname):
+    def parent_node_of_class(self, clas):
         """
         If self has a parent Node in the current part
-        with the given class_or_classname (known to self.assy
-         via Assembly.register_classname),
-        or a subclass of the class that refers to,
+        (or a grandparent node, etc, but not self)
+        which is an instance of clas,
         return the innermost such node; otherwise return None.
 
-        @param class_or_classname: a class or registered classname.
-                                   (The classname case is NIM in
-                                    self.assy.class_or_classname_to_class
-                                    except for a few hardcoded examples,
-                                    as of 080115. String args can be useful
-                                    for avoiding import cycles. But it's better
-                                    to use the class Assembly attributes which
-                                    are named after classes and whose values are
-                                    those classes, in order to pass actual classes
-                                    to this method, and to extend that list as
-                                    needed.
-                                    )
+        @rtype: a Group (an instance of clas), or None
+
+        @param clas: a class (only useful if it's Group or a subclass of Group)
+
+        @see: get_topmost_subnodes_of_class (method in Group and Part)
+
+        @note: for advice on avoiding import cycles when passing a class,
+               see docstring of Group.get_topmost_subnodes_of_class.
         """
-        #bruce 071206; revised docstring 080310
+        #bruce 071206; revised 080808
         part = self.part
         node = self.dad
-        class1 = self.assy.class_or_classname_to_class(class_or_classname)
         while node and node.part is part:
-            if isinstance( node, class1): ## was: issubclass( node.__class__, class1)
+            if isinstance( node, clas):
                 # assert not too high in internal MT
                 assy = self.assy
                 assert node.assy is assy
@@ -778,6 +773,54 @@ class Node( StateMixin):
             self.assy.changed()
         ###e should inval any observers (i.e. model tree) -- not yet needed, I think [bruce 050119]
         return (True, name)
+    
+    def rename_using_dialog(self):
+        """        
+        Rename this node using a popup dialog, whn, user chooses to do
+        so either from the MT or from the 3D workspace. 
+        
+        """
+        #This method is moved (with some modifications) from modelTreeGui.py so as
+        #to facilitate renaming nodes from the 3D workspace as well.
+        #The method was originally written by Bruce  -- Ninad 2008-11-17
+        
+        # Don't allow renaming while animating (b/w views). 
+        
+        assy = self.assy
+        win = assy.win
+        glpane = assy.glpane
+        
+        if glpane.is_animating:
+            return
+        # Note: see similar code in setModelData in another class.
+        ##e Question: why is renaming the toplevel node not permitted? Because we'll lose the name when opening the file?
+        oldname = self.name
+        ok = self.rename_enabled()
+        # Various things below can set ok to False (if it's not already)
+        # and set text to the reason renaming is not ok (for use in error messages).
+        # Or they can put the new name in text, leave ok True, and do the renaming.
+        if not ok:
+            text = "Renaming this node is not permitted."
+                #e someday we might want to call try_rename on fake text
+                # to get a more specific error message... for now it doesn't have one.
+        else:
+            ok, text = grab_text_line_using_dialog(
+                            title = "Rename",
+                            label = "new name for node [%s]:" % oldname,
+                            iconPath = "ui/actions/Edit/Rename.png",
+                            default = oldname )
+        if ok:
+            ok, text = self.try_rename(text)
+        if ok:
+            msg = "Renamed node [%s] to [%s]" % (oldname, text) ##e need quote_html??
+            env.history.statusbar_msg(msg)
+            win.mt.mt_update() #e might be redundant with caller; if so, might be a speed hit
+        else:
+            msg = "Can't rename node [%s]: %s" % (oldname, text) # text is reason why not
+            env.history.statusbar_msg(msg)
+        return
+    
+        
 
     def drag_move_ok(self): # renamed/split from drag_enabled; docstring revised 050201
         """
@@ -974,9 +1017,7 @@ class Node( StateMixin):
             self.changed_selection() #bruce 060227
             self.change_current_selgroup_to_include_self()
                 # note: stops at a picked dad, so should be fast enough during recursive use
-        # we no longer call mode.UpdateDashboard() from here;
-        # clipboard selection no longer affects Build mode dashboard. [bruce 050124]
-
+        
     def ModelTree_plain_left_click(self): #bruce 080213 addition to Node API
         """
         Subclasses which want side effects from a plain, direct left click
@@ -1574,14 +1615,14 @@ class Node( StateMixin):
         # to verify it's not called when it shouldn't be (e.g. when that node might still be revived by Undo). ###@@@
         # BTW, as of 060322 the appropriate init, alloc, and draw code for glname is only done (or needed) in Jig.
 
-        ## env.dealloc_my_glselect_name( self, self.glname ) -- only ok for some subclasses; some have ._glname instead
+        ## self.assy.dealloc_my_glselect_name( self, self.glname ) -- only ok for some subclasses; some have ._glname instead
 
         ##e more is needed too... see Atom and Bond methods
         # do we want this:
         ## self.__dict__.clear() ###k is this safe???
         return
 
-    def remove_from_parents(self): #bruce 051227 split this out of Node.kill for use in new Node.setAssy
+    def remove_from_parents(self): #bruce 051227 split this out of Node.kill for use in new Node.set_assy
         """
         Remove self from its parents of various kinds
         (part, dad, assy, selection) without otherwise altering it.
@@ -1615,7 +1656,7 @@ class Node( StateMixin):
             #bruce 060315 comments about this old code:
             # reasons to set assy to None:
             # - helps avoid cycles when destroying Nodes
-            # - logical part of setAssy (but could wait til new assy is stored)
+            # - logical part of set_assy (but could wait til new assy is stored)
             # reasons not to:
             # - Undo-tracked changes might like to use it to find the right AssyUndoArchive to tell about the change
             #   (can we fix that by telling it right now? Not sure... in theory, more than one assy could claim it if we Undo in some!)
@@ -1781,44 +1822,45 @@ class Node( StateMixin):
                                 dispdef, 
                                 pickCheckOnly = False):
         """
-        Things to draw after highlighting. Subclasses should override this 
-        method. Default implementation returns False (nothing is drawn)
+        Things to draw after highlighting. Subclasses can override this 
+        method. Default implementation draws nothing and returns False
+        (which is correct for most kinds of Nodes, at present).
         
-        Draw anything of self (or its members if its a Group)
-        that needs to be drawn AFTER the main code is done with he main drawing 
+        Draw the part of self's graphical appearance (or that of its members
+        if its a Group) that needs to be drawn AFTER the main drawing 
         code has completed its highlighting/stenciling for selobj.
         
-        @param pickCheckOnly: This flag in conjunction with this API method
-                allows selection of the plane when you click inside the plane 
-                 (i.e. not along the highlighted plane borders) . 
-                 (Note flag copied over from the old implementation 
-                 before 2008-06-20)
+        @param pickCheckOnly: [needs documentation of its effect]
+                              (for example use, see this method in class Plane)
         @type pickCheckOnly: boolean
         
         @return: A boolean flag 'anythingDrawn' that tells whether this method
         drew something. 
         @rtype: boolean
         
-        @TODO: The return type anythingDrawn is retained from the old 
-        implementationas some other code in SelectGraphicsMode._calibrateZ 
-        apparently uses it. Need to check if that code is used anywhere.
-        
         @see: GraphicsMode.Draw_after_highlighting() which returns this method
         @see: Group.draw_after_highlighting()
         @see: Plane.draw_after_highlighting()     
         """
         #Ninad 2008-06-20: This is a new API method that completely 
-        #replaces the implementation originally in method Utility._drawESPImage()
+        #replaces the implementation originally in method Utility._drawESPImage().
         #Also did many bug fixes in the original implementation. 
+        #
+        ###TODO: The return value anythingDrawn is retained from the old 
+        # implementation, as some other code in SelectGraphicsMode._calibrateZ 
+        # apparently uses it. Need to check if that code is used anywhere.
+        # [bruce 080917 adds: Yes, it's used in jigGLSelect and
+        #  get_jig_under_cursor, which are still needed for now,
+        #  though they should be removed someday. That is probably the
+        #  only ultimate use of this return value (not sure).]
         anythingDrawn = False
         return anythingDrawn
-
 
     def draw_in_abs_coords(self, glpane, color): #bruce 050729 to fix some bugs caused by Huaicai's jig-selection code
         """
         Default implementation of draw_in_abs_coords. Some implem is needed
         by any nodes or other drawable objects which get registered with
-        env.alloc_my_glselect_name and thereby need to provide Selobj_API.
+        self.assy.alloc_my_glselect_name and thereby need to provide Selobj_API.
 
         [Subclasses which are able to use color for highlighting in Build mode,
          or which want to look different when highlighted in Build mode,

@@ -7,7 +7,7 @@ This file can be merged into the command class, once it's possible
 for the PM code to get these values directly from the staterefs
 (an intended improvement).
  
-$Id: test_connectWithState_constants.py 11951 2008-03-14 04:44:50Z ericmessick $
+$Id: test_connectWithState_constants.py 14180 2008-09-09 23:31:27Z brucesmith $
 
 History:
 
@@ -34,9 +34,9 @@ def cylinder_round_caps():
 # The state for cylinder width, cylinder color [nim], and cylinder orientation
 # is defined using the State macro in the command object (not in this file).
 # It could be referenced by the PM class in this file by:
-# - self.commandrun.cylinderWidth
-# - self.commandrun.cylinderColor (nim)
-# - self.commandrun.cylinderVertical (###NIM)
+# - self.command.cylinderWidth
+# - self.command.cylinderColor (nim)
+# - self.command.cylinderVertical (###NIM)
 # but in fact is referenced indirectly using string literals for those attr names.
 
 CYLINDER_VERTICAL_DEFAULT_VALUE = True

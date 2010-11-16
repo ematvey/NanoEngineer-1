@@ -1,12 +1,11 @@
-# Copyright 2007 Nanorex, Inc.  See LICENSE file for details.
-
+# Copyright 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 TemporaryCommand.py -- provides several kinds of TemporaryCommand superclasses
 (so far, just TemporaryCommand_Overdrawing, used for Zoom/Pan/Rotate).
 
 @author:    Mark, Bruce
-@version:   $Id: TemporaryCommand.py 13389 2008-07-10 21:14:24Z ninadsathaye $
-@copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
+@version:   $Id: TemporaryCommand.py 14380 2008-09-30 17:30:40Z ninadsathaye $
+@copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 @license:   GPL
 """
 
@@ -23,10 +22,9 @@ class TemporaryCommand_preMixin(commonCommand):
     A pre-Mixin class for Command subclasses
     which want to act as temporary commands.
     """
-    command_can_be_suspended = False #bruce 071011
     command_should_resume_prevMode = True #bruce 071011, to be revised (replaces need for customized Done method)
     #See Command.anyCommand for detailed explanation of the following flag
-    command_has_its_own_gui = False
+    command_has_its_own_PM = False
     pass
 
 
@@ -34,20 +32,17 @@ class TemporaryCommand_preMixin(commonCommand):
 
 class ESC_to_exit_GraphicsMode_preMixin(commonGraphicsMode):
     """
-    A pre-Mixin class for GraphicsModes which overrides their keyPress method
-    to call self.command.Done() when the ESC key is pressed,
-    but delegate all other keypresses to the superclass.
-    NOTE: The default mode or command will override this implementation 
-    (i.e. while in default command which is 'Select chunks', hitting Escape key 
-    will not exit that command. This is intentional)
+    A pre-mixin class for GraphicsModes which overrides their keyPress method
+    to call self.command.command_Done() when the ESC key is pressed
+    if self.command.should_exit_when_ESC_key_pressed() returns true,
+    or to call assy.selectNone otherwise,
+    but which delegates all other keypresses to the superclass.
     """
     def keyPress(self, key):
-        # ESC - Exit our command.
+        # ESC - Exit our command, if it permits exit due to ESC key.
         if key == Qt.Key_Escape:
-            #Escape key to exit should not exit the command if it's the 
-            #default command (which is select chunks or 'SELECTMOLS') [ninad 080709]
             if self.command.should_exit_when_ESC_key_pressed():
-                self.command.Done(exit_using_done_or_cancel_button = False)
+                self.command.command_Done()
             else:
                 self.glpane.assy.selectNone()
         else:
@@ -63,7 +58,7 @@ class ESC_to_exit_GraphicsMode_preMixin(commonGraphicsMode):
 
 class Overdrawing_GraphicsMode_preMixin(commonGraphicsMode):
     """
-    A pre-Mixin class for GraphicsModes which overrides their Draw method
+    A pre-mixin class for GraphicsModes which overrides their Draw method
     to do the saved prior command's drawing
     (perhaps in addition to their own, if they subclass this
      and further extend its Draw method, or if they do incremental
@@ -76,9 +71,9 @@ class Overdrawing_GraphicsMode_preMixin(commonGraphicsMode):
      Same one as in extrudeMode, maybe other commands.))
     """
     def Draw(self):
-        drew = self.commandSequencer.prior_command_Draw(self.command)
+        drew = self.commandSequencer.parentCommand_Draw( self.command)
             # doing this fixes the bug in which Pan etc doesn't show the right things
-            # for Cookie or Extrude modes (e.g. bond-offset spheres in Extrude)
+            # for BuildCrystal or Extrude modes (e.g. bond-offset spheres in Extrude)
         if not drew:
             # (This means no prior command was found. It is unrelated to any Draw method
             #  return value, since there isn't one.)
@@ -115,11 +110,13 @@ class TemporaryCommand_Overdrawing( TemporaryCommand_preMixin,
     Provides the declarations that make a command temporary,
     a binding from the Escape key to the Done method,
     and a Draw method which delegates to the Draw method
-    of the saved prior command (commandSequencer.prevMode).
-    Otherwise inherits directly from Command, and its
-    GraphicsMode component from GraphicsMode.
+    of the saved parentCommand.
+    
+    In other respects, inherits behavior from Command
+    and GraphicsMode.
     """
     GraphicsMode_class = _TemporaryCommand_Overdrawing_GM
+    __abstract_command_class = True
     featurename = "Undocumented Temporary Command"
         # (I don't know if this featurename is ever user-visible;
         #  if it is, it's probably wrong -- consider overriding

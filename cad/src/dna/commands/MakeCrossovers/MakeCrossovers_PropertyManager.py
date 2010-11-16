@@ -4,7 +4,7 @@ MakeCrossovers_PropertyManager.py
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: MakeCrossovers_PropertyManager.py 13151 2008-06-09 17:26:26Z marksims $
+@version:$Id: MakeCrossovers_PropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 
 History:
 
@@ -13,8 +13,7 @@ See MakeCrossovers_Command for details.
 """
 import foundation.env as env
 
-from widgets.DebugMenuMixin import DebugMenuMixin
-from PM.PM_Dialog import PM_Dialog
+
 from PM.PM_SelectionListWidget import PM_SelectionListWidget
 from PM.PM_GroupBox import PM_GroupBox
 from PM.PM_PushButton import PM_PushButton
@@ -35,10 +34,11 @@ from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
 from ne1_ui.WhatsThisText_for_PropertyManagers import whatsThis_MakeCrossoversPropertyManager
 from utilities.Log import orangemsg
 
-_superclass = PM_Dialog
-class MakeCrossovers_PropertyManager( PM_Dialog, 
-                                      ListWidgetItems_PM_Mixin,
-                                      DebugMenuMixin ):
+from command_support.Command_PropertyManager import Command_PropertyManager
+
+_superclass = Command_PropertyManager
+class MakeCrossovers_PropertyManager( Command_PropertyManager, 
+                                      ListWidgetItems_PM_Mixin ):
     """
     The MakeCrossovers_PropertyManager class provides a Property Manager 
     for the B{Make Crossovers} command on the flyout toolbar in the 
@@ -61,30 +61,21 @@ class MakeCrossovers_PropertyManager( PM_Dialog,
     iconPath      =  "ui/actions/Command Toolbar/Crossover.png"
 
 
-    def __init__( self, parentCommand):
+    def __init__( self, command):
         """
         Constructor for the property manager.
         """
 
-        self.parentMode = parentCommand
-        #We will use self.command hereonwards. self.parentMode is still declared
-        #for safety -- 2008-05-29
-        self.command = self.parentMode
-
-        self.w = self.parentMode.w
-        self.win = self.parentMode.w
-        self.pw = self.parentMode.pw        
-        self.o = self.win.glpane        
+            
 
         self.isAlreadyConnected = False
         self.isAlreadyDisconnected = False
 
         self._previous_model_changed_params = None
 
-        _superclass.__init__(self, self.pmName, self.iconPath, self.title)
+        _superclass.__init__(self, command)
 
-        DebugMenuMixin._init1( self )
-
+        
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_WHATS_THIS_BUTTON)
         
@@ -93,14 +84,8 @@ class MakeCrossovers_PropertyManager( PM_Dialog,
          cylinder pair will make that crossover."""
 
         self.updateMessage(self.defaultLogMessage)
-
-
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """      
-        self.win.toolsDone()
-
+        
+      
     def connect_or_disconnect_signals(self, isConnect):
         """
         Connect or disconnect widget signals sent to their slot methods.
@@ -159,20 +144,13 @@ class MakeCrossovers_PropertyManager( PM_Dialog,
         Overrides the superclass method
         @see: self._deactivateAddRemoveSegmentsTool
         """
-        _superclass.show(self)
-        self.connect_or_disconnect_signals(True)
-        ##self.updateListWidgets()       
+        _superclass.show(self)             
         self._deactivateAddRemoveSegmentsTool()
-        self._previous_model_changed_params = None
-
-    def close(self):
-        _superclass.close(self)
-        self.connect_or_disconnect_signals(False)
-
-
+     
+    
 
     def _makeAllCrossovers(self):
-        self.parentMode.makeAllCrossovers()
+        self.command.makeAllCrossovers()
 
 
     def _addGroupBoxes( self ):
@@ -210,11 +188,11 @@ class MakeCrossovers_PropertyManager( PM_Dialog,
             label     = "",
             text      = "Make All Crossovers",
             spanWidth = True )
-        
 
-    def model_changed(self): 
+    def _update_UI_do_updates(self):
         """
-        @see: DnaSegment_EditCommand.model_changed()
+        @see: Command_PropertyManager._update_UI_do_updates()
+        @see: DnaSegment_EditCommand.command_update_UI()
         @see: DnaSegment_EditCommand.hasResizableStructure()
         @see: self._current_model_changed_params()
         """
@@ -225,6 +203,7 @@ class MakeCrossovers_PropertyManager( PM_Dialog,
         #params are the same. 
         if same_vals(currentParams, self._previous_model_changed_params):
             return 
+        
 
         number_of_segments, \
                           crossover_search_pref_junk,\

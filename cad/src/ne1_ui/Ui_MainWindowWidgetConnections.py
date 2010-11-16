@@ -6,7 +6,7 @@ Creates all signal-slot connections for all Main Window widgets used in menus
 and toolbars.
 
 @author: Mark
-@version: $Id: Ui_MainWindowWidgetConnections.py 13418 2008-07-13 14:07:50Z urmim $
+@version: $Id: Ui_MainWindowWidgetConnections.py 14453 2008-11-14 02:48:15Z  $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -57,8 +57,9 @@ def setupUi(win):
                 SIGNAL("triggered()"), 
                 win.enterProteinDisplayStyleCommand)
     
-    win.connect(win.editRenameAction,SIGNAL("triggered()"),win.editRename)
-    win.connect(win.editRenameObjectsAction,SIGNAL("triggered()"),win.editRenameSelectedObjects)
+    # editRenameAction deprecated. Use editRenameSelection. Mark 2008-11-13.
+    #win.connect(win.editRenameAction,SIGNAL("triggered()"),win.editRename)
+    win.connect(win.editRenameSelectionAction,SIGNAL("triggered()"),win.editRenameSelection)
     win.connect(win.editAddSuffixAction,SIGNAL("triggered()"),win.editAddSuffix)
     win.connect(win.pasteFromClipboardAction, 
                 SIGNAL("triggered()"),
@@ -122,6 +123,9 @@ def setupUi(win):
     win.connect(win.fileInsertPdbAction,
                 SIGNAL("triggered()"),
                 win.fileInsertPdb)
+    win.connect(win.fileInsertInAction,
+                SIGNAL("triggered()"),
+                win.fileInsertIn)
     win.connect(win.fileExportQuteMolXPdbAction,
                 SIGNAL("triggered()"),
                 win.fileExportQuteMolXPdb)
@@ -157,7 +161,6 @@ def setupUi(win):
     win.connect(win.buildDnaAction,SIGNAL("triggered()"),win.activateDnaTool)
     win.connect(win.buildNanotubeAction,SIGNAL("triggered()"),win.activateNanotubeTool)
     win.connect(win.insertCommentAction,SIGNAL("triggered()"),win.insertComment)
-    win.connect(win.nanotubeGeneratorAction,SIGNAL("triggered()"),win.generateNanotube)
     win.connect(win.insertGrapheneAction,SIGNAL("triggered()"),win.insertGraphene)
 
     win.connect(win.jigsAnchorAction,SIGNAL("triggered()"),win.makeAnchor)
@@ -209,6 +212,7 @@ def setupUi(win):
     win.connect(win.selectInvertAction,SIGNAL("triggered()"),win.selectInvert)
     win.connect(win.selectNoneAction,SIGNAL("triggered()"),win.selectNone)
     win.connect(win.selectLockAction,SIGNAL("toggled(bool)"),win.selectLock)
+    win.connect(win.selectByNameAction,SIGNAL("toggled(bool)"),win.toggle_selectByNameDockWidget)
     
     ##win.connect(win.helpTipAction,SIGNAL("triggered()"), win.toggleQuickHelpTip)
 
@@ -242,14 +246,17 @@ def setupUi(win):
     win.connect(win.simPlotToolAction,SIGNAL("triggered()"),win.simPlot)
     win.connect(win.simSetupAction,SIGNAL("triggered()"),win.simSetup)
     win.connect(win.rosettaSetupAction,SIGNAL("triggered()"),win.rosettaSetup)
-    win.connect(win.toolsCookieCutAction,SIGNAL("triggered()"),win.toolsCookieCut)
+    
+    win.connect(win.buildCrystalAction,SIGNAL("triggered()"),
+                win.enterBuildCrystalCommand)
+    
     win.connect(win.setStereoViewAction,SIGNAL("triggered()"),win.stereoSettings)
 
     win.connect(win.toolsDepositAtomAction,
                 SIGNAL("triggered()"),
                 win.toolsBuildAtoms)
 
-    win.connect(win.toolsDoneAction,SIGNAL("triggered()"),win.toolsDone)
+    
     win.connect(win.toolsExtrudeAction,SIGNAL("triggered()"),win.toolsExtrude)
     win.connect(win.toolsFuseChunksAction,SIGNAL("triggered()"),win.toolsFuseChunks)
 
@@ -267,6 +274,7 @@ def setupUi(win):
     win.connect(win.dispCylinderAction,SIGNAL("triggered()"),win.dispCylinder)
     win.connect(win.dispDnaCylinderAction,SIGNAL("triggered()"),win.dispDnaCylinder)
     win.connect(win.simMinimizeEnergyAction,SIGNAL("triggered()"),win.simMinimizeEnergy)
+    win.connect(win.checkAtomTypesAction,SIGNAL("triggered()"),win.modifyCheckAtomTypes)
     win.connect(win.fileImportOpenBabelAction,
                 SIGNAL("triggered()"),
                 win.fileOpenBabelImport)

@@ -12,7 +12,7 @@ For example:
 - Key bindings or context menu 
 
                         
-@version: $Id: BuildAtoms_GraphicsMode.py 13364 2008-07-09 17:06:54Z ninadsathaye $
+@version: $Id: BuildAtoms_GraphicsMode.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 TODO: [as of 2008-01-04]
@@ -20,11 +20,11 @@ TODO: [as of 2008-01-04]
 - Some items mentioned in BuildAtoms_Command.py 
 
 History:
-See history for depositMode.py 
-Ninad 2008-01-04: Created new Command and GraphicsMode classes from 
-                  the old class depositMode and moved the 
-                  GraphicsMode related methods into this class from 
-                  depositMode.py
+Originally as 'depositMode.py' by Josh Hall and then significantly modified by 
+several developers. 
+In January 2008, the old depositMode class was split into new Command and 
+GraphicsMode parts and the these classes were moved into their own module 
+[ See BuildAtoms_Command.py and BuildAtoms_GraphicsMode.py]
 """
 
 
@@ -107,17 +107,6 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
     #Command will be set in BuildAtoms_GraphicsMode.__init__ . 
     command = None
         
-    def __init__(self, glpane):
-        """
-        """       
-        _superclass.__init__(self, glpane)
-        
-        self.water_enabled = env.prefs[buildModeWaterEnabled_prefs_key] 
-            # if True, only atoms and bonds above the water surface can be 
-            # highlighted and selected.
-            # if False, all atoms and bonds can be highlighted and selected, 
-            # and the water surface is not displayed.
-
     def reset_drag_vars(self):
         # called in Enter and at start of (super's) leftDown
         _superclass.reset_drag_vars(self)
@@ -136,7 +125,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
         Retrieve the object coordinates of the point on the screen
         with window coordinates(int x, int y) 
         """
-        # bruce 041207 comment: only called for depositMode leftDown in empty
+        # bruce 041207 comment: only called for BuildAtoms_GraphicsMode leftDown in empty
         # space, to decide where to place a newly deposited chunk.
         # So it's a bit weird that it calls findpick at all!
         # In fact, the caller has already called a similar method indirectly
@@ -193,37 +182,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
         _superclass.leftDouble(self, event)
         
         return
-    
-    def bondLeftUp(self, b, event): 
-        # was bondClicked(). mark 060220. 
-        #[WARNING: docstring appears to be out of date -- bruce 060702]
-        """
-        Bond <b> was clicked, so select or unselect its atoms or delete bond <b> 
-        based on the current modkey.
-        - If no modkey is pressed, clear the selection and pick <b>\'s two atoms.
-        - If Shift is pressed, pick <b>\'s two atoms, adding them to the 
-          current selection.
-        - If Ctrl is pressed,  unpick <b>\'s two atoms, removing them from the 
-          current selection.
-        - If Shift+Control (Delete) is pressed, delete bond <b>.
-        <event> is a LMB release event.
-        """
-
-        if self.o.modkeys is None:           
-            if self.command.isBondsToolActive():                        
-            #Following fixes bug 2425 (implements single click bond deletion 
-            #in Build Atoms. -- ninad 20070626
-                if self.command.isDeleteBondsToolActive():
-                    self.bondDelete(event)
-                    #@ self.o.gl_update() # Not necessary since win_update()
-                                          # is called in bondDelete(). 
-                                          # Mark 2007-10-19
-                    return                
-                self.bond_change_type(b, allow_remake_bondpoints = True)
-                self.o.gl_update()
-                return        
-        _superclass.bondLeftUp(self, b, event)
-    
+        
     # == end of LMB event handler methods
     
     #====KeyPress =================
@@ -260,7 +219,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
     def bond_change_type(self, 
                          b, 
                          allow_remake_bondpoints = True,
-                         supress_history_message = False): 
+                         suppress_history_message = False): 
         #bruce 050727; revised 060703
         """
         Change bondtype of bond <b> to new bondtype determined by the dashboard 
@@ -284,7 +243,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
                 btype, 
                 b, 
                 allow_remake_bondpoints = allow_remake_bondpoints,
-                supress_history_message = supress_history_message
+                suppress_history_message = suppress_history_message
             )
                 # checks whether btype is ok, and if so, new; emits history 
                 #message; does [#e or should do] needed invals/updates
@@ -318,7 +277,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
                          increase_bond_order = True)
 
         # we ignore flag, which says whether it's ok, warning, or error
-        env.history.message("%s: %s" % (self.command.msg_commandName, status))
+        env.history.message("%s: %s" % (self.command.get_featurename(), status))
         return
            
     def setBond1(self, state):
@@ -376,25 +335,6 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
         
         return
     
-    
-    #==== Water ====
-    def setWater(self, bool_enable):
-        """
-        Turn water surface on/off.
-        if <bool_enable> is True, only atoms and bonds above the water surface 
-        can be  highlighted and selected.
-        if <bool_enable> is False, all atoms and bonds can be highlighted and 
-        selected, and the water surface is not displayed.
-        """
-        if bool_enable:
-            self.water_enabled = True
-            msg = "Water surface enabled."
-        else:
-            self.water_enabled = False
-            msg = "Water surface disabled."
-        env.history.message(msg)
-        self.o.gl_update() # REVIEW (possible optim): can we make 
-        #gl_update_highlight cover this? [bruce 070626]
 
     #== Draw methods
     
@@ -410,7 +350,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
         #bruce 050610 moved self.surface() call elsewhere [it's in Draw_after_highlighting]
         return
 
-    def Draw_after_highlighting(self, pickCheckOnly=False): #bruce 050610
+    def Draw_after_highlighting(self, pickCheckOnly = False): #bruce 050610
         # added pickCheckOnly arg.  mark 060207.
         """
         Do more drawing, after the main drawing code has completed its 
@@ -440,7 +380,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
         Draw the water's surface -- a sketch plane to indicate where the new atoms will sit by default,
         which also prevents (some kinds of) selection of objects behind it.
         """
-        if not self.water_enabled:
+        if not env.prefs[buildModeWaterEnabled_prefs_key]:
             return
             
         glDisable(GL_LIGHTING)
@@ -843,7 +783,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
             # on leftup, but is not used to determine what gets highlighted
             # during mouse motion. A comment below mentions that
             # selobj_highlight_color is related to that. It looks like it has
-            # code for this in selectAtomsMode._getAtomHighlightColor.
+            # code for this in SelectAtoms_Command._getAtomHighlightColor.
             # There is also a call
             # to update_selatom with singOnly = True, which doesn't have this
             # special case for non-bondpoints, but I don't know whether it's
@@ -1009,7 +949,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
             'Part' - a library part from the Library page was deposited.
 
         Note: 
-        This is overridden in some subclasses (e.g. PasteMode, PartLibraryMode),
+        This is overridden in some subclasses (e.g. PasteFromClipboard_Command, PartLibrary_Command),
         but the default implementation is also still used [as of 071025].
         """
         
@@ -1178,8 +1118,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
             chunk = stuff
             if chunk.get_dispdef(self.o) == diINVISIBLE:
                 # Build mode's own default display mode--
-                chunk.setDisplay(diTUBES) 
-                
+                chunk.setDisplayStyle(diTUBES)
                 return 1
             return 0
         elif isinstance(stuff, Group):
@@ -1277,9 +1216,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
             self.o.assy.shelf.addchild(new) # adds at the end
             self.o.assy.update_parts() 
             # bruce 050316; needed when adding clipboard items.
-            # Is this soon enough for command.UpdateDashboard?? 
-            # or does it matter if it comes first? ####@@@@
-        
+                    
             # bruce 050121 don't change selection anymore; it causes too many 
             # bugs to have clipboard items selected. Once my new model tree code
             # is committed, we could do this again and/or highlight the pastable
@@ -1292,13 +1229,10 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
             #open the clipboard tab in the 'MMKit'. This implementation has 
             #been replaced with a separate 'Paste Mode' to handle Pasting 
             #components. So always keep depositState to Atoms while in 
-            #depositMode.  (this needs further cleanup) -- ninad 2007-09-04
+            #BuildAtoms_GraphicsMode.  (this needs further cleanup) -- ninad 2007-09-04
             self.w.depositState = 'Atoms'
             
-            self.command.UpdateDashboard()
-                # (also called by shelf.addchild(), but only after my home mods
-                #  to Utility.py get committed, i.e. not yet -- bruce 050121)
-
+            
             self.w.mt.mt_update() # since clipboard changed
             #bruce 050614 comment: in spite of bug 703 
             # (fixed in setHotSpot_mainPart),
@@ -1329,9 +1263,7 @@ class BuildAtoms_basicGraphicsMode(SelectAtoms_basicGraphicsMode):
             cursor_id = self.w.current_bondtool_button.index
         
         if hasattr(self.command, 'get_cursor_id_for_active_tool' ):
-            cursor_id = self.command.get_cursor_id_for_active_tool()
-       
-   
+            cursor_id = self.command.get_cursor_id_for_active_tool() 
         if self.o.modkeys is None:             
             self.o.setCursor(self.w.BondToolCursor[cursor_id])
         elif self.o.modkeys == 'Shift':
@@ -1370,15 +1302,7 @@ class BuildAtoms_GraphicsMode(BuildAtoms_basicGraphicsMode):
     def set_cmdname(self, name):
         self.command.set_cmdname(name)
         return
-
-    def _get_hover_highlighting_enabled(self):
-        return self.command.hover_highlighting_enabled
-
-    def _set_hover_highlighting_enabled(self, val):
-        self.command.hover_highlighting_enabled = val
-
-    hover_highlighting_enabled = property(_get_hover_highlighting_enabled, 
-                                          _set_hover_highlighting_enabled)    
+  
     
     def _get_highlight_singlets(self):
         return self.command.highlight_singlets

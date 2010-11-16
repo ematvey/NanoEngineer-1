@@ -7,11 +7,12 @@ process of building a release itself.
 
 None other than system imports should be used without good reason.
 
-@version: $Id$
+@version: $Id: NE1_Build_Constants.py 13901 2008-08-11 21:05:57Z derrickdb1 $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 
-NE1_RELEASE_VERSION = "1.1.0"
-NE1_RELEASE_DATE = "July 3, 2008"
+NE1_RELEASE_VERSION = "1.1.1"
+NE1_RELEASE_DATE = "August 11, 2008"
 NE1_OFFICIAL_RELEASE_CANDIDATE = 0
 NE1_USE_bsddb3 = False
+NE1_CONSOLE_REDIRECT = False

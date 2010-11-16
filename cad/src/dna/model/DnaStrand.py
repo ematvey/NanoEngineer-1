@@ -3,7 +3,7 @@
 DnaStrand.py - ... 
 
 @author: Bruce
-@version: $Id: DnaStrand.py 13367 2008-07-09 20:23:40Z ninadsathaye $
+@version: $Id: DnaStrand.py 14450 2008-11-12 18:50:23Z  $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 TODO:
@@ -16,13 +16,16 @@ from dna.model.DnaStrandOrSegment import DnaStrandOrSegment
 from dna.model.DnaLadderRailChunk import DnaStrandChunk
 from utilities.icon_utilities import imagename_to_pixmap
 
-from utilities.debug import print_compact_stack
+from utilities.debug import print_compact_stack, print_compact_traceback
 from dna.model.Dna_Constants import getComplementSequence
 
 from operations.bond_chains import grow_directional_bond_chain
 from dna.model.Dna_Constants import MISSING_COMPLEMENTARY_STRAND_ATOM_SYMBOL
 from utilities.constants import MODEL_PAM3
 from utilities.constants import MODEL_PAM5
+from PyQt4.Qt import QFont, QString
+from model.bond_constants import bond_left_atom
+from utilities.Log import quote_html
 
 class DnaStrand(DnaStrandOrSegment):
     """
@@ -60,13 +63,11 @@ class DnaStrand(DnaStrandOrSegment):
 
     def edit(self):
         """
-        Edit this DnaSegment. 
-        @see: DnaSegment_EditCommand
+        Edit this DnaStrand. 
+        @see: DnaStrand_EditCommand
         """
         commandSequencer = self.assy.w.commandSequencer
-        if commandSequencer.currentCommand.commandName != "DNA_STRAND":
-            commandSequencer.userEnterTemporaryCommand('DNA_STRAND')
-
+        commandSequencer.userEnterCommand('DNA_STRAND')
         assert commandSequencer.currentCommand.commandName == 'DNA_STRAND'
         commandSequencer.currentCommand.editStructure(self)
 
@@ -97,8 +98,6 @@ class DnaStrand(DnaStrandOrSegment):
                     break
 
         return color
-        
-    
         
     def setColor(self, color):
         """
@@ -229,7 +228,6 @@ class DnaStrand(DnaStrandOrSegment):
 
         return axisEndAtom
 
-
     def get_all_content_chunks(self):
         """
         Return all the chunks including 
@@ -249,7 +247,6 @@ class DnaStrand(DnaStrandOrSegment):
                 all_content_chunk_list.extend(ladder.all_chunks())
 
         return all_content_chunk_list
-
 
     def getDnaSegment_at_three_prime_end(self): 
         """
@@ -276,7 +273,7 @@ class DnaStrand(DnaStrandOrSegment):
         if atom:
             dnaSegment = self.get_DnaSegment_with_content_atom(atom)
 
-        return dnaSegment     
+        return dnaSegment
 
     def getStrandEndAtomAtPosition(self, position):
         """
@@ -293,13 +290,22 @@ class DnaStrand(DnaStrandOrSegment):
                 strandEndAtom = atm
                 break
         return strandEndAtom
+    
+    def getNumberOfNucleotides(self):
+        """
+        Method provided for conveneince. Returns the number of bases of this 
+        DnaStrand.
+        @see: PM_DnaSearchResultTable
+        """
+        
+        return self.getNumberOfBases()
 
     def getNumberOfBases(self):
         """
-        Returns the total number of baseatoms of this DnaStrand. 
+        @return: The total number of baseatoms of this DnaStrand
+        @rtype:  int
         """
-
-        numberOfBases = None
+        numberOfBases = 0
 
         strand_wholechain = self.get_strand_wholechain()
         if strand_wholechain:
@@ -337,7 +343,6 @@ class DnaStrand(DnaStrandOrSegment):
         @see: DnaStrand_EditCommand.hasResizableStructure()
         @see: DnaSegment.is_PAM3_DnaSegment() (similar implementation)
         """
-                
         is_PAM3 = False
         
         ladderList = self.getDnaLadders()        
@@ -356,7 +361,7 @@ class DnaStrand(DnaStrandOrSegment):
      
     def getDnaLadders(self):
         """
-        Returns a list of all DnaLadders within this segment
+        Returns a list of all DnaLadders within this strand
         """
         ladderList = []
         
@@ -368,24 +373,34 @@ class DnaStrand(DnaStrandOrSegment):
         
         return ladderList
     
+    def get_wholechain(self):
+        """
+        Return the 'wholechain' of this DnaStrand. Method provided for 
+        convenience.
+        Delegates this to self.get_strand_wholechain()
+        """
+        return self.get_strand_wholechain()
     
     def get_strand_wholechain(self):
         """
-        Return the 'wholechain' of the strand chunk within this dna group. 
-        This essentially means the whole 'strand' that gets selected when the 
-        user clicks on a strand group in the model tree. 
+        @return: the 'wholechain' of this DnaStrand
+                 (same as wholechain of each of its DnaStrandChunks),
+                 or None if it doesn't have one
+                 (i.e. if it's empty -- should never happen
+                 if called on a live DnaStrand not modified since
+                 the last dna updater run).
+
+        @note: the return value contains the same chunks which
+               get selected when the user clicks on a strand group
+               in the model tree.
+
         @see: Wholechain
+        @see: get_segment_wholechain
         """
-        member = None
-        strand_wholechain  = None
         for member in self.members:
             if isinstance(member, DnaStrandChunk):
-                break
-        if member:
-            strand_wholechain = member.wholechain
-
-        return strand_wholechain
-
+                return member.wholechain
+        return None
 
     def getStrandChunks(self): 
         """
@@ -395,22 +410,150 @@ class DnaStrand(DnaStrandOrSegment):
         for m in self.members:
             if isinstance(m, self.assy.Chunk) and m.isStrandChunk():
                 strandChunkList.append(m)
-
-        #@TODO: when pre dna data model code is deprecated, check if the following 
-        #looks correct. I think the following is NOT right. Because 
-        #a DnaStrand group can encompass many ladders correct? -- Ninad 2008-03-26
-        ##if 0:
-            ##strandChunk = None
-
-            ##for m in self.members:
-                ##if isinstance(m, self.assy.Chunk) and m.isStrandChunk():
-                    ##strandChunk = m
-                    ##break
-            ##if strandChunk is not None:
-                ##ladder = strandChunk.ladder
-                ##strandChunkList = ladder.strand_chunks()
-
         return strandChunkList
+    
+    def getDefaultToolTipInfo(self):
+        """
+        Default strand info in the tooltip when the cursor is over an atom 
+        
+        """
+        strandInfo = ""        
+        strandInfo += "<font color=\"#0000FF\">Parent strand: </font>" + self.name + "<br>"        
+        allAtoms = self.get_strand_atoms_in_bond_direction(filterBondPoints = True)
+        strandInfo += "<font color=\"#0000FF\">Number of bases: </font>%s"%(len(allAtoms))        
+        return strandInfo
+    
+    def getAllAtoms(self):
+        """
+        Method provided for convenience
+        """
+        allAtoms = self.get_strand_atoms_in_bond_direction(filterBondPoints = True)
+        return allAtoms
+        
+        
+    def getToolTipInfoForBond(self, bond):
+        """
+        Tooltip information when the cursor is over a strand bond. 
+        As of 2008-11-09, it gives the information in the following form:
+        
+        """
+                
+        #Bond direction will always be atm1 --> atm2
+        #@see: Bond.bond_direction_from() 
+        atm1 = bond.atom1
+        atm2 = bond.atom2
+        
+        strandInfo = ""
+        
+                               
+        if not (atm1 and atm2):
+            strandInfo = self.getDefaultToolTipInfo()
+            return strandInfo
+
+        
+        threePrimeEndAtom = self.get_three_prime_end_base_atom()
+        fivePrimeEndAtom  = self.get_five_prime_end_base_atom()
+        allAtoms = self.get_strand_atoms_in_bond_direction(filterBondPoints = True)
+                        
+        tooltipDirection = "3<--5"
+        left_atom = bond_left_atom(bond, quat = self.assy.glpane.quat)
+        right_atom = bond.other(left_atom)
+                     
+        if bond.bond_direction_from(left_atom) == 1:
+            tooltipDirection = "5-->3"
+        else:
+            tooltipDirection = "3<--5"
+            
+        left_atm_index = None        
+
+        try:
+            left_atm_index = allAtoms.index(left_atom)
+        except:
+            print_compact_traceback("bug in getting strand info string "\
+                                    "atom %s not in list"%left_atom)
+        
+        if left_atm_index:
+            #@BUG: The computation of numOfBases_next_crossover_5prime and 
+            #numOfBases_next_crossover_3prime is wrong in some cases. So, 
+            #that information is not displayed. 
+            numOfBases_next_crossover_5prime, numOfBases_next_crossover_3prime = \
+                                            self._number_of_atoms_before_next_crossover(
+                                                left_atom, 
+                                                tooltipDirection = tooltipDirection)           
+                
+            if threePrimeEndAtom and fivePrimeEndAtom:                                                
+                if tooltipDirection == "3<--5":  
+                    numOfBasesDown_3PrimeDirection = len(allAtoms[left_atm_index:])
+                    #Note: This does not include atm1 , which is intentional--
+                    numOfBasesDown_5PrimeDirection = len(allAtoms[:left_atm_index])                    
+                    ##strandInfo += " 3' < " + str(numOfBasesDown_3PrimeDirection) + "/" + str(numOfBases_next_crossover_3prime)
+                    strandInfo += " 3' < " + str(numOfBasesDown_3PrimeDirection)
+                    strandInfo += " --(%s)-- "%(len(allAtoms))  
+                    ##strandInfo += str(numOfBases_next_crossover_5prime) + "/" + str(numOfBasesDown_5PrimeDirection) + " < 5'"
+                    strandInfo += str(numOfBasesDown_5PrimeDirection) + " < 5'"
+                else:
+                    numOfBasesDown_3PrimeDirection = len(allAtoms[left_atm_index + 1:])
+                    #Note: This does not include atm1 , which is intentional--
+                    numOfBasesDown_5PrimeDirection = len(allAtoms[:left_atm_index + 1])
+                    ##strandInfo += " 5' > " + str(numOfBasesDown_5PrimeDirection)  + "/" + str(numOfBases_next_crossover_5prime)                                    
+                    strandInfo += " 5' > " + str(numOfBasesDown_5PrimeDirection)   
+                    strandInfo += " --(%s)-- "%(len(allAtoms))  
+                    ##strandInfo += str(numOfBases_next_crossover_3prime) + "/" + str(numOfBasesDown_3PrimeDirection) + " > 3'"
+                    strandInfo += str(numOfBasesDown_3PrimeDirection) + " > 3'"
+        
+        #Make sure that symbol like > are converted to html
+        strandInfo = quote_html(strandInfo)
+     
+        return strandInfo
+    
+    
+    def _number_of_atoms_before_next_crossover(self, 
+                                               atm, 
+                                               tooltipDirection = ''):
+        """
+        """
+        numOfBases_down_3prime = ''
+        numOfBases_down_5prime = ''
+        
+        rail = atm.molecule.get_ladder_rail()
+        
+        atm_index = rail.baseatoms.index(atm)
+        
+        end_baseatoms = rail.end_baseatoms()
+        
+        if len(end_baseatoms) == 2:
+            atm_a = end_baseatoms[0]
+            atm_b = end_baseatoms[1]
+            
+            if atm_a and atm_b:
+                atm_a_index = rail.baseatoms.index(atm_a)
+                atm_b_index = rail.baseatoms.index(atm_b) 
+                
+                if tooltipDirection == "3<--5":
+                    ##print "~~~~"
+                    ##print "***tooltipDirection =", tooltipDirection                                   
+                    numOfBases_down_3prime = abs(atm_a_index - atm_index) + 1
+                    numOfBases_down_5prime = abs(atm_b_index - atm_index)
+                    ##print "****numOfBases_down_3prime = ", numOfBases_down_3prime
+                    ##print "****numOfBases_down_5prime = ", numOfBases_down_5prime
+                    
+                elif tooltipDirection == "5-->3":                    
+                    ##print "####################"    
+                    numOfBases_down_3prime = abs(atm_b_index - atm_index) 
+                    numOfBases_down_5prime = abs(atm_a_index - atm_index) + 1
+                    ##print "****numOfBases_down_3prime = ", numOfBases_down_3prime
+                    ##print "****numOfBases_down_5prime = ", numOfBases_down_5prime
+                    
+        return (str(numOfBases_down_5prime), 
+                str(numOfBases_down_3prime))
+    
+    
+    def get_neighboring_DnaStrands_in_same_DnaSegment(self):
+        """
+        """
+        
+        pass
+                
 
     def _get_commandNames_honoring_highlightPolicy(self):
         """
@@ -421,7 +564,6 @@ class DnaStrand(DnaStrandOrSegment):
         commandNames_that_honor_highlightPolicy = ('BUILD_DNA', 
                                                    'DNA_STRAND', 
                                                    'DNA_SEGMENT')
-
         return commandNames_that_honor_highlightPolicy 
 
     def setHighlightPolicy(self, highlight = True):
@@ -487,8 +629,7 @@ class DnaStrand(DnaStrandOrSegment):
         @param color: The highlight color
         @see: Chunk.draw_highlighted()
         @see: SelectChunks_GraphicsMode.draw_highlightedChunk()
-        @see: SelectChunks_GraphicsMode._get_objects_to_highlight()
-        @see: SelectChunks_GraphicsMode._is_dnaGroup_highlighting_enabled()        
+        @see: SelectChunks_GraphicsMode._get_objects_to_highlight()      
         """            
         highlighting_wanted = self.getHighlightPolicy()
 
@@ -692,7 +833,9 @@ class DnaStrand(DnaStrandOrSegment):
                                 if cc.get_dispdef() == diDNACYLINDER:
                                     cc.inval_display_list()
 
-    def get_strand_atoms_in_bond_direction(self, inputAtomList = ()): 
+    def get_strand_atoms_in_bond_direction(self, 
+                                           inputAtomList = (), 
+                                           filterBondPoints = False): 
         """
         Return a list of atoms in a fixed direction -- from 5' to 3'
         
@@ -877,7 +1020,12 @@ class DnaStrand(DnaStrandOrSegment):
                 atomList.extend(atomList_direction_1)
 
         #TODO: could zap first and/or last element if they are bondpoints 
-        #[bruce 080205 comment]        
+        #[bruce 080205 comment]  
+       
+        
+        if filterBondPoints:            
+            atomList = filter(lambda atm: not atm.is_singlet(), atomList)
+                        
         return atomList   
 
 

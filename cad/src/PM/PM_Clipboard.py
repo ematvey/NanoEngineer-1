@@ -8,11 +8,11 @@ list is shown by its elementViewer (an instance of L{PM_PreviewGroupBox})
 The object being previewed can then be deposited into the 3D workspace.
      
 @author: Ninad
-@version: $Id: PM_Clipboard.py 11951 2008-03-14 04:44:50Z ericmessick $
+@version: $Id: PM_Clipboard.py 14041 2008-08-26 16:40:43Z ninadsathaye $
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
 
 History:
-ninad 2007-08-29: Created. (Initially to support the clipboard in L{PasteMode})
+ninad 2007-08-29: Created. (Initially to support the clipboard in L{PasteFromClipboard_Command})
 
 """
 

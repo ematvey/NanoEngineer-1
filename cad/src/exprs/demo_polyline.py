@@ -2,7 +2,7 @@
 """
 demo_polyline.py -- demo file for Polyline datatype (too unsophisticated for real life) and related commands
 
-$Id: demo_polyline.py 11951 2008-03-14 04:44:50Z ericmessick $
+$Id: demo_polyline.py 14018 2008-08-22 18:48:36Z ninadsathaye $
 
 The "demo" in the filename indicates that this is not part of the exprs module per se,
 but shows how to use it for a specific app. For use in our real app, lots of this will
@@ -457,7 +457,7 @@ i could have said the same about all my other mods to it...
 
 #e also move new incr methods in controls.py to class HL 
 
-#e also say above where we get in and out of opengl xor mode, and grab eg code from cookiemode or zoom or whatever to do that
+#e also say above where we get in and out of opengl xor mode, and grab eg code from BuildCrystal_Command or zoom or whatever to do that
 # (as helper methods in the superclass, or a mixin just for xormode drawing, which could define a swapbuffers method too)
 
 # btw is xormode used now for incr drawing in selmode itself, for region sel -- and if not why not?

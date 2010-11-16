@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_SimulationMenu.py 13416 2008-07-13 14:06:26Z urmim $
+$Id: Ui_SimulationMenu.py 14056 2008-08-27 20:57:46Z protkiewicz $
 """
 
 from PyQt4 import QtGui
@@ -25,10 +25,11 @@ def setupUi(win):
     # Populate the "Simulation" menu.
     win.simulationMenu.addAction(win.simSetupAction) # "Run Dynamics"
     win.simulationMenu.addAction(win.simMoviePlayerAction) # "Play Movie"  
-    from protein.model.Protein import enableProteins
-    if enableProteins:
-        win.simulationMenu.addSeparator()
-        win.simulationMenu.addAction(win.rosettaSetupAction)
+    # from utilities.GlobalPreferences import ENABLE_PROTEINS
+    # piotr 081908: removed Rosetta from Simulation menu
+    #if ENABLE_PROTEINS:
+    #    win.simulationMenu.addSeparator()
+    #    win.simulationMenu.addAction(win.rosettaSetupAction)
     win.simulationMenu.addSeparator()
     win.simulationMenu.addAction(win.jigsMotorAction)
     win.simulationMenu.addAction(win.jigsLinearMotorAction)

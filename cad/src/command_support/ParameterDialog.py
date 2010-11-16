@@ -6,7 +6,7 @@ encoded as data which can (in principle) be manipulated at a high level in pytho
 or which can be parsed from easily readable/editable text files.
 
 @author: Bruce
-@version: $Id: ParameterDialog.py 11951 2008-03-14 04:44:50Z ericmessick $
+@version: $Id: ParameterDialog.py 13977 2008-08-18 16:45:05Z brucesmith $
 @copyright: 2006-2007 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -399,7 +399,7 @@ class parameter_dialog_or_frame:
                                    (self.cancel_btn, 'do_cancel_btn'),
                                    (self.ok_btn, 'do_ok_btn')):
             if hasattr(self, methodname):
-                self.connect(button,SIGNAL("clicked()"),getattr(self, methodname))
+                self.connect(button, SIGNAL("clicked()"), getattr(self, methodname))
         return
 
 
@@ -499,7 +499,7 @@ class ParameterDialogBase(parameter_dialog_or_frame):
     def do_abort_btn(self):
 ##        print "do_abort_btn: delegating"
         if self.controller:
-            self.controller.abort_btn_clicked()
+            self.controller.cancel_btn_clicked() #bruce 080815 revised (guess), was abort_btn_clicked()
     def do_preview_btn(self):
 ##        print "do_preview_btn: delegating"
         if self.controller:

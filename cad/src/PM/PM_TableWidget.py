@@ -5,7 +5,7 @@ PM_TableWidget.py
 Simple wrapper over Qt QtableWidget class.
 
 @author: Piotr
-@version: $Id$
+@version: $Id: PM_TableWidget.py 13786 2008-08-05 16:08:33Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc.  All rights reserved.
 
 History:

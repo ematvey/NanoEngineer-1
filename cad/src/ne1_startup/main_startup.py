@@ -2,7 +2,7 @@
 """
 main_startup.py -- provides the startup_script function called by main.py
 
-@version: $Id: main_startup.py 13404 2008-07-11 21:07:46Z derrickdb1 $
+@version: $Id: main_startup.py 14432 2008-10-16 00:55:49Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -16,8 +16,10 @@ and split out of main.py into this file (main_startup.py)
 by bruce 070704.
 """
 
-import sys, time, NE1_Build_Constants
+import sys, time, os, NE1_Build_Constants
 
+# Note -- Logic in startup_before_most_imports depends on its load location.
+# If you move it, fix the endUser code in before_most_imports().
 from ne1_startup import startup_before_most_imports
 
 # NOTE: all other imports MUST be added inside the following function,
@@ -52,6 +54,58 @@ def startup_script( main_globals):
     # functions that need to be careful to do very few or no imports,
     # and functions that are free to do any imports.
     
+    # Windows machines spawn and remove the shell, so no info is normally
+    # captured.  This is a first attempt to try to capture some of the console
+    # prints that would normally be lost.  The default for this code is that
+    # it's turned off, and should remain that way until it's improved.
+    if NE1_Build_Constants.NE1_CONSOLE_REDIRECT and os.name == "nt":
+        capture_console = False
+        capture_file = ""
+        # if it's not reporting as python is the executable
+        if not sys.executable.upper().endswith("PYTHON.EXE") and \
+           not sys.executable.upper().endswith("PYTHON"):
+            try:
+                capture_file = u"".join((sys.executable[:-4], "_console.log"))
+                sys.stdout = open(capture_file, 'w')
+                capture_console = True # already trapped, don't try more.
+            except:
+                pass
+        if not capture_console:
+            # Haven't captured the console log yet.  Find the default user
+            # path and try to capture there this happens if we can't write to
+            # the normal log location, or if python.exe is the executable.
+            tmpFilePath = os.path.normpath(os.path.expanduser("~/Nanorex/"))
+            if not os.path.exists(tmpFilePath): #If it doesn't exist
+                try:
+                    os.mkdir(tmpFilePath) #Try making one
+                    capture_console = True 
+                except:
+                    pass
+                    # we tried, but there's no easy way to capture the console
+            if capture_console or os.path.isdir(tmpFilePath):
+                try: # We made the directory or it already existed, try
+                     # creating the log file.
+                    capture_file = os.path.normpath(u"".join((tmpFilePath, \
+                                             "/NE1_console.log")))
+                    sys.stdout = open(capture_file, 'w')
+                    capture_console = True
+                except:
+                    print >> sys.__stderr__, \
+                          "Failed to create any console log file."
+                    capture_console = False
+        if capture_console:
+            # Next two lines are specifically printed to the original console
+            print >> sys.__stdout__, "The console has been redirected into:"
+            print >> sys.__stdout__, capture_file.encode("utf_8")
+            print
+            print "starting NanoEngineer-1 in [%s]," % os.getcwd(), time.asctime()
+            print "using Python: " + sys.version
+            try:
+                print "on path: " + sys.executable
+            except:
+                pass
+            
+
     # print the version information including official release candidate if it
     # is not 0 (false)
     if NE1_Build_Constants.NE1_OFFICIAL_RELEASE_CANDIDATE:
@@ -82,16 +136,18 @@ def startup_script( main_globals):
         # window rather than before creating the app? [bruce 071008 comment]
     
 
+    # do some imports used for putting up splashscreen
+
+    # (this must be done before any code that loads images from cad/src/ui)
+    import utilities.icon_utilities as icon_utilities
+    icon_utilities.initialize_icon_utilities()
+
+
     # Create the application object (an instance of QApplication).
     QApplication.setColorSpec(QApplication.CustomColor)
     #russ 080505: Make it global so it can be run under debugging below.
     global app
     app = QApplication(sys.argv)
-
-    # do some imports used for putting up splashscreen
-    
-    import utilities.icon_utilities as icon_utilities
-    icon_utilities.initialize() 
 
 
     # Put up the splashscreen (if its image file can be found in cad/images).
@@ -269,37 +325,55 @@ def startup_script( main_globals):
     # to record the decision, which are used later when running
     # the Qt event loop.
     
-    # If the user's .atom-debug-rc specifies PROFILE_WITH_HOTSHOT = True, use hotshot, otherwise
-    # fall back to vanilla Python profiler.
+    # If the user's .atom-debug-rc specifies PROFILE_WITH_HOTSHOT = True,
+    # use hotshot, otherwise fall back to vanilla Python profiler.
+    # (Note: to work, it probably has to import this module
+    #  and set this variable in this module's namespace.)
     try:
         PROFILE_WITH_HOTSHOT
     except NameError:
         PROFILE_WITH_HOTSHOT = False
     
     try:
-        # user can set this to a filename in .atom-debug-rc,
-        # to enable profiling into that file
+        # user can set atom_debug_profile_filename to a filename in .atom-debug-rc,
+        # to enable profiling into that file. For example:
+        # % cd
+        # % cat > .atom-debug-rc
+        # atom_debug_profile_filename = '/tmp/profile-output'
+        # ^D
+        # ... then run NE1, and quit it
+        # ... then in a python shell:
+        # import pstats
+        # p = pstats.Stats('<filename>')
+        # p.strip_dirs().sort_stats('time').print_stats(100) # order by internal time (top 100 functions)
+        # p.strip_dirs().sort_stats('cumulative').print_stats(100) # order by cumulative time
         atom_debug_profile_filename = main_globals['atom_debug_profile_filename']
         if atom_debug_profile_filename:
             print ("\nUser's .atom-debug-rc requests profiling into file %r" %
                    (atom_debug_profile_filename,))
             if not type(atom_debug_profile_filename) in [type("x"), type(u"x")]:
-                print ("error: atom_debug_profile_filename must be a string;" +
-                       "running without profiling")
+                print "error: atom_debug_profile_filename must be a string"
                 assert 0 # caught and ignored, turns off profiling
             if PROFILE_WITH_HOTSHOT:
                 try:
                     import hotshot
                 except:
-                    print "error during 'import hotshot'; running without profiling"
+                    print "error during 'import hotshot'"
                     raise # caught and ignored, turns off profiling
             else:
                 try:
-                    import cProfile
-                except:
-                    print "error during 'import profile'; running without profiling"
-                    raise # caught and ignored, turns off profiling
+                    import cProfile as py_Profile
+                except ImportError:
+                    print "Unable to import cProfile. Using profile module instead."
+                    py_Profile = None
+                if py_Profile is None:
+                    try:
+                        import profile as py_Profile
+                    except:
+                        print "error during 'import profile'"
+                        raise # caught and ignored, turns off profiling
     except:
+        print "exception setting up profiling (hopefully reported above); running without profiling"
         atom_debug_profile_filename = None
 
 
@@ -322,6 +396,10 @@ def startup_script( main_globals):
     # Derrick 20080520
     if ((len(sys.argv) >= 2) and sys.argv[1].endswith(".mmp")):
         foo.fileOpen(sys.argv[1])
+
+    # Do other post-startup, pre-event-loop, non-profiled things, if any
+    # (such as run optional startup commands for debugging).
+    startup_misc.just_before_event_loop()
             
     # Finally, run the main Qt event loop --
     # perhaps with profiling, depending on local variables set above.
@@ -335,12 +413,12 @@ def startup_script( main_globals):
             profile = hotshot.Profile(atom_debug_profile_filename)
             profile.run('app.exec_()')
         else:
-            cProfile.run('from ne1_startup.main_startup import app; app.exec_()',
-                         atom_debug_profile_filename)
+            py_Profile.run('from ne1_startup.main_startup import app; app.exec_()',
+                           atom_debug_profile_filename)
         print ("\nProfile data was presumably saved into %r" %
                (atom_debug_profile_filename,))
     else:
-        # if you change this code, also change the string literals just above
+        # if you change this code, also change both string literals just above
         app.exec_() 
 
 

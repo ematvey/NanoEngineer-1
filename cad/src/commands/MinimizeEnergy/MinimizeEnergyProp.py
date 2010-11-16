@@ -4,7 +4,7 @@ MinimizeEnergyProp.py - the MinimizeEnergyProp class, including all
 methods needed by the Minimize Energy dialog.
 
 @author: Mark
-@version: $Id: MinimizeEnergyProp.py 13233 2008-06-25 14:40:04Z russfish $
+@version: $Id: MinimizeEnergyProp.py 13795 2008-08-05 18:16:50Z marksims $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -52,7 +52,6 @@ class MinimizeEnergyProp(QDialog, Ui_MinimizeEnergyPropDialog):
 
     cmdname = greenmsg("Minimize Energy: ") # WARNING: self.cmdname might be used by one of the superclasses
     plain_cmdname = "Minimize Energy"
-    #@sponsor_keyword = None
 
     def __init__(self, win):
         QDialog.__init__(self, win)  # win is parent.

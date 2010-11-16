@@ -3,7 +3,7 @@ FetchPDBDialog.py
 Qt Dialog for fetching pdb files from the interweb
 
 @author: Urmi
-@version: $Id$
+@version: $Id: FetchPDBDialog.py 13786 2008-08-05 16:08:33Z ninadsathaye $
 @copyright:2008 Nanorex, Inc. See LICENSE file for details.
 """
 

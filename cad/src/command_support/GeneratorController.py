@@ -5,7 +5,7 @@ the interaction between a dialog and a plugin_generator
 (supplied as constructor arguments)
 
 @author: Bruce
-@version: $Id: GeneratorController.py 11858 2008-03-07 04:58:31Z ericmessick $
+@version: $Id: GeneratorController.py 13977 2008-08-18 16:45:05Z brucesmith $
 @copyright: 2006-2007 Nanorex, Inc.  See LICENSE file for details. 
 
 Note: this is presently used only by features that never got fully ported
@@ -86,11 +86,10 @@ class GeneratorController(GeneratorBaseClass):
     # but they do need to be called from our dialog when its buttons are clicked on.
     # I think we'll also need to add a "restore defaults".
     ##def done_btn_clicked(self): # same as ok
-    ##def abort_btn_clicked(self):
     ##def preview_btn_clicked(self):
     ##def whatsthis_btn_clicked(self):
     ##def ok_btn_clicked(self):
-    ##def cancel_btn_clicked(self): # same as abort
+    ##def cancel_btn_clicked(self):
     
     def gather_parameters(self):
         getters = self.dialog.param_getters

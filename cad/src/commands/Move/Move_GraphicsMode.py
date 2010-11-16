@@ -1,7 +1,7 @@
 # Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: Move_GraphicsMode.py 13233 2008-06-25 14:40:04Z russfish $
+@version:$Id: Move_GraphicsMode.py 14410 2008-10-03 02:21:13Z ninadsathaye $
 
 History:
 Ninad 2008-01-25: Split modifyMode into Commmand and GraphicsMode classes
@@ -53,8 +53,7 @@ class Move_GraphicsMode(SelectChunks_GraphicsMode):
         """
         Things needed while entering the GraphicsMode (e.g. updating cursor,
         setting some attributes etc).
-        This method is called in self.command.Enter
-        @see: B{basicCommand.Enter}
+        This method is called in self.command.command_entered()
         @see: B{GraphicsMode.Enter_GraphicsMode}
         """
         _superclass.Enter_GraphicsMode(self)
@@ -267,15 +266,21 @@ class Move_GraphicsMode(SelectChunks_GraphicsMode):
         self.picking = False
 
         deltaMouse = V(event.pos().x() - self.o.MousePos[0],
-                       self.o.MousePos[1] - event.pos().y(), 0.0)
+                       self.o.MousePos[1] - event.pos().y(),
+                       0.0)
         self.dragdist += vlen(deltaMouse)
 
-        if self.dragdist<7:
+        if self.dragdist < 7:
             # didn't move much, call it a click
             has_jig_selected = False
             if self.o.jigSelectionEnabled and self.jigGLSelect(event, selSense):
                 has_jig_selected = True
             if not has_jig_selected:
+                # Note: this code is similar to def end_selection_curve
+                # in Select_GraphicsMode.py. See comment there
+                # about why it handles jigs separately and
+                # how to clean that up (which mentions findAtomUnderMouse
+                # and jigGLSelect). [bruce 080917 comment]
                 if selSense == SUBTRACT_FROM_SELECTION:
                     self.o.assy.unpick_at_event(event)
                 if selSense == ADD_TO_SELECTION:
@@ -505,12 +510,6 @@ class Move_GraphicsMode(SelectChunks_GraphicsMode):
         (pre Alpha9 - experimental)
         """
         return
-
-    def _is_dnaGroup_highlighting_enabled(self):
-        """
-        Overrides SelectChunks_basicGraphicsMode method.
-        """
-        return False
 
 
 

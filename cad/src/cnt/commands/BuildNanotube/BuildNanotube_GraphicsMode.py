@@ -3,7 +3,7 @@
 
 @author: Ninad, Mark
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: BuildNanotube_GraphicsMode.py 13233 2008-06-25 14:40:04Z russfish $
+@version:$Id: BuildNanotube_GraphicsMode.py 14047 2008-08-26 22:44:29Z marksims $
 
 History:
 
@@ -78,7 +78,7 @@ class BuildNanotube_GraphicsMode(SelectChunks_GraphicsMode):
                 text , textColor = self.command.getCursorText()
                 self.glpane.renderTextNearCursor(text,
                                                  offset = 30,
-                                                 color = textColor)
+                                                 textColor = textColor)
 
 
 

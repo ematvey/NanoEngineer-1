@@ -6,16 +6,16 @@ ColorScheme_PropertyManager.py
  for choosing various colors (example: background)
 
 @author: Urmi
-@version: $Id: ColorScheme_PropertyManager.py 12867 2008-05-20 20:29:44Z urmim $
+@version: $Id: ColorScheme_PropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc. See LICENSE file for details.
 
 To do:
 - Save/load hh and selection color style settings into/from favorites file.
 """
-import os, time, fnmatch, string
+import os, time, fnmatch
 import foundation.env as env
 
-from widgets.DebugMenuMixin import DebugMenuMixin
+from command_support.Command_PropertyManager import Command_PropertyManager
 from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
 
 from utilities.prefs_constants import getDefaultWorkingDirectory
@@ -23,11 +23,9 @@ from utilities.prefs_constants import workingDirectory_prefs_key
 from utilities.Log import greenmsg, redmsg
 
 from PyQt4.Qt import SIGNAL
-from PyQt4.Qt import Qt
-from PyQt4 import QtGui
 from PyQt4.Qt import QFileDialog, QString, QMessageBox
 from PyQt4.Qt import QColorDialog, QPixmap, QIcon
-from PM.PM_Dialog   import PM_Dialog
+
 from PM.PM_GroupBox import PM_GroupBox
 from PM.PM_ComboBox import PM_ComboBox
 from PM.PM_CheckBox import PM_CheckBox
@@ -36,7 +34,6 @@ from PM.PM_ColorComboBox import PM_ColorComboBox
 from PM.PM_Constants     import PM_DONE_BUTTON
 from PM.PM_Constants     import PM_WHATS_THIS_BUTTON
 
-from utilities.constants import diDNACYLINDER
 from utilities.constants import yellow, orange, red, magenta, cyan, blue
 from utilities.constants import white, black, gray, green, darkgreen
 
@@ -70,7 +67,6 @@ from utilities.prefs_constants import backgroundColor_prefs_key
 from utilities.prefs_constants import backgroundGradient_prefs_key
 from utilities.prefs_constants import fogEnabled_prefs_key
 
-from utilities.constants import black, white, gray
 
 colorSchemePrefsList = \
                      [backgroundGradient_prefs_key,
@@ -200,7 +196,7 @@ def loadFavoriteFile( filename ):
 
             keyValuePair = line.split('=')
             pref_keyString = keyValuePair[0].strip()
-            pref_value=keyValuePair[1].strip()
+            pref_value = keyValuePair[1].strip()
 
             try:
                 if backgroundColor_prefs_key.endswith(pref_keyString):
@@ -291,7 +287,7 @@ def saveFavoriteFile( savePath, fromPath ):
     if fromPath:
         fromFile = open(fromPath, 'r')
 
-    lines=fromFile.readlines()
+    lines = fromFile.readlines()
     saveFile.writelines(lines)
 
     saveFile.close()
@@ -301,7 +297,8 @@ def saveFavoriteFile( savePath, fromPath ):
 
 # =
 
-class ColorScheme_PropertyManager( PM_Dialog, DebugMenuMixin ):
+_superclass = Command_PropertyManager
+class ColorScheme_PropertyManager(Command_PropertyManager):
     """
     The ColorScheme_PropertyManager class provides a Property Manager
     for choosing background and other colors for the Choose Color toolbar command
@@ -324,29 +321,21 @@ class ColorScheme_PropertyManager( PM_Dialog, DebugMenuMixin ):
     iconPath      =  "ui/actions/View/ColorScheme.png"
 
 
-    def __init__( self, parentCommand ):
+    def __init__( self, command ):
         """
         Constructor for the property manager.
         """
-
-        self.parentMode = parentCommand
-        self.w = self.parentMode.w
-        self.win = self.parentMode.w
-        self.pw = self.parentMode.pw
-        self.o = self.win.glpane
+        
         self.currentWorkingDirectory = env.prefs[workingDirectory_prefs_key]
 
-        PM_Dialog.__init__(self, self.pmName, self.iconPath, self.title)
-
-        DebugMenuMixin._init1( self )
+        _superclass.__init__(self, command)        
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_WHATS_THIS_BUTTON)
-
         msg = "Edit the color scheme for NE1, including the background color, "\
             "hover highlighting and selection colors, etc."
         self.updateMessage(msg)
-
+        
     def connect_or_disconnect_signals(self, isConnect):
         """
         Connect or disconnect widget signals sent to their slot methods.
@@ -436,33 +425,12 @@ class ColorScheme_PropertyManager( PM_Dialog, DebugMenuMixin ):
         env.prefs[selectionColor_prefs_key] = color
         return
 
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """
-        self.win.toolsDone()
-
-    def cancel_btn_clicked(self):
-        """
-        Slot for the Cancel button.
-        """
-        #TODO: Cancel button needs to be removed. See comment at the top
-        self.win.toolsDone()
-
     def show(self):
         """
-        Shows the Property Manager. Overrides PM_Dialog.show.
+        Shows the Property Manager. Extends superclass method. 
         """
         self._updateAllWidgets()
-        PM_Dialog.show(self)
-        self.connect_or_disconnect_signals(isConnect = True)
-
-    def close(self):
-        """
-        Closes the Property Manager. Overrides PM_Dialog.close.
-        """
-        self.connect_or_disconnect_signals(False)
-        PM_Dialog.close(self)
+        _superclass.show(self)    
 
     def _addGroupBoxes( self ):
         """

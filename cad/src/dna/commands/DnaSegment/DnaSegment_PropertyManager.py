@@ -1,7 +1,7 @@
 # Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author: Ninad
-@version: $Id: DnaSegment_PropertyManager.py 13368 2008-07-09 20:25:52Z ninadsathaye $
+@version: $Id: DnaSegment_PropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 TODO: as of 2008-01-18
@@ -52,24 +52,14 @@ class DnaSegment_PropertyManager( DnaOrCnt_PropertyManager):
     """
 
     title         =  "DnaSegment Properties"
-    pmName        =  title
     iconPath      =  "ui/actions/Tools/Build Structures/DNA.png"
 
-    def __init__( self, win, editCommand ):
+    def __init__( self, command ):
         """
         Constructor for the Build DNA property manager.
         """
 
-        #For model changed signal
-        #@see: self.model_changed() and self._current_model_changed_params 
-        #for example use
-        self._previous_model_changed_params = None
-
-
-        #see self.connect_or_disconnect_signals for comment about this flag
-        self.isAlreadyConnected = False
-        self.isAlreadyDisconnected = False
-
+        
         self.endPoint1 = V(0, 0, 0)
         self.endPoint2 = V(0, 0, 0)
 
@@ -79,7 +69,7 @@ class DnaSegment_PropertyManager( DnaOrCnt_PropertyManager):
         self.basesPerTurn = 10
         self.dnaModel = 'PAM3'
 
-        _superclass.__init__( self,  win, editCommand)
+        _superclass.__init__( self, command)
 
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
@@ -126,9 +116,10 @@ class DnaSegment_PropertyManager( DnaOrCnt_PropertyManager):
                        self._update_state_of_cursorTextGroupBox)
 
 
-    def model_changed(self): 
+    def _update_UI_do_updates(self): 
         """
-        @see: DnaSegment_EditCommand.model_changed()
+        @see: Command_PropertyManager._update_UI_do_updates()
+        @see: DnaSegment_EditCommand.command_update_UI()
         @see: DnaSegment_EditCommand.hasResizableStructure()
         @see: self._current_model_changed_params()
         """
@@ -167,8 +158,8 @@ class DnaSegment_PropertyManager( DnaOrCnt_PropertyManager):
         """
         params = None
 
-        if self.editCommand:   
-            isStructResizable, why_not = self.editCommand.hasResizableStructure()
+        if self.command:   
+            isStructResizable, why_not = self.command.hasResizableStructure()
             params = (isStructResizable, why_not)
 
         return params 
@@ -178,27 +169,27 @@ class DnaSegment_PropertyManager( DnaOrCnt_PropertyManager):
         """
         Show this property manager. Overrides EditCommand_PM.show()
         This method also retrives the name information from the 
-        editCommand's structure for its name line edit field. 
+        command's structure for its name line edit field. 
         @see: DnaSegment_EditCommand.getStructureName()
         @see: self.close()
         """
         _superclass.show(self)
-        if self.editCommand is not None:
-            name = self.editCommand.getStructureName()
+        if self.command is not None:
+            name = self.command.getStructureName()
             if name is not None:
                 self.nameLineEdit.setText(name)
 
     def close(self):
         """
         Close this property manager. 
-        Also sets the name of the self.editCommand's structure to the one 
+        Also sets the name of the self.command's structure to the one 
         displayed in the line edit field.
         @see self.show()
         @see: DnaSegment_EditCommand.setStructureName
         """
-        if self.editCommand is not None:
+        if self.command is not None:
             name = str(self.nameLineEdit.text())
-            self.editCommand.setStructureName(name)
+            self.command.setStructureName(name)
         _superclass.close(self)
 
     def setParameters(self, params):
@@ -249,8 +240,8 @@ class DnaSegment_PropertyManager( DnaOrCnt_PropertyManager):
         #separate parameter for the reasons mentioned in bug 2802
         #-- Ninad 2008-04-12
         number_of_basePairs_from_struct = None
-        if self.editCommand.hasValidStructure():
-            number_of_basePairs_from_struct = self.editCommand.struct.getNumberOfBasePairs()
+        if self.command.hasValidStructure():
+            number_of_basePairs_from_struct = self.command.struct.getNumberOfBasePairs()
         numberOfBases = self.numberOfBasePairsSpinBox.value()
         dnaForm  = self._conformation
         dnaModel = self.dnaModel

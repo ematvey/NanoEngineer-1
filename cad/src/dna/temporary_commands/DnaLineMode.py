@@ -2,15 +2,15 @@
 """
 @author:    Ninad
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
-@version:   $Id: DnaLineMode.py 13386 2008-07-10 19:59:15Z ninadsathaye $
+@version:   $Id: DnaLineMode.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 @license:   GPL
 
 TODO:
 - User Preferences for different rubberband line display styles 
 """
 
-from temporary_commands.LineMode import LineMode
-from temporary_commands.LineMode import LineMode_GM
+from temporary_commands.LineMode.Line_Command import Line_Command
+from temporary_commands.LineMode.Line_GraphicsMode import Line_GraphicsMode
 
 from graphics.drawing.drawDnaLadder import drawDnaLadder
 from graphics.drawing.drawDnaRibbons import drawDnaRibbons
@@ -24,8 +24,8 @@ from utilities.prefs_constants import dnaDefaultStrand2Color_prefs_key
 
 # == GraphicsMode part
 
-_superclass_for_GM = LineMode_GM
-class DnaLine_GM( LineMode_GM ):
+_superclass_for_GM = Line_GraphicsMode
+class DnaLine_GM( Line_GraphicsMode ):
     """
     Custom GraphicsMode for use as a component of DnaLineMode.
     @see: L{DnaLineMode} for more comments. 
@@ -34,7 +34,7 @@ class DnaLine_GM( LineMode_GM ):
           implementation  of self.command (see class DnaLineMode)          
     """    
     # The following valuse are used in drawing the 'sphere' that represent the 
-    #first endpoint of the line. See LineMode.Draw for details. 
+    #first endpoint of the line. See Line_GraphicsMode.Draw for details. 
     endPoint1_sphereColor = white 
     endPoint1_sphereOpacity = 1.0
     
@@ -56,13 +56,8 @@ class DnaLine_GM( LineMode_GM ):
         
         if  self.command.mouseClickLimit is None:
             if len(self.command.mouseClickPoints) == 2:
-                self.endPoint2 = None
-                                
+                self.endPoint2 = None                                
                 self.command.createStructure()
-                #DISABLED AS OF 2008-01-11. (Implementation changed --
-                #See DnaDuplex_EditCommand.createStructure for new 
-                #implementaion)
-                ##self.command.callback_addSegments()
                 self.glpane.gl_update()          
                 
             return
@@ -96,7 +91,7 @@ class DnaLine_GM( LineMode_GM ):
         #a ladder with arrow heads for the beams is the current implementation 
         # -Ninad 2007-10-30
         
-        #@see: LineMode_GM class definition about this flag. Basically we supress
+        #@see: Line_GraphicsMode class definition about this flag. Basically we suppress
         #cursor text drawing in the superclass and draw later in this method
         #after everyting is drawn.
         self._ok_to_render_cursor_text = False
@@ -107,7 +102,7 @@ class DnaLine_GM( LineMode_GM ):
         #Don't draw the Dna rubberband line if the cursor is over the confirmation
         #corner. But make sure to call superclass.Draw method before doing this 
         #check because we need to draw the rest of the model in the graphics 
-        #mode!. @see: LineMode_GM.Draw
+        #mode!. @see: Line_GraphicsMode.Draw
         handler = self.o.mouse_event_handler
         if handler is not None and handler is self._ccinstance:
             return
@@ -173,42 +168,32 @@ class DnaLine_GM( LineMode_GM ):
                     
 
 # == Command part
-class DnaLineMode(LineMode): 
+class DnaLineMode(Line_Command): # not used as of 080111, see docstring
     """
-    Encapsulates the LineMode functionality.
-    Example:
-    User is working in selectMolsMode, Now he enters a temporary mode 
-    called DnaLine mode, where, he clicks two points in the 3Dworkspace 
-    and expects to create a DNA using the points he clicked as endpoints. 
-    Internally, the program returns to the previous mode after two clicks. 
-    The temporary mode sends this information to the method defined in 
-    the previous mode called acceptParamsFromTemporaryMode and then the
-    previous mode (selectMolsMode) can use it further to create a dna 
-    @see: L{LineMode}
-    @see: selectMolsMode.provideParamsForTemporaryMode comments for 
-          related  TODOs.
-    @see: DnaDuplex_EditCommand.provideParamsForTemporaryMode
+    [no longer used as of 080111, see details below]
+    Encapsulates the Line_Command functionality.
+    @see: L{Line_Command}
     @see: DnaDuplex_EditCommand.getCursorText
     
     NOTE: [2008-01-11]
     The default DnaLineMode (command) part is not used as of 2008-01-11
     Instead, the interested commands use its GraphicsMode class. 
-    However, its still possible to use and implement the default command 
+    However, it's still possible to use and implement the default command 
     part. (The old implementation of generating Dna using endpoints of a 
     line used this default command class (DnaLineMode). so the method in this
     class  such as self.createStructure does nothing . 
     @see: DnaDuplex_EditCommand where the GraphicsMode class of this command is 
           used
-        
     """
     
     # class constants    
     commandName = 'DNA_LINE_MODE'    
     featurename = "DNA Line Mode"
         # (This featurename is sometimes user-visible,
-        #  but is probably not useful. See comments in LineMode
+        #  but is probably not useful. See comments in Line_Command
         #  for more info and how to fix. [bruce 071227])
-    
+    from utilities.constants import CL_UNUSED
+    command_level = CL_UNUSED
             
     GraphicsMode_class = DnaLine_GM
         

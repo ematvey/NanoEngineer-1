@@ -3,22 +3,20 @@
 
 @author: Urmi, Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: BreakOrJoinStrands_PropertyManager.py 13319 2008-07-03 01:24:10Z marksims $
+@version:$Id: BreakOrJoinStrands_PropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 
 History:
 Ninad 2008-06-05: Revised and refactored code in JoinStrands_PropertyManager, 
 and moved it to this class.
 """
-import sys
+
 from PyQt4.Qt import Qt
 from PyQt4.Qt import SIGNAL
 import foundation.env as env
-from PM.PM_Dialog import PM_Dialog
-from widgets.DebugMenuMixin import DebugMenuMixin
+from command_support.Command_PropertyManager import Command_PropertyManager
 from PM.PM_GroupBox import PM_GroupBox
 from PM.PM_CheckBox import PM_CheckBox
 from PM.PM_ColorComboBox import PM_ColorComboBox
-
 from PM.PM_Constants     import PM_DONE_BUTTON
 from PM.PM_Constants     import PM_WHATS_THIS_BUTTON
 
@@ -31,26 +29,23 @@ from utilities.prefs_constants import dnaStrandThreePrimeArrowheadsCustomColor_p
 from utilities.prefs_constants import dnaStrandFivePrimeArrowheadsCustomColor_prefs_key
 
 from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
+from PM.PM_DnaBaseNumberLabelsGroupBox import PM_DnaBaseNumberLabelsGroupBox
 
-class BreakOrJoinStrands_PropertyManager(PM_Dialog, DebugMenuMixin):
+
+_superclass = Command_PropertyManager
+class BreakOrJoinStrands_PropertyManager(Command_PropertyManager):
     
-    def __init__( self, parentCommand ):
+    _baseNumberLabelGroupBox = None
+            
+    def __init__( self, command ):
         """
         Constructor for the property manager.
         """
-
-        self.parentMode = parentCommand
-        self.w = self.parentMode.w
-        self.win = self.parentMode.w
-        self.pw = self.parentMode.pw        
-        self.o = self.win.glpane             
-                        
-        PM_Dialog.__init__(self, self.pmName, self.iconPath, self.title)
-        
-        DebugMenuMixin._init1( self )
-
+        _superclass.__init__(self, command)    
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_WHATS_THIS_BUTTON)
+        
+                
         return
     
     def connect_or_disconnect_signals(self, isConnect):
@@ -86,26 +81,21 @@ class BreakOrJoinStrands_PropertyManager(PM_Dialog, DebugMenuMixin):
         change_connect(self.strandThreePrimeArrowheadsCustomColorCheckBox,
                        SIGNAL("toggled(bool)"),
                        self.allowChoosingColorsOnThreePrimeEnd)
+        
+        self._baseNumberLabelGroupBox.connect_or_disconnect_signals(isConnect)
+               
         return
     
     def show(self):
         """
-        Shows the Property Manager. Overrides PM_Dialog.show.
+        Shows the Property Manager. Extends superclass method. 
+        @see: Command_PropertyManager.show()
         """
-        PM_Dialog.show(self)        
-        self.connect_or_disconnect_signals(isConnect = True)    
-        return
-                
-    def close(self):
-        """
-        Closes the Property Manager. Overrides PM_Dialog.close.
-        """
-        # this is important since these pref keys are used in other command modes 
-        # as well and we do not want to see the 5' end arrow in Inset DNA mode       
-        
-        self.connect_or_disconnect_signals(False)        
-        PM_Dialog.close(self)
-        
+        _superclass.show(self)        
+        #Required to update the color combobox for Dna base number labels.
+        self._baseNumberLabelGroupBox.updateWidgets()
+   
+           
     def _connect_checkboxes_to_global_prefs_keys(self, isConnect = True):
         """
         #doc
@@ -133,20 +123,17 @@ class BreakOrJoinStrands_PropertyManager(PM_Dialog, DebugMenuMixin):
         
         return
     
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """      
-        self.win.toolsDone()
-        return
-        
     #Load various widgets ====================
-        
+    
+    def _loadBaseNumberLabelGroupBox(self, pmGroupBox):
+        self._baseNumberLabelGroupBox = PM_DnaBaseNumberLabelsGroupBox(pmGroupBox, 
+                                                                       self.command)
+       
     def _loadDisplayOptionsGroupBox(self, pmGroupBox):
         """
         Load widgets in the display options groupbox
         """   
-        title = "Arrowhead prefs in %s:"%self.parentMode.featurename
+        title = "Arrowhead prefs in %s:"%self.command.featurename
         self._arrowheadPrefsGroupBox = PM_GroupBox(
             pmGroupBox, 
             title = title)
@@ -167,18 +154,13 @@ class BreakOrJoinStrands_PropertyManager(PM_Dialog, DebugMenuMixin):
                                                             widgetColumn  = 0,
                                                             setAsDefault = True,
                                                             spanWidth = True )
-        
-        prefs_key = self._prefs_key_arrowsOnThreePrimeEnds()
-        if env.prefs[prefs_key]:
-            self.arrowsOnThreePrimeEnds_checkBox.setCheckState(Qt.Checked) 
-        else:
-            self.arrowsOnThreePrimeEnds_checkBox.setCheckState(Qt.Unchecked)
-            
+                    
         self.strandThreePrimeArrowheadsCustomColorCheckBox = PM_CheckBox( self.pmGroupBox3,
                                                             text         = "Display custom color",
                                                             widgetColumn  = 0,
                                                             setAsDefault = True,
                                                             spanWidth = True)
+        
         prefs_key = self._prefs_key_dnaStrandThreePrimeArrowheadsCustomColor()
         self.threePrimeEndColorChooser = \
             PM_ColorComboBox(self.pmGroupBox3,
@@ -206,12 +188,7 @@ class BreakOrJoinStrands_PropertyManager(PM_Dialog, DebugMenuMixin):
                                                             spanWidth = True
                                                             )
         
-        prefs_key = self._prefs_key_arrowsOnFivePrimeEnds()
-        if env.prefs[prefs_key]:
-            self.arrowsOnFivePrimeEnds_checkBox.setCheckState(Qt.Checked) 
-        else:
-            self.arrowsOnFivePrimeEnds_checkBox.setCheckState(Qt.Unchecked)
-            
+                   
         self.strandFivePrimeArrowheadsCustomColorCheckBox = PM_CheckBox( self.pmGroupBox2,
                                                             text         = "Display custom color",
                                                             widgetColumn  = 0,
@@ -245,12 +222,6 @@ class BreakOrJoinStrands_PropertyManager(PM_Dialog, DebugMenuMixin):
                                                        setAsDefault = True,
                                                        spanWidth = True
                                                        )
-        
-        prefs_key = arrowsOnBackBones_prefs_key
-        if env.prefs[prefs_key] == True:
-            self.arrowsOnBackBones_checkBox.setCheckState(Qt.Checked) 
-        else:
-            self.arrowsOnBackBones_checkBox.setCheckState(Qt.Unchecked)
         return
             
     def allowChoosingColorsOnFivePrimeEnd(self, state):
@@ -341,4 +312,5 @@ class BreakOrJoinStrands_PropertyManager(PM_Dialog, DebugMenuMixin):
         or 5' strand end atoms (if arrowheads are not drawn).
         """
         return dnaStrandFivePrimeArrowheadsCustomColor_prefs_key
+    
     

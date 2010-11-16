@@ -3,7 +3,7 @@
 packageData.py -- data about modules and packages, for PackageDependency.py
 
 @author: Eric M, Bruce
-@version: $Id: packageData.py 13297 2008-07-01 23:13:19Z protkiewicz $
+@version: $Id: packageData.py 14274 2008-09-18 01:17:12Z brucesmith $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 
@@ -307,10 +307,10 @@ packageMapping_for_files = {
     "constants"                        : "utilities",
     "CoNTubGenerator"                  : "command|commands/InsertHeterojunction",###?? @@@
 
-    "CookieCtrlPanel"                  : "ui|commands/BuildCrystal",
-    "cookieMode"                       : "unsplit_mode|commands/BuildCrystal",
-    "CookiePropertyManager"            : "ui/propmgr|commands/BuildCrystal",
-    "CookieShape"                      : "command|commands/BuildCrystal", # see docstring for reasons and caveats
+    "BuildCrystal_PropertyManager"     : "ui|commands/BuildCrystal",
+    "BuildCrystal_Command"             : "unsplit_mode|commands/BuildCrystal",
+    "BuildCrystal_PropertyManager"     : "ui/propmgr|commands/BuildCrystal",
+    "CrystalShape"                     : "command|commands/BuildCrystal", # see docstring for reasons and caveats
 
     "crossovers"                       : "operation|dna/operations",
     "cursors"                          : "ui|ne1_ui",
@@ -379,7 +379,6 @@ packageMapping_for_files = {
     "ExecSubDir"                       : "top_level",
     "extrudeMode"                      : "unsplit_mode|commands/Extrude",
     "ExtrudePropertyManager"           : "ui/propmgr|commands/Extrude",
-    "fileIO"                           : "graphics_io|graphics/rendering", # should be split into files_mdl and files_povray
     "files_gms"                        : "io|GAMESS", 
     "files_mmp"                        : "io|files/mmp", # along with a sibling doc file, files_mmp_format_version.txt
     "files_mmp_registration"           : "foundation|files/mmp",
@@ -449,7 +448,7 @@ packageMapping_for_files = {
     "Line"                             : "model",
     "LinearMotor_EditCommand"          : "command|commands/LinearMotorProperties?",
     "LinearMotorPropertyManager"       : "ui/propmgr|commands/LinearMotorProperties?",
-    "LineMode"                         : "temporary_command", #?? a temporary command and gm... apparently can be used directly?
+    "Line_Command"                         : "temporary_command", #?? a temporary command and gm... apparently can be used directly?
 
     "main"                             : "top_level", # someday to be renamed to ne1_main
     "master_model_updater"             : "model_updater",
@@ -460,7 +459,6 @@ packageMapping_for_files = {
     "ModelTree"                        : "model|modelTree", # a model which implems the api class for modelTreeGui (rename modelTree.py to modelTree/ModelTree.py)
     "modelTreeGui"                     : "widget|modelTree", # a widget with view & maybe some control code
     "modes"                            : "unsplit_mode|command_support",
-    "modifyMode"                       : "unsplit_mode|commands/Move", #? MoveChunks?? probably not, we'll deemphasize Chunks to users
     "MotorPropertyManager"             : "ui/propmgr|command_support", # and rename to EditMotor_PM.py? but we don't have EditMotor.py ...
     "Move_Command"                     : "command|commands/Move",
     "Move_GraphicsMode"                : "graphics_mode|commands/Move",
@@ -478,8 +476,6 @@ packageMapping_for_files = {
     "NanoHiveUtils"                    : "?|ESP", # Mostly control & io code. Some model & ui code (via assy arg & assy.w).
     "NanoHive_SimParameters"           : "model|ESP",
 
-    "NanotubeGenerator"                : "command|commands/InsertNanotube",
-    "NanotubeGeneratorPropertyManager" : "ui/propmgr|commands/InsertNanotube",
     "NE1ToolBar"                       : "widget", # Variant of QToolBar
     "NE1_QToolBar"                     : "widget", # New main toolbar class for the NE1 main window.
     "Node_as_MT_DND_Target"            : "controller|modelTree",
@@ -504,11 +500,11 @@ packageMapping_for_files = {
     "parse_utils"                      : "utilities",
     "part"                             : "model", #? - foundation (if clipboard is), but knows lots of model & operations too
     "PartLibPropertyManager"           : "ui/propmgr|commands/PartLibrary",
-    "PartLibraryMode"                  : "unsplit_mode|commands/PartLibrary",
+    "PartLibrary_Command"              : "command|commands/PartLibrary",
     "PartProp"                         : "ui/dialog|commands/PartProperties?",
     "PartPropDialog"                   : "ui/dialog|commands/PartProperties?",
     "pastables"                        : "operations", # supports pasting operations
-    "PasteMode"                        : "unsplit_mode|commands/Paste",
+    "PasteFromClipboard_Command"                        : "command|commands/Paste",
     "PastePropertyManager"             : "ui/propmgr|commands/Paste",
     
     "pi_bond_sp_chain"                 : "model",
@@ -554,11 +550,10 @@ packageMapping_for_files = {
     
     "SelectAtoms_Command"              : "command|commands/SelectAtoms", # even though only used as a superclass now
     "SelectAtoms_GraphicsMode"         : "graphics_mode|commands/SelectAtoms",
-    "selectAtomsMode"                  : "unsplit_mode|commands/SelectAtoms",
     
     "SelectChunks_Command"             : "command|commands/SelectChunks", # used directly, as well as as a superclass
     "SelectChunks_GraphicsMode"        : "graphics_mode|commands/SelectChunks",
-    "selectMolsMode"                   : "unsplit_mode|commands/SelectChunks",
+    "SelectChunks_GraphicsMode"                   : "unsplit_mode|commands/SelectChunks",
     
     "Select_Command"                   : "command|commands/Select",
     "Select_GraphicsMode"              : "graphics_mode|commands/Select",
@@ -630,7 +625,7 @@ packageMapping_for_files = {
     "Ui_BuildToolsMenu"                : "ui/menu",
     "Ui_BuildToolsToolBar"             : "ui/toolbar",
     "Ui_CommandToolbar"                : "ui/toolbar|ne1_ui/toolbars", # UI and content/layout for Command Toolbar
-    "Ui_CookiePropertyManager"         : "ui/propmgr|commands/BuildCrystal",
+    "Ui_BuildCrystal_PropertyManager"         : "ui/propmgr|commands/BuildCrystal",
     "Ui_DimensionsMenu"                : "ui/menu",#?
     "Ui_DisplayStylesToolBar"          : "ui/toolbar|ne1_ui/toolbars",
     "Ui_NanotubeFlyout"                     : "ui/toolbar|ne1_ui/toolbars", # I'm guessing this has to be in ne1_ui, not dna
@@ -804,7 +799,6 @@ packageGroupMapping = {
 needs_renaming_for_clarity = { # just suggestions, not yet discussed/decided
     "bond_utils" : "bond_menu_helpers",
     "cursors"    : "load_custom_cursors?",
-    "fileIO"     : "povray/files_povray and mdl/files_mdl (split it)", # also needs_refactoring
     "GROMACS"    : "GROMACS_demo?", # temporary demo of atomic-level-DNA GROMACS simulation (maybe for outtakes?)
     "help"       : "Ne1HelpDialog or HelpDialog",
     "HelpDialog" : "Ui_HelpDialog",
@@ -830,7 +824,6 @@ needs_renaming_for_clarity = { # just suggestions, not yet discussed/decided
  }
 
 needs_refactoring = [
-    "fileIO", # needs splitting in two, each part renamed; exports writepovfile, writemdlfile
     "GLPane", # needs splitting into several classes, some for general use and some for "main graphics area"
         # (also needs to not be the same object as the CommandSequencer)
     "HistoryWidget", # needs split into a few cooperating objects (archive, widget, io, storage ops)

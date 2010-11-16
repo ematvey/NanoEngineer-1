@@ -2,7 +2,7 @@
 """
 gl_lighting.py - Lights, materials, and special effects.
 
-@version: $Id: gl_lighting.py 13207 2008-06-19 18:07:40Z russfish $
+@version: $Id: gl_lighting.py 14084 2008-08-29 20:19:28Z marksims $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -353,7 +353,8 @@ def apply_material(color):
 
 #russ 080515: We should find a better place for this!
 def get_gl_info_string(glpane): # grantham 20051129
-    """Return a string containing some useful information about the OpenGL
+    """
+    Return a string containing some useful information about the OpenGL
     implementation.
 
     Use the GL context from the given QGLWidget glpane (by calling
@@ -367,7 +368,10 @@ def get_gl_info_string(glpane): # grantham 20051129
     gl_info_string += 'GL_VENDOR : "%s"\n' % glGetString(GL_VENDOR)
     gl_info_string += 'GL_VERSION : "%s"\n' % glGetString(GL_VERSION)
     gl_info_string += 'GL_RENDERER : "%s"\n' % glGetString(GL_RENDERER)
-    gl_info_string += 'GL_EXTENSIONS : "%s"\n' % glGetString(GL_EXTENSIONS)
+    gl_extensions = glGetString(GL_EXTENSIONS)
+    gl_extensions = gl_extensions.strip()
+    gl_extensions = gl_extensions.replace(" ", "\n* ")
+    gl_info_string += 'GL_EXTENSIONS : \n* %s\n' % gl_extensions
 
     from utilities.debug_prefs import debug_pref, Choice_boolean_False
     if debug_pref("get_gl_info_string call glAreTexturesResident?",

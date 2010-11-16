@@ -5,7 +5,7 @@ CoNTubGenerator.py
 Generator functions which use cad/plugins/CoNTub.
 
 @author: Bruce
-@version: $Id: CoNTubGenerator.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: CoNTubGenerator.py 13715 2008-07-31 04:52:53Z brucesmith $
 @copyright: 2006-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Also intended as a prototype of code which could constitute the nE-1 side
@@ -28,7 +28,7 @@ import utilities.Initialize as Initialize
 from utilities.Log import quote_html, redmsg ##, orangemsg, greenmsg
 from command_support.ParameterDialog import ParameterDialog, ParameterPane
 from command_support.GeneratorController import GeneratorController
-from command_support.GeneratorBaseClass import UserError, PluginBug ##, CadBug
+from utilities.exception_classes import UserError, PluginBug
 from utilities.debug import print_compact_traceback
 from platform_dependent.PlatformDependent import find_or_make_any_directory, tempfiles_dir, find_plugin_dir
 import utilities.EndUser as EndUser

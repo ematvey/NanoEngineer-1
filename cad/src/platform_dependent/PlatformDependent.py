@@ -9,7 +9,7 @@ or the screen or files, that is, issues having to do with both the UI and the
 OS interface.
 
 @author: Bruce, Mark, maybe others
-@version: $Id: PlatformDependent.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: PlatformDependent.py 13965 2008-08-14 20:09:41Z derrickdb1 $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Module classification:
@@ -45,6 +45,8 @@ def mkdirs_in_filename(filename):
     if not os.path.exists(dir):
         mkdirs_in_filename(dir)
         os.mkdir(dir)
+        if not os.path.exists(dir):
+            print u"Directory not created: ", dir.encode("utf_8")
     return
 
 # == event code
@@ -226,8 +228,8 @@ def fix_buttons_helper(self, but, mod, when):
     Option+Qt.LeftButton to middleButton, so that the Option key
     (also called the Alt key) simulates the middle mouse button.
     (Note that Qt/Mac, by default, lets Control key simulate
-    rightButton and remaps Command key to the same flag we call
-    cntlButton; we like this and don't change it here.
+    right button and remaps Command key to the same flag we call
+    Qt.ControlModifier; we like this and don't change it here.
     In Qt4.2.2/Mac, the Control key is no longer simulating right button --
     in fact, right button is simulating control key! So we fix that here.)
     """

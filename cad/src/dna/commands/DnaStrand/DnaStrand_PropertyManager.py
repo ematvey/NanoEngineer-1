@@ -3,7 +3,7 @@
 DnaStrand_PropertyManager.py
 
 @author: Ninad
-@version: $Id: DnaStrand_PropertyManager.py 13368 2008-07-09 20:25:52Z ninadsathaye $
+@version: $Id: DnaStrand_PropertyManager.py 14411 2008-10-03 15:13:45Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 
 TODO: as of 2008-02-14
@@ -57,40 +57,28 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
     """
 
     title         =  "DnaStrand Properties"
-    pmName        =  title
     iconPath      =  "ui/actions/Properties Manager/Strand.png"
 
-    def __init__( self, win, editCommand ):
+    def __init__( self, command ):
         """
         Constructor for the Build DNA property manager.
         """
-        
-        #For model changed signal
-        self.previousSelectionParams = None
-        
-        #see self.connect_or_disconnect_signals for comment about this flag
-        self.isAlreadyConnected = False
-        self.isAlreadyDisconnected = False
-        
+                
         self.sequenceEditor = None      
         
         self._numberOfBases = 0 
         self._conformation = 'B-DNA'
-        self.duplexRise = 3.18
-        self.basesPerTurn = 10
         self.dnaModel = 'PAM3'
         
         
-        _superclass.__init__( self, 
-                                    win,
-                                    editCommand)
+        _superclass.__init__( self, command)
 
 
         
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_WHATS_THIS_BUTTON)
         
-        self._loadSequenceEditor()
+        
         
         msg = "Use resize handles to resize the strand. Use sequence editor"\
                    "to assign a new sequence or the current one to a file."
@@ -108,6 +96,11 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
         self._displayOptionsGroupBox = PM_GroupBox( self, 
                                                     title = "Display Options" )
         self._loadDisplayOptionsGroupBox( self._displayOptionsGroupBox )
+        
+        #Sequence Editor. This is NOT a groupbox, needs cleanup. Doing it here 
+        #so that the sequence editor gets connected! Perhaps 
+        #superclass should define _loadAdditionalWidgets. -- Ninad2008-10-03
+        self._loadSequenceEditor()
     
     def _loadGroupBox1(self, pmGroupBox):
         """
@@ -127,26 +120,8 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
                         minimum       =  2,
                         maximum       =  10000 )
         
-        self.basesPerTurnDoubleSpinBox  =  \
-            PM_DoubleSpinBox( pmGroupBox,
-                              label         =  "Bases per turn:",
-                              value         =  self.basesPerTurn,
-                              setAsDefault  =  True,
-                              minimum       =  8.0,
-                              maximum       =  20.0,
-                              decimals      =  2,
-                              singleStep    =  0.1 )
-        
-        self.duplexRiseDoubleSpinBox  =  \
-            PM_DoubleSpinBox( pmGroupBox,
-                              label         =  "Rise:",
-                              value         =  self.duplexRise,
-                              setAsDefault  =  True,
-                              minimum       =  2.0,
-                              maximum       =  4.0,
-                              decimals      =  3,
-                              singleStep    =  0.01 )
-        
+                
+               
         self.disableStructHighlightingCheckbox = \
             PM_CheckBox( pmGroupBox,
                          text         = "Don't highlight while editing DNA",
@@ -159,10 +134,7 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
         #As of 2008-03-31, the properties such as number of bases will be 
         #editable only by using the resize handles. post FNANO we will support 
         #the 
-        self.numberOfBasesSpinBox.setEnabled(False)
-        self.basesPerTurnDoubleSpinBox.setEnabled(False)
-        self.duplexRiseDoubleSpinBox.setEnabled(False)
-        
+        self.numberOfBasesSpinBox.setEnabled(False)        
     
             
     def _loadSequenceEditor(self):
@@ -228,15 +200,11 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
         numberOfBases = self.numberOfBasesSpinBox.value()
         dnaForm  = self._conformation
         dnaModel = self.dnaModel
-        basesPerTurn = self.basesPerTurn
-        duplexRise = self.duplexRise
         color = self._colorChooser.getColor()
               
         return (numberOfBases, 
                 dnaForm,
                 dnaModel,
-                basesPerTurn,
-                duplexRise, 
                 color
                 )
     
@@ -250,13 +218,10 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
         - See also the routines GraphicsMode.setParams or object.setProps
         ..better to name them all in one style?  
         """
-        #Set the duplex rise and bases per turn spinbox values. 
-        
+                
         numberOfBases, \
                      dnaForm, \
                      dnaModel, \
-                     basesPerTurn, \
-                     duplexRise, \
                      color  = params 
         
         if numberOfBases is not None:
@@ -265,10 +230,7 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
             self._conformation = dnaForm
         if dnaModel is not None:
             self.dnaModel = dnaModel
-        if duplexRise is not None:
-            self.duplexRiseDoubleSpinBox.setValue(duplexRise)
-        if basesPerTurn is not None:
-            self.basesPerTurnDoubleSpinBox.setValue(basesPerTurn)    
+         
         if color is not None:
             self._colorChooser.setColor(color)
     
@@ -323,23 +285,24 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
                        SIGNAL('stateChanged(int)'), 
                        self._update_state_of_cursorTextGroupBox)
         
-    def model_changed(self): 
+    def _update_UI_do_updates(self):
         """
-        @see: DnaStrand_EditCommand.model_changed()
+        @see: Command_PropertyManager. _update_UI_do_updates()
+        @see: DnaStrand_EditCommand.command_update_UI()
         @see: DnaStrand_EditCommand.hasResizableStructure()
         """
-        isStructResizable, why_not = self.editCommand.hasResizableStructure()
+        isStructResizable, why_not = self.command.hasResizableStructure()
         if not isStructResizable:
             #disable all widgets
             if self._pmGroupBox1.isEnabled():
                 self._pmGroupBox1.setEnabled(False)
-                msg1 = ("Viewing properties of %s <br>") %(self.editCommand.struct.name) 
+                msg1 = ("Viewing properties of %s <br>") %(self.command.struct.name) 
                 msg2 = redmsg("DnaStrand is not resizable. Reason: %s"%(why_not))                    
                 self.updateMessage(msg1 + msg2)
         else:
             if not self._pmGroupBox1.isEnabled():
                 self._pmGroupBox1.setEnabled(True)
-                msg1 = ("Viewing properties of %s <br>") %(self.editCommand.struct.name) 
+                msg1 = ("Viewing properties of %s <br>") %(self.command.struct.name) 
                 msg2 = "Use resize handles to resize the strand. Use sequence editor"\
                     "to assign a new sequence or the current one to a file."
                 self.updateMessage(msg1 + msg2)
@@ -350,29 +313,29 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
         As of 2007-11-20, it also shows the Sequence Editor widget and hides 
         the history widget. This implementation may change in the near future
         This method also retrives the name information from the 
-        editCommand's structure for its name line edit field. 
+        command's structure for its name line edit field. 
         @see: DnaStrand_EditCommand.getStructureName()
         @see: self.close()
         """
         _superclass.show(self) 
         self._showSequenceEditor()
     
-        if self.editCommand is not None:
-            name = self.editCommand.getStructureName()
+        if self.command is not None:
+            name = self.command.getStructureName()
             if name is not None:
                 self.nameLineEdit.setText(name)     
            
     def close(self):
         """
         Close this property manager. 
-        Also sets the name of the self.editCommand's structure to the one 
+        Also sets the name of the self.command's structure to the one 
         displayed in the line edit field.
         @see self.show()
         @see: DnaSegment_EditCommand.setStructureName
         """
-        if self.editCommand is not None:
+        if self.command is not None:
             name = str(self.nameLineEdit.text())
-            self.editCommand.setStructureName(name)
+            self.command.setStructureName(name)
             
         if self.sequenceEditor:
             self.sequenceEditor.close()
@@ -403,10 +366,10 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
         #show it in the text edit in the sequence editor.
         ##strand = self.strandListWidget.getPickedItem()
         
-        if not self.editCommand.hasValidStructure():
+        if not self.command.hasValidStructure():
             return
         
-        strand = self.editCommand.struct
+        strand = self.command.struct
         
         titleString = 'Sequence Editor for ' + strand.name
                            
@@ -430,16 +393,16 @@ class DnaStrand_PropertyManager( DnaOrCnt_PropertyManager):
     def change_struct_highlightPolicy(self,checkedState = False):
         """
         Change the 'highlight policy' of the structure being edited 
-        (i.e. self.editCommand.struct) . 
+        (i.e. self.command.struct) . 
         @param checkedState: The checked state of the checkbox that says 
                              'Don't highlight while editing DNA'. So, it 
                              its True, the structure being edited won't get
                              highlighted. 
         @see: DnaStrand.setHighlightPolicy for more comments        
         """        
-        if self.editCommand and self.editCommand.hasValidStructure():
+        if self.command and self.command.hasValidStructure():
             highlight = not checkedState
-            self.editCommand.struct.setHighlightPolicy(highlight = highlight)
+            self.command.struct.setHighlightPolicy(highlight = highlight)
 
     def _addWhatsThisText(self):
         """

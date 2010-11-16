@@ -6,7 +6,7 @@ generating DNA Duplex .  This command should be invoked only from
 BuildDna_EditCommand
 
 @author: Mark Sims, Ninad Sathaye
-@version: $Id: DnaDuplex_EditCommand.py 13229 2008-06-24 18:29:34Z ninadsathaye $
+@version: $Id: DnaDuplex_EditCommand.py 14391 2008-10-01 16:36:37Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -38,16 +38,15 @@ from dna.model.DnaGroup import DnaGroup
 from utilities.debug import print_compact_stack
 
 from utilities.Log  import redmsg, greenmsg
-from geometry.VQT import V, Veq, vlen, planeXline
-from dna.commands.BuildDuplex.DnaDuplex import B_Dna_PAM3
-from dna.commands.BuildDuplex.DnaDuplex import B_Dna_PAM5
+from geometry.VQT import V, Veq, vlen
+from dna.generators.B_Dna_PAM3_Generator import B_Dna_PAM3_Generator
+from dna.generators.B_Dna_PAM5_Generator import B_Dna_PAM5_Generator
 
-from command_support.GeneratorBaseClass import PluginBug, UserError
+from utilities.exception_classes import PluginBug, UserError
 from dna.commands.BuildDuplex.DnaDuplexPropertyManager import DnaDuplexPropertyManager
 
 from utilities.constants import gensym
 from utilities.constants import black
-
 
 from dna.model.Dna_Constants import getNumberOfBasePairsFromDuplexLength
 from dna.model.Dna_Constants import getDuplexLength
@@ -59,6 +58,9 @@ from utilities.prefs_constants import dnaDuplexEditCommand_cursorTextCheckBox_le
 from utilities.prefs_constants import dnaDuplexEditCommand_cursorTextCheckBox_numberOfBasePairs_prefs_key
 from utilities.prefs_constants import dnaDuplexEditCommand_cursorTextCheckBox_numberOfTurns_prefs_key
 from utilities.prefs_constants import dnaDuplexEditCommand_showCursorTextCheckBox_prefs_key
+from utilities.prefs_constants import cursorTextColor_prefs_key
+
+_superclass = EditCommand
 
 class DnaDuplex_EditCommand(EditCommand):
     """
@@ -71,23 +73,32 @@ class DnaDuplex_EditCommand(EditCommand):
     two end points for each dna duplex.This uses DnaLineMode_GM  class as its
     GraphicsMode 
     """
+
+    #Graphics Mode set to DnaLine graphics mode
+    GraphicsMode_class = DnaDuplex_GraphicsMode
+    
+    #Property Manager
+    PM_class = DnaDuplexPropertyManager
+    
+    
     cmd              =  greenmsg("Build DNA: ")
-    sponsor_keyword  =  'DNA'
     prefix           =  'DnaSegment'   # used for gensym
     cmdname          = "Duplex"
+
     commandName       = 'DNA_DUPLEX'
-    featurename       = 'Build Dna Duplex'
+    featurename       = "Build Dna Duplex"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_DNA'
 
     command_should_resume_prevMode = True
-    command_has_its_own_gui = True
-    command_can_be_suspended = False
-
+    command_has_its_own_PM = True
+    
     # Generators for DNA, nanotubes and graphene have their MT name 
     # generated (in GeneratorBaseClass) from the prefix.
     create_name_from_prefix  =  True 
 
-    #Graphics Mode set to DnaLine graphics mode
-    GraphicsMode_class = DnaDuplex_GraphicsMode
+    
 
     #required by DnaLine_GM
     mouseClickPoints = []
@@ -105,12 +116,12 @@ class DnaDuplex_EditCommand(EditCommand):
 
 
 
-    def __init__(self, commandSequencer, struct = None):
+    def __init__(self, commandSequencer):
         """
         Constructor for DnaDuplex_EditCommand
         """
 
-        EditCommand.__init__(self, commandSequencer)        
+        _superclass.__init__(self, commandSequencer)        
 
         #_fallbackDnaGroup stores the DnaSegments created while in 
         #this command. This temporary dnaGroup is created IF AND ONLY IF 
@@ -118,7 +129,7 @@ class DnaDuplex_EditCommand(EditCommand):
         #parent BuildDna_EditCommand. (so if this group gets created, it should
         #be considered as a bug. While exiting the command the list of segments 
         #of this group is given to the BuildDna_EditCommand where they get 
-        #their new parent. @see self.restore_gui
+        #their new parent. @see self.command_will_exit()
         self._fallbackDnaGroup = None
 
         #_parentDnaGroup is the dnagroup of BuildDna_EditCommand 
@@ -133,7 +144,6 @@ class DnaDuplex_EditCommand(EditCommand):
         #structure creation (segment addition). 
         self._segmentList = []
 
-        self.struct = struct
 
     def _createFallbackDnaGroup(self):
         """
@@ -142,7 +152,7 @@ class DnaDuplex_EditCommand(EditCommand):
         While exiting this command, these segments will be added first taken 
         away from the temporary group and then added to the DnaGroup of
         BuildDna_EditCommand 
-        @see: self.restore_gui
+        @see: self.command_will_exit()
         @see: BuildDna_EditCommand.callback_addSegments()
         """
         if self._fallbackDnaGroup is None:
@@ -150,23 +160,25 @@ class DnaDuplex_EditCommand(EditCommand):
             self._fallbackDnaGroup =  DnaGroup("Fallback Dna", 
                                                self.win.assy,
                                                self.win.assy.part.topnode )
-
-
-    def init_gui(self):
+            
+    
+    
+    def _getFlyoutToolBarActionAndParentCommand(self):
         """
-        Do changes to the GUI while entering this command. This includes opening 
-        the property manager, updating the command toolbar , connecting widget 
-        slots (if any) etc. Note: The slot connection in property manager and 
-        command toolbar is handled in those classes. 
-
-        Called once each time the command is entered; should be called only 
-        by code in modes.py
-
-        @see: L{self.restore_gui}
+        See superclass for documentation.
+        @see: self.command_update_flyout()
         """
-        EditCommand.init_gui(self)        
-
-
+        flyoutActionToCheck = 'dnaDuplexAction'
+        parentCommandName = None      
+        return flyoutActionToCheck, parentCommandName
+    
+    
+    def command_entered(self):
+        """
+        Overrides superclass method. See superclass for documentation. 
+        """                 
+        _superclass.command_entered(self)
+        
         if isinstance(self.graphicsMode, DnaDuplex_GraphicsMode):
             self._setParamsForDnaLineGraphicsMode()
             self.mouseClickPoints = []
@@ -174,32 +186,11 @@ class DnaDuplex_EditCommand(EditCommand):
         #Clear the segmentList as it may still be maintaining a list of segments
         #from the previous run of the command. 
         self._segmentList = []
-
-        prevMode = self.commandSequencer.prevMode 
-        if prevMode.commandName == 'BUILD_DNA':
-            params = prevMode.provideParamsForTemporaryMode(self.commandName)
-            self.callback_addSegments, self._parentDnaGroup = params
-
-            #@TODO: self.callback_addSegments is not used as of 2008-02-24 
-            #due to change in implementation. Not removing it for now as the 
-            #new implementation (which uses the dnaGroup object of 
-            #BuildDna_EditCommand is still being tested) -- Ninad 2008-02-24
-
-            #Following won't be necessary after Command Toolbar is 
-            #properly integrated into the Command/CommandSequencer API
-            try:
-                self.flyoutToolbar = prevMode.flyoutToolbar
-                #Need a better way to deal with changing state of the 
-                #corresponding action in the flyout toolbar. To be revised 
-                #during command toolbar cleanup 
-                self.flyoutToolbar.dnaDuplexAction.setChecked(True)
-            except AttributeError:
-                self.flyoutToolbar = None
-
-
-            if self.flyoutToolbar:
-                if not self.flyoutToolbar.dnaDuplexAction.isChecked():
-                    self.flyoutToolbar.dnaDuplexAction.setChecked(True)
+        
+        if self.parentCommand.commandName == self.command_parent:
+            params = self.parentCommand.provideParamsForTemporaryMode_in_BuildDna()
+                #bruce 080801 revised this; that method should be renamed
+            self._parentDnaGroup = params
         else:
             #Should this be an assertion? Should we always kill _parentDnaGroup
             #if its not None? ..not a good idea. Lets just make it to None. 
@@ -207,28 +198,24 @@ class DnaDuplex_EditCommand(EditCommand):
             self._createFallbackDnaGroup()
             
         self.updateDrawingPlane(plane = None)
-
-    def restore_gui(self):
+                
+    def command_will_exit(self):
         """
-        Do changes to the GUI while exiting this command. This includes closing 
-        this mode's property manager, updating the command toolbar ,
-        Note: The slot connection/disconnection in property manager and 
-        command toolbar is handled in those classes.
-        @see: L{self.init_gui}
-        """                    
-        EditCommand.restore_gui(self)
-
+        Overrides superclass method. See superclass for documentation. 
+        """          
+        _superclass.command_will_exit(self)
+        
         if isinstance(self.graphicsMode, DnaDuplex_GraphicsMode):
             self.mouseClickPoints = []
 
         self.graphicsMode.resetVariables()   
-
-        if self.flyoutToolbar:
-            self.flyoutToolbar.dnaDuplexAction.setChecked(False)
-
+        
         self._parentDnaGroup = None 
         self._fallbackDnaGroup = None
         self._segmentList = []
+        
+       
+    #=== END   NEW COMMAND API methods  ========================================
 
 
     def runCommand(self):
@@ -249,7 +236,7 @@ class DnaDuplex_EditCommand(EditCommand):
         @see: Command.keep_empty_group() which is overridden here. 
         """
 
-        bool_keep = EditCommand.keep_empty_group(self, group)
+        bool_keep = _superclass.keep_empty_group(self, group)
 
         if not bool_keep: 
             #Don't delete any DnaSegements or DnaGroups at all while 
@@ -264,24 +251,7 @@ class DnaDuplex_EditCommand(EditCommand):
 
         return bool_keep
 
-
-    def create_and_or_show_PM_if_wanted(self, showPropMgr = True):
-        """
-        Create the property manager object if one doesn't already exist 
-        and then show the propMgr if wanted by the user. 
-        @param showPropMgr: If True, show the property manager 
-        @type showPropMgr: boolean
-        """
-        EditCommand.create_and_or_show_PM_if_wanted(
-            self,
-            showPropMgr = showPropMgr)
-
-        self.propMgr.updateMessage("Specify two points in the 3D Graphics " \
-                                   "Area to define the endpoints of the "\
-                                   "DNA duplex."
-                               )
-
-    def createStructure(self, showPropMgr = True):
+    def createStructure(self):
         """
         Overrides superclass method. Creates the structure (DnaSegment) 
 
@@ -331,16 +301,7 @@ class DnaDuplex_EditCommand(EditCommand):
         self.graphicsMode.resetVariables()
         self.win.win_update() #fixes bug 2810
 
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager  object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr
-        propMgr = DnaDuplexPropertyManager(self.win, self)
-        return propMgr
-
-
+    
     def _getStructureType(self):
         """
         Subclasses override this method to define their own structure type. 
@@ -351,17 +312,6 @@ class DnaDuplex_EditCommand(EditCommand):
         """
         return self.win.assy.DnaSegment
 
-
-
-    def _createStructure(self):
-        """
-        creates and returns the structure (in this case a L{Group} object that 
-        contains the DNA strand and axis chunks. 
-        @return : group containing that contains the DNA strand and axis chunks.
-        @rtype: L{Group}  
-        @note: This needs to return a DNA object once that model is implemented        
-        """
-        return self._createSegment()
 
     def _finalizeStructure(self):
         """
@@ -386,7 +336,7 @@ class DnaDuplex_EditCommand(EditCommand):
         if len(self.mouseClickPoints) == 1:
             return
         else:
-            EditCommand._finalizeStructure(self)
+            _superclass._finalizeStructure(self)
 
 
     def _gatherParameters(self):
@@ -412,24 +362,9 @@ class DnaDuplex_EditCommand(EditCommand):
         structure and creates a new one using self._createStructure. This 
         was needed for the structures like this (Dna, Nanotube etc) . .
         See more comments in the method.
-        @see: a note in self._createSegment() about use of dnaSegment.setProps 
-        """    
-        assert self.struct
-        # parameters have changed, update existing structure
-        self._revertNumber()
-
-        # self.name needed for done message
-        if self.create_name_from_prefix:
-            # create a new name
-            name = self.name = gensym(self.prefix, self.win.assy) # (in _build_struct)
-            self._gensym_data_for_reusing_name = (self.prefix, name)
-        else:
-            # use externally created name
-            self._gensym_data_for_reusing_name = None
-                # (can't reuse name in this case -- not sure what prefix it was
-                #  made with)
-            name = self.name
-
+        @see: a note in self._createSStructure() about use of dnaSegment.setProps 
+        """        
+        
         #@NOTE: Unlike editcommands such as Plane_EditCommand, this 
         #editCommand actually removes the structure and creates a new one 
         #when its modified. We don't yet know if the DNA object model 
@@ -452,7 +387,7 @@ class DnaDuplex_EditCommand(EditCommand):
         @see: B{EditCommand.cancelStructure}
         """
 
-        EditCommand.cancelStructure(self)
+        _superclass.cancelStructure(self)
         self._removeSegments()
 
     def _removeSegments(self):
@@ -487,7 +422,7 @@ class DnaDuplex_EditCommand(EditCommand):
         self._segmentList = []	
         self.win.win_update()
 
-    def _createSegment(self):
+    def _createStructure(self):
         """
         Creates and returns the structure (in this case a L{Group} object that 
         contains the DNA strand and axis chunks. 
@@ -540,9 +475,9 @@ class DnaDuplex_EditCommand(EditCommand):
 
         if dnaForm == 'B-DNA':
             if dnaModel == 'PAM3':
-                dna = B_Dna_PAM3()
+                dna = B_Dna_PAM3_Generator()
             elif dnaModel == 'PAM5':
-                dna = B_Dna_PAM5()
+                dna = B_Dna_PAM5_Generator()
             else:
                 print "bug: unknown dnaModel type: ", dnaModel
         else:
@@ -608,8 +543,8 @@ class DnaDuplex_EditCommand(EditCommand):
             #make() method to fit in the dna data model. --Ninad 2008-03-05
 
             #WARNING 2008-03-05: Since self._modifyStructure calls 
-            #self._createStructure() (which in turn calls self._createSegment() 
-            #in this case) If in the near future, we actually permit modifying a
+            #self._createStructure() If in the near future, we actually permit 
+            #modifying a
             #structure (such as dna) without actually recreating the whole 
             #structre, then the following properties must be set in 
             #self._modifyStructure as well. Needs more thought.
@@ -631,14 +566,14 @@ class DnaDuplex_EditCommand(EditCommand):
         This is used as a callback method in DnaLine mode 
         @see: DnaLineMode.setParams, DnaLineMode_GM.Draw
         """
+        text = ''
+        textColor = env.prefs[cursorTextColor_prefs_key]
+        
         if endPoint1 is None or endPoint2 is None:
-            return '', black
+            return text, textColor
 
         if not env.prefs[dnaDuplexEditCommand_showCursorTextCheckBox_prefs_key]:
-            return '', black
-
-        text = ''        
-        textColor = black
+            return text, textColor
 
         numberOfBasePairsString = ''
         numberOfTurnsString = ''
@@ -747,8 +682,8 @@ class DnaDuplex_EditCommand(EditCommand):
         should be used as a placement plane for the Dna duplex. 
         
         @see: self.isSpecifyPlaneToolActive()
-        @see: LineMode_GM.bareMotion() to see how this is ultimately used. 
-        @see: LineMode_GM.leftDown()
+        @see: Line_GraphicsMode.bareMotion() to see how this is ultimately used. 
+        @see: Line_GraphicsMode.leftDown()
         @see: DnaLine_GM.leftUp()
         """
         if self.propMgr:

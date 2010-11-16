@@ -5,7 +5,7 @@ for a bunch of atoms (not necessarily bonded together) which can be moved
 and selected as a unit.
 
 @author: Josh
-@version: $Id: chunk.py 13442 2008-07-14 22:52:35Z protkiewicz $
+@version: $Id: chunk.py 14458 2008-11-17 18:14:29Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -43,6 +43,8 @@ Sometime I should review this and see if there is some obvious optimization need
 
 bruce 080305 changed superclass from Node to NodeWithAtomContents
 """
+
+drawbonds = True # False  ## Debug/test switch.  Never check in a False value.
 
 import math # only used for pi, everything else is from Numeric [as of before 071113]
 import re
@@ -111,6 +113,8 @@ from model.elements import Singlet
 from geometry.BoundingBox import BBox
 from graphics.drawing.ColorSorter import ColorSorter
 from graphics.drawing.ColorSorter import ColorSortedDisplayList
+from graphics.drawing.TransformControl import TransformControl
+
 ##from drawer import drawlinelist
 
 ##from constants import PickedColor
@@ -132,6 +136,8 @@ from utilities.constants import diPROTEIN
 
 from utilities.constants import MAX_ATOM_SPHERE_RADIUS 
 from utilities.constants import BBOX_MIN_RADIUS
+
+from utilities.constants import white
 
 from utilities.constants import ATOM_CONTENT_FOR_DISPLAY_STYLE
 from utilities.constants import noop
@@ -307,6 +313,16 @@ class Chunk(NodeWithAtomContents, InvalMixin,
     _f_lost_externs = False
     _f_gained_externs = False
 
+    # Set this to True if any of the atoms in this chunk has their
+    # overlayText set to anything other than None.  This keeps us from
+    # having to test that for every single atom in every single chunk
+    # each time the screen is rerendered.
+    chunkHasOverlayText = False
+
+    # Set to True if the user wishes to see the overlay text on this
+    # chunk.
+    showOverlayText = False
+
     protein = None
     
     # ==
@@ -428,7 +444,10 @@ class Chunk(NodeWithAtomContents, InvalMixin,
 
         #glname is needed for highlighting the chunk as an independent object
         #NOTE: See a comment in self.highlight_color_for_modkeys() for more info.
-        self.glname = env.alloc_my_glselect_name(self)
+        if not self.isNullChunk():
+            self.glname = self.assy.alloc_my_glselect_name(self) #bruce 080917 revised
+            ### REVIEW: is this ok or fixed if this chunk is moved to a new assy
+            # (if that's possible)? [bruce 080917 Q]
 
         self.extra_displists = {} # precaution, probably not needed
 
@@ -476,7 +495,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         """
         """
         # TODO: See make_selobj_cmenu_items in other classes. This method is very
-        # similar to  that method. But it's not named the same because the chunk
+        # similar to that method. But it's not named the same because the chunk
         # may not be a glpane.selobj (as it may get highlighted in SelectChunks
         # mode even when, for example, the cursor is over one of its atoms 
         # (i.e. selobj = an Atom). So ideally, that old method should be renamed
@@ -484,6 +503,27 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         if command is None:
             return
         
+        #Start Standard context menu items rename and delete . 
+        parent_node_classes = (self.assy.DnaStrandOrSegment, 
+                               self.assy.NanotubeSegment)
+        
+        parent_node = self
+        
+        for cls in parent_node_classes:
+            parent_node = self.parent_node_of_class(cls)
+            if parent_node:
+                break                
+        
+        item = (("Rename.."), 
+                parent_node.rename_using_dialog)
+        contextMenuList.append(item)
+        
+        item = (("Delete"), 
+                parent_node.kill_with_contents)
+        contextMenuList.append(item)
+        #End Standard context menu items rename and delete .
+                
+
         def addDnaGroupMenuItems(dnaGroup):
             if dnaGroup is None:
                 return
@@ -493,16 +533,42 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                     dnaGroup.edit) 
             contextMenuList.append(item)
             return
-
+        
+        #Urmi 20080730: edit properties for protein for context menu in gl pane
+        if command.commandName in ('SELECTMOLS', 'BUILD_PROTEIN'):
+            if self.isProteinChunk():
+                try:
+                    protein = self.protein
+                except:
+                    print_compact_traceback("exception in protein class")
+                    return
+                if protein is not None:
+                    item = (("%s" % (self.name)),
+                            noop, 'disabled')
+                    contextMenuList.append(item)
+                    item = (("Edit Protein Properties..."), 
+                            (lambda _arg = self.assy.w, protein = protein:
+                             protein.edit(_arg))
+                             )
+                    contextMenuList.append(item)
+                    
         if command.commandName in ('SELECTMOLS', 'BUILD_NANOTUBE', 'NANOTUBE_SEGMENT'):
             if self.isNanotubeChunk():
                 try:
                     segment = self.parent_node_of_class(self.assy.NanotubeSegment)
                 except:
-                    # A graphene sheet or a simple chunk that thinks its a nanotube.
+                    # A graphene sheet or a simple chunk that thinks it's a nanotube.
+
+                    # REVIEW: the above comment (and this code) must be wrong,
+                    # because parent_node_of_class never has exceptions unless
+                    # it has bugs. So I'm adding this debug print. The return
+                    # statement below was already there. If the intent
+                    # was to return when segment is None, that was not there
+                    # and is not there now, and needs adding separately.
+                    # [bruce 080723 comment and debug print]
+                    print_compact_traceback("exception in %r.parent_node_of_class: " % self)
                     return
                 if segment is not None:
-
                     # Self is a member of a Nanotube group, so add this 
                     # info to a disabled menu item in the context menu.
                     item = (("%s" % (segment.name)),
@@ -534,18 +600,20 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                     item = (("%s of [%s]" % (strand.name, dnaGroup.name)),
                             noop,
                             'disabled')	
-                contextMenuList.append(None) #adds a separator in the contextmenu
+                contextMenuList.append(None) # adds a separator in the contextmenu
                 contextMenuList.append(item)	    
                 item = (("Edit DnaStrand Properties..."), 
                         strand.edit) 			  
                 contextMenuList.append(item)
-                contextMenuList.append(None) #adds a separator in the contextmenu
+                contextMenuList.append(None) # separator
                 
                 addDnaGroupMenuItems(dnaGroup)
                 
                 # add menu commands from our DnaLadder [bruce 080407]
-                if 0: #self.ladder: # in case dna updater failed or is not enabled
+                if self.ladder:
                     menu_spec = self.ladder.dnaladder_menu_spec(self)
+                        # note: this is empty when self (the arg) is a Chunk.
+                        # [bruce 080723 refactoring a recent Mark change]
                     if menu_spec:
                         # append separator?? ## contextMenuList.append(None)
                         contextMenuList.extend(menu_spec)
@@ -554,7 +622,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                 segment = self.parent_node_of_class(self.assy.DnaSegment)
                 dnaGroup = segment.parent_node_of_class(self.assy.DnaGroup)
                 if segment is not None:
-                    contextMenuList.append(None)#adds a separator in the contextmenu
+                    contextMenuList.append(None) # separator
                     if dnaGroup is not None:
                         item = (("%s of [%s]" % (segment.name, dnaGroup.name)),
                                 noop,
@@ -568,7 +636,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                     item = (("Edit DnaSegment Properties..."), 
                             segment.edit)
                     contextMenuList.append(item)
-                    contextMenuList.append(None) #adds a separator in the contextmenu
+                    contextMenuList.append(None) # separator
                     # add menu commands from our DnaLadder [bruce 080407]
                     if segment.picked:       
                         selectedDnaSegments = self.assy.getSelectedDnaSegments()
@@ -578,7 +646,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                                     self.assy.win.resizeSelectedDnaSegments)
                             contextMenuList.append(item)
                             contextMenuList.append(None)
-                    if 0: # self.ladder:
+                    if self.ladder:
                         menu_spec = self.ladder.dnaladder_menu_spec(self)
                         if menu_spec:
                             contextMenuList.extend(menu_spec)
@@ -721,8 +789,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         #post dna_model implementation .
         if self.isStrandChunk():
             commandSequencer = self.assy.w.commandSequencer
-            if commandSequencer.currentCommand.commandName != "DNA_STRAND":
-                commandSequencer.userEnterTemporaryCommand('DNA_STRAND')                
+            commandSequencer.userEnterCommand('DNA_STRAND')                
             assert commandSequencer.currentCommand.commandName == 'DNA_STRAND'
             commandSequencer.currentCommand.editStructure(self)
         else:
@@ -990,6 +1057,21 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         dnaStrand = self.parent_node_of_class(self.assy.DnaStrand)
         
         return dnaStrand
+    
+    def getDnaSegment(self):
+        """
+        Returns the DnaStrand(group) node to which this chunk belongs to. 
+        
+        Returns None if there isn't a parent DnaStrand group.
+        
+        @see: Atom.getDnaStrand()
+        """
+        if self.isNullChunk():
+            return None
+        
+        dnaSegment = self.parent_node_of_class(self.assy.DnaSegment)
+        
+        return dnaSegment
 
 
     #END of Dna-Strand-or-Axis chunk specific code ========================
@@ -1010,7 +1092,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
 
         for atom in self.atoms.itervalues():
             if atom.element.symbol == 'C':
-                if atom.atomtype.spX == 2:
+                if atom.atomtype.is_planar():
                     found_carbon_atom = True
                 else:
                     return False
@@ -1280,9 +1362,9 @@ class Chunk(NodeWithAtomContents, InvalMixin,
     # for each atom display style. One list is for normal use,
     # one for hidden chunks.
     #
-    # Note: these lists should *not* include icons for ChunkDisplayModes
-    # such as DnaCylinderChunks. See 'def node_icon' below for the code
-    # that handles those. [bruce comment 080213]
+    # Note: these lists should *not* include icons for ChunkDisplayMode
+    # subclasses such as DnaCylinderChunks. See 'def node_icon' below
+    # for the code that handles those. [bruce comment 080213]
 
     mticon_names = [
         "Default.png",
@@ -1476,7 +1558,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         Recompute and return (but do not record) our atom content,
         optimizing this if it's exactly known on any node-subtrees.
 
-        @see: Atom.setDisplay, Atom.revise_atom_content
+        @see: Atom.setDisplayStyle, Atom.revise_atom_content
 
         [Overrides superclass method. Subclasses whose atoms are stored differently
          may need to override this further.]
@@ -1883,13 +1965,24 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         """
         Do glPushMatrix(), and then transform from world coords to this chunk's private coords.
         See also self.popMatrix().
-        Warning: this is partially inlined in self.draw().
         """
         glPushMatrix()
-        origin = self.basecenter
-        glTranslatef(origin[0], origin[1], origin[2])
-        q = self.quat
-        glRotatef(q.angle*180.0/math.pi, q.x, q.y, q.z)
+        self.applyMatrix()
+        return
+
+    # Russ 080922: Pulled out of self.pushMatrix to fit with exception logic in self.draw().
+    def applyMatrix(self):
+        # Russ 080922: If there is a transform in the CSDL, use it.
+        tc = self.displist.transformControl
+        if tc is not None:
+            tc.applyTransform()
+        else:
+            origin = self.basecenter
+            glTranslatef(origin[0], origin[1], origin[2])
+            q = self.quat
+            glRotatef(q.angle*180.0/math.pi, q.x, q.y, q.z)
+            pass
+        return
 
     def popMatrix(self): #bruce 050609
         """
@@ -2000,6 +2093,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
             #  since we're outside the begin/end for that, and that's good, since we include this in havelist
             #  instead, which avoids some unneeded redrawing, e.g. if pref changed and changed back while
             #  displaying a different Part. [bruce 060215])
+            # update, bruce 080930: that point is probably moot, since drawLevel is part of havelist.
 
         disp = self.get_dispdef(glpane) 
             # piotr 080401: Moved it here, because disp is required by 
@@ -2027,11 +2121,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
             glPushMatrix()
 
             try: #bruce 041119: do our glPopMatrix no matter what
-                # (note: as of 050609, this is an inlined version of part of self.pushMatrix())
-                origin = self.basecenter
-                glTranslatef(origin[0], origin[1], origin[2])
-                q = self.quat
-                glRotatef(q.angle*180.0/math.pi, q.x, q.y, q.z)
+                self.applyMatrix() # Russ 080922: This used to be inlined here.
 
                 # Moved to above - piotr 080401
                 # But what if there is an exception in self.get_dispdef ?
@@ -2043,33 +2133,42 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                 hd = None
                 if 1:
                     #bruce 060608 look for a display mode handler for this chunk
-                    # (whether it's a whole-chunk mode, or one we'll pass to the atoms as we draw them (nim)).
+                    # (whether it's a whole-chunk mode, or one we'll pass to the
+                    #  atoms as we draw them (nim)).
                     hd = get_display_mode_handler(disp)
-                    # see if it's a chunk-only handler. If so, we don't draw atoms or chunk selection wireframe ourselves
-                    # (we delegate those tasks to it).
+                    # see if it's a chunk-only handler. If so, we don't draw
+                    # atoms or chunk selection wireframe ourselves -- instead,
+                    # we delegate those tasks to it
                     if hd:
                         chunk_only = hd.chunk_only
     ##                    delegate_selection_wireframe = chunk_only
                         delegate_draw_atoms = chunk_only
-                        delegate_draw_chunk = chunk_only #e maybe later, we'll let hd tell us each of these, based on the chunk state.
+                        delegate_draw_chunk = chunk_only
+                            #e maybe later, we'll let hd tell us each of these,
+                            # based on the chunk state.
                     pass
 
-                #bruce 060608 moved drawing of selection wireframe from here to after the new increment of _havelist_inval_counter
-                # (and split it into a new submethod), even though it's done outside of the display list.
-                # This was necessary for _drawchunk_selection_frame's use of memoized data to work.            
+                #bruce 060608 moved drawing of selection wireframe from here to
+                # after the new increment of _havelist_inval_counter
+                # (and split it into a new submethod), even though it's done
+                # outside of the display list. This was necessary for
+                # _f_drawchunk_selection_frame's use of memoized data to work.            
                 ## self._draw_selection_frame(glpane, delegate_selection_wireframe, hd)
 
-                # cache chunk display (other than selection wireframe or hover highlighting) as OpenGL display list
+                # cache chunk display (other than selection wireframe or hover
+                # highlighting) as OpenGL display list
 
                 # [bruce 050415 changed value of self.havelist when it's not 0,
                 #  from 1 to (disp,),
-                #  to fix bug 452 item 15 (no havelist inval for non-current parts
-                #  when global default display mode is changed); this will incidentally
-                #  optimize some related behaviors by avoiding some needless havelist invals,
-                #  now that we've also removed the now-unneeded changeapp of all mols upon
-                #  global dispdef change (in GLPane.setDisplay).]
-                # [bruce 050419 also including something for element radius and color prefs,
-                #  to fix bugs in updating display when those change (eg bug 452 items 12-A, 12-B).]
+                #  to fix bug 452 item 15 (no havelist inval for non-current
+                #  parts when global default display mode is changed); this
+                #  will incidentally optimize some related behaviors by avoiding
+                #  some needless havelist invals, now that we've also removed
+                #  the now-unneeded changeapp of all chunks upon global dispdef
+                #  change (in GLPane.setGlobalDisplayStyle).]
+                # [bruce 050419 also including something for element radius and
+                #  color prefs, to fix bugs in updating display when those
+                #  change (eg bug 452 items 12-A, 12-B).]
 
                 eltprefs = PeriodicTable.color_change_counter, PeriodicTable.rvdw_change_counter
                 matprefs = drawing_globals.glprefs.materialprefs_summary() #bruce 051126
@@ -2085,7 +2184,9 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                     for extra_displist in self.extra_displists.itervalues():
                         # [bruce 080604 new feature]
                         extra_displist.draw_but_first_recompile_if_needed(glpane, selected = self.picked)
-                            # todo: pass wantlist? yes in theory, but not urgent.
+                        # todo: pass wantlist? yes in theory, but not urgent.
+                        continue
+                    pass
                 else:
                     # our main display list (and all extra lists) needs to be remade
                     if 1:
@@ -2118,7 +2219,10 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                     # of a matching glEndList) in which any subsequent glNewList is an
                     # invalid operation. (Also done in shape.py; not needed in drawer.py.)
                     try:
-                        self._draw_for_main_display_list(glpane, disp, (hd, delegate_draw_atoms, delegate_draw_chunk), wantlist)
+                        self._draw_for_main_display_list(
+                            glpane, disp,
+                            (hd, delegate_draw_atoms, delegate_draw_chunk),
+                            wantlist)
                     except:
                         print_compact_traceback("exception in Chunk._draw_for_main_display_list ignored: ")
 
@@ -2148,12 +2252,14 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                         
                     pass # end of the case where our "main display list (and all extra lists) needs to be remade"
 
+                if (self.chunkHasOverlayText and self.showOverlayText):
+                    self.renderOverlayText(glpane)
                 #@@ninad 070219 disabling the following--
                 #self._draw_selection_frame(glpane, delegate_selection_wireframe, hd) #bruce 060608 moved this here
 
                 # piotr 080320
                 if hd:
-                    hd._drawchunk_realtime(glpane, self)
+                    hd._f_drawchunk_realtime(glpane, self)
 
                 if self.hotspot is not None: # note, as of 050217 that can have side effects in getattr
                     self.overdraw_hotspot(glpane, disp) # only does anything for pastables as of 050316 (toplevel clipboard items)
@@ -2181,6 +2287,19 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         self._draw_outside_local_coords(glpane, disp, drawLevel, is_chunk_visible)
 
         return # from Chunk.draw()
+
+    def renderOverlayText(self, glpane):
+        gotone = False
+        for atom in self.atoms.itervalues():
+            text = atom.overlayText
+            if (text):
+                gotone = True
+                pos = atom.baseposn()
+                radius = atom.drawing_radius() * 1.01
+                pos = pos + glpane.out * radius
+                glpane.renderTextAtPosition(pos, text)
+        if (not gotone):
+            self.chunkHasOverlayText = False
 
     def _draw_outside_local_coords(self, glpane, disp, drawLevel, is_chunk_visible):
         #bruce 080520 split this out
@@ -2224,6 +2343,8 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         """
         Draw self's external bonds (if debug_prefs and frustum culling permit).
         """
+        if not drawbonds:
+            return
         #bruce 080215 split this out, added one debug_pref
         
         # decide whether to draw any external bonds at all
@@ -2362,7 +2483,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
 ##                    print_compact_traceback("exception in drawlinelist: ")
 ##                    print "(self.polyhedron is %r)" % self.polyhedron
 ##            else:
-##                hd._drawchunk_selection_frame(glpane, self, PickedColor, highlighted = False)
+##                hd._f_drawchunk_selection_frame(glpane, self, PickedColor, highlighted = False)
 ##            pass
 ##        return
 
@@ -2451,7 +2572,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
 
         # draw something for the chunk as a whole
         if delegate_draw_chunk:
-            hd._drawchunk(self.glpane, self)
+            hd._f_drawchunk(self.glpane, self)
         else:
             self.standard_draw_chunk(glpane, disp0)
 
@@ -2569,7 +2690,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
             # Highlight "realtime" objects (e.g. 2D DNA cylinder style).
             hd = get_display_mode_handler(disp)
             if hd:
-                hd._drawchunk_realtime(glpane, self, highlighted = True)
+                hd._f_drawchunk_realtime(glpane, self, highlighted = True)
                 pass
 
             # russ 080530: Support for patterned highlighting drawing modes.
@@ -2778,47 +2899,59 @@ class Chunk(NodeWithAtomContents, InvalMixin,
                     print "Source of current atom:", atom_source
         return # from standard_draw_atoms (submethod of _draw_for_main_display_list)
 
-    def overdraw_hotspot(self, glpane, disp): # bruce 050131 (atom_debug only); [unknown later date] now always active
+    def overdraw_hotspot(self, glpane, disp): #bruce 050131
         """
         If this chunk is a (toplevel) clipboard item with a hotspot
         (i.e. if pasting it onto a bond will work and use its hotspot),
         display its hotspot in a special form.
         As with selatom, we do this outside of the display list.        
-        # bruce 050416 warning: the conditions here need to match those in depositMode's
-        # methods for mentioning hotspot in statusbar, and for deciding whether a clipboard
-        # item is pastable. All this duplicated hardcoded conditioning is bad; needs cleanup. #e
         """
-        try:
-            # if any of this fails (which is normal), it means don't use this feature for self.
-            # We need these checks because some code removes singlets from a chunk (by move or kill)
-            # without checking whether they are that chunk's hotspot.
+        if self._should_draw_hotspot(glpane):
             hs = self.hotspot
-            assert hs is not None and hs.is_singlet() and hs.key in self.atoms
-##            if hs is glpane.selatom and debug_flags.atom_debug:
-##                print "atom_debug: fyi: hs is glpane.selatom"
-# will removing this assert fix bug 703 and not cause trouble? bruce 050614 guess -- seems to work.
-# All selatom code still needs review and cleanup, though, now that it comes from selobj. ####@@@@
-##            assert hs is not glpane.selatom
-            assert (self in self.assy.shelf.members) or glpane.always_draw_hotspot #bruce 060627 added always_draw_hotspot re bug 2028
-        except:
-            pass
-        else:
             try:
                 color = env.prefs[bondpointHotspotColor_prefs_key] #bruce 050808
 
                 level = self.assy.drawLevel #e or always use best level??
                 ## code copied from selatom.draw_as_selatom(glpane, disp, color, level)
                 pos1 = hs.baseposn()
-                drawrad1 = hs.selatom_radius(disp)
+                drawrad1 = hs.highlighting_radius(disp)
                 ## drawsphere(color, pos1, drawrad1, level) # always draw, regardless of disp
                 hs.draw_atom_sphere(color, pos1, drawrad1, level, None, abs_coords = False)
                     #bruce 070409 bugfix (draw_atom_sphere); important if it's really a cone
             except:
-                if 1 or debug_flags.atom_debug: ###@@@ decide which
-                    print_compact_traceback("atom_debug: ignoring exception in overdraw_hotspot %r, %r: " % (self, hs))
+                print_compact_traceback("atom_debug: ignoring exception in overdraw_hotspot %r, %r: " % (self, hs))
                 pass
             pass
-        pass
+        return
+
+    def _should_draw_hotspot(self, glpane): #bruce 080723 split this out, cleaned it up
+        """
+        Determine whether self has a valid hotspot and wants to draw it specially.
+        """
+        # bruce 050416 warning: the conditions here need to match those in depositMode's
+        # methods for mentioning hotspot in statusbar, and for deciding whether a clipboard
+        # item is pastable. All this duplicated hardcoded conditioning is bad; needs cleanup. #e
+        
+        # We need these checks because some code removes singlets from a chunk (by move or kill)
+        # without checking whether they are that chunk's hotspot.
+
+        # review/cleanup: some of these checks might be redundant with checks
+        # in the get method run by accessing self.hotspot.
+            
+        hs = self.hotspot ### todo: move lower, after initial tests
+
+        wanted = (self in self.assy.shelf.members) or glpane.always_draw_hotspot
+            #bruce 060627 added always_draw_hotspot re bug 2028
+        if not wanted:
+            return False
+
+        if hs is None:
+            return False
+        if not hs.is_singlet():
+            return False
+        if not hs.key in self.atoms:
+            return False
+        return True
 
     # == methods related to mmp format (reading or writing)
 
@@ -3089,6 +3222,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
             #e (though it might be faster to just delete it, if many moves
             #   will happen before we need it again)
             self.bbox.data += offset
+            
 
         # Now, do the move. Note that this might destructively modify the object
         # self.basecenter rather than replacing it with a new one.
@@ -3320,12 +3454,12 @@ class Chunk(NodeWithAtomContents, InvalMixin,
             self.assy.win.mt.repaint_some_nodes([self])
         return
 
-    def setDisplay(self, disp):
+    def setDisplayStyle(self, disp): #bruce 080910 renamed from setDisplay
         # TODO: optimize when self.display == disp, since I just reviewed
         # all calls and this looks safe. (Ditto with Atom version of this
         # method.) [bruce comment 080305 @@@@]
         """
-        change self's display mode
+        set self's display style
         """
         if self.display == disp:
             #bruce 080305 optimization; looks safe after review of all calls;
@@ -3350,7 +3484,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         n = 0
         for a in self.atoms.itervalues():
             if a.display == diINVISIBLE: 
-                a.setDisplay(diDEFAULT)
+                a.setDisplayStyle(diDEFAULT)
                 n += 1
         return n
 
@@ -3362,7 +3496,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         n = 0
         for a in self.atoms.itervalues():
             if a.display != display:
-                a.setDisplay(display)
+                a.setDisplayStyle(display)
                 n += 1
         return n
 
@@ -3409,6 +3543,24 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         Return number of atoms (real atoms or bondpoints) in self.
         """
         return len(self.atoms)
+    
+    def getToolTipInfo(self):
+        """
+        Return the tooltip string for this chunk
+        """
+        #As of 2008-11-09, this is only implemented for a DnaStrand.
+        strand =  self.getDnaStrand()
+        toolTipInfoString = ''
+        if strand:
+            toolTipInfoString = strand.getDefaultToolTipInfo()   
+            return toolTipInfoString
+        
+        segment = self.getDnaSegment()
+        if segment:
+            toolTipInfoString = segment.getDefaultToolTipInfo()
+                    
+        return toolTipInfoString
+                    
 
     def getinfo(self):
         # Return information about the selected chunk for the msgbar [mark 2004-10-14]
@@ -3763,7 +3915,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
             # need to patch for selatom, and warn subr of its smaller radii too
             seli = selatom.index
             unpatched_seli_radius2 = radii_2[seli]
-            radii_2[seli] = selatom.selatom_radius() ** 2
+            radii_2[seli] = selatom.highlighting_radius() ** 2
             # (note: selatom is drawn even if "invisible")
             if unpatched_seli_radius2 > 0.0:
                 kws['alt_radii'] = [(seli, unpatched_seli_radius2)]
@@ -3870,7 +4022,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         #bruce 050419 fix bug 550 by fancifying haveradii
         # in the same way as for havelist (see 'bruce 050415').
         # Note: this must also be invalidated when one atom's display mode changes,
-        # and it is, by atom.setDisplay calling changeapp(1) on its chunk.
+        # and it is, by atom.setDisplayStyle calling changeapp(1) on its chunk.
         disp = self.get_dispdef() ##e should caller pass this instead?
         eltprefs = PeriodicTable.rvdw_change_counter # (color changes don't matter for this, unlike for havelist)
         radiusprefs = chem.Atom.selradius_prefs_values() #bruce 060317 -- include this in the tuple below, to fix bug 1639
@@ -3958,9 +4110,13 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         numol = self.__class__(mapping.assy, self.name)
             #bruce 080316 Chunk -> self.__class__ (part of fixing this for Extrude of DnaGroup)
         self.copy_copyable_attrs_to(numol) # copies .name (redundantly), .hidden, .display, .color...
+        if (self.chunkHasOverlayText):
+            numol.chunkHasOverlayText = True
+        if (self.showOverlayText):
+            numol.showOverlayText = True
         mapping.record_copy(self, numol)
         # also copy user-specified axis, center, etc, if we ever have those
-        ## numol.setDisplay(self.display)
+        ## numol.setDisplayStyle(self.display)
         if self._colorfunc is not None: #bruce 060411 added condition; note, this code snippet occurs in two methods
             numol._colorfunc = self._colorfunc # bruce 041109 for extrudeMode.py; revised 050524
         if self._dispfunc is not None:
@@ -4180,6 +4336,10 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         self.copy_copyable_attrs_to(numol)
             # copies .name (redundantly), .hidden, .display, .color...
             # and sets .prior_part, which is what should fix bug 660
+        if (self.chunkHasOverlayText):
+            numol.chunkHasOverlayText = True
+        if (self.showOverlayText):
+            numol.showOverlayText = True
         numol.name = newname
         #end 050531 kluges
         nuatoms = {}
@@ -4235,7 +4395,7 @@ class Chunk(NodeWithAtomContents, InvalMixin,
         #  if we ever have those
         if self.user_specified_center is not None: #bruce 050516 bugfix: 'is not None'
             numol.user_specified_center = self.user_specified_center + offset
-        numol.setDisplay(self.display)
+        numol.setDisplayStyle(self.display)
         numol.dad = dad
         if dad and debug_flags.atom_debug: #bruce 050215
             print "atom_debug: mol.copy got an explicit dad (this is deprecated):", dad
@@ -4509,19 +4669,22 @@ def shakedown_poly_evals_evecs_axis(basepos):
 
 # ==
 
-def mol_copy_name(name, assy = None): # bruce 041124; added assy arg, 080407
+def mol_copy_name(name, assy = None):
     """
-    turn xxx or xxx-copy<n> into xxx-copy<m> for a new number <m>
+    turn xxx or xxx-copy or xxx-copy<n> into xxx-copy<m> for a new number <m>
     """
-    try:
-        parts = name.split("-copy")
-        assert parts[-1] and (parts[-1].isdigit()) # often fails, that's ok
-    except: # lots of kinds of exceptions are possible, that's ok
+    # bruce 041124; added assy arg, 080407; rewrote/bugfixed, 080723
+    
+    # if name looks like xxx-copy or xxx-copy<nnn>, remove the -copy<nnn> part
+    parts = name.split("-copy")
+    if len(parts) > 1:
+        nnn = parts[-1]
+        if not nnn or nnn.isdigit():
+            name = "-copy".join(parts[:-1]) # everything but -copy<nnn>
+            # (note: this doesn't contain '-copy' unless original name
+            #  contained it twice)
         pass
-    else:
-        # name must look like xxx-copy<n>
-        name = "-copy".join(parts[:-1]) # this is the xxx part
-            # (fyi: it doesn't contain '-copy' unless original name contained it twice)
+    
     return gensym(name + "-copy", assy) # (in mol_copy_name)
         # note: we assume this adds a number to the end
 

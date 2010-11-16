@@ -5,7 +5,7 @@ Responsible for maintaining references to strings which are passed
 to the C code, and which end up referenced by variables defined in
 src/sim/globals.c.
 
-@version: $Id: PyrexSimulator.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: PyrexSimulator.py 14419 2008-10-06 18:12:42Z ericmessick $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 
@@ -28,10 +28,16 @@ class _PyrexSimulator(object):
             env.history.redmsg("Error: can't find " + nd1_plugin_path)
             nd1_plugin_path = "."
         self.system_parameters_file = os.path.join(nd1_plugin_path, "sim-params.txt")
+        self.amber_bonded_parameters_file = os.path.join(nd1_plugin_path, "ffamber03bon.itp")
+        self.amber_nonbonded_parameters_file = os.path.join(nd1_plugin_path, "ffamber03nb.itp")
+        self.amber_charges_file = os.path.join(nd1_plugin_path, "ffamber03charge.itp")
 
     def reInitialize(self):
         self.sim.reinitGlobals()
         self.sim.SystemParametersFileName = self.system_parameters_file
+        self.sim.AmberBondedParametersFileName = self.amber_bonded_parameters_file
+        self.sim.AmberNonbondedParametersFileName = self.amber_nonbonded_parameters_file
+        self.sim.AmberChargesFileName = self.amber_charges_file
 
     def setup(self, mflag, filename):
         self.inputFileName = filename

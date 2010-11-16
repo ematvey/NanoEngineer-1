@@ -6,7 +6,7 @@ Constants and utilities related to user preferences,
 which need to be defined immediately upon startup.
 
 @author: Mark, Bruce, Ninad
-@version: $Id: prefs_constants.py 13480 2008-07-16 15:13:13Z marksims $
+@version: $Id: prefs_constants.py 14450 2008-11-12 18:50:23Z  $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -134,6 +134,7 @@ originAxisColor_prefs_key = 'V111/Origin Axis Color'
 displayPOVAxis_prefs_key = 'A6/Display POV Axis'
 povAxisColor_prefs_key = 'V111/Point of View Axis Color'
 displayConfirmationCorner_prefs_key = 'V111/Display POV Axis'
+enableAntiAliasing_prefs_key = 'V120/Full screen anti-aliasing'
 defaultProjection_prefs_key = 'A7/Default Projection'
 animateHighQualityGraphics_prefs_key = 'A7/Animate with High Quality Graphics' #mark 060315. NIY.
 animateStandardViews_prefs_key = 'A7/Animate Standard Views'
@@ -151,9 +152,12 @@ rulerOpacity_prefs_key = 'A10/Ruler Opacity'
 showRulersInPerspectiveView_prefs_key = 'A10/Show Rulers In Perspective View'
 fogEnabled_prefs_key = "V110/Enable fog"
 
-
+# Cursor text prefs on "Graphics Area" page.
+cursorTextFontSize_prefs_key = "V120/Cursor text font size"
+cursorTextColor_prefs_key = "V120/Cursor text color"
+     
 #General preferences for copy-paste operation (see ops_copy_mixin._pasteGroup
-#for detail) Feature introduced in v1.1.0, on 2008-06-06
+#for details) Feature introduced in v1.1.0, on 2008-06-06
 pasteOffsetScaleFactorForChunks_prefs_key = 'V110/Scale factor is used to offset chunks to be pasted w.r.t. original chunks'
 pasteOffsetScaleFactorForDnaObjects_prefs_key = 'V110/Scale factor is used to offset dna objects to be pasted w.r.t. original dna objects'
 
@@ -307,7 +311,8 @@ joinStrandsCommand_useCustomColorForThreePrimeArrowheads_prefs_key = 'A110/ Whil
 joinStrandsCommand_dnaStrandThreePrimeArrowheadsCustomColor_prefs_key = 'A110/ While in Join strands command, Custom color for strand three-prime arrowheads/spheres'
 joinStrandsCommand_useCustomColorForFivePrimeArrowheads_prefs_key = 'A110/ While in Join strands command,use custom color for five-prime arrowheads/spheres'
 joinStrandsCommand_dnaStrandFivePrimeArrowheadsCustomColor_prefs_key = 'A110/ While in Join strands command, Custom color for strand five-prime arrowheads/spheres'
-
+joinStrandsCommand_clickToJoinDnaStrands_prefs_key = 'V112/ Click on a strand to join it with the nearest strand on the same segment'
+joinStrandsCommand_recursive_clickToJoinDnaStrands_prefs_key = 'V112/ Recursively join the DNAStrands three prime end with a neighboring five prime end.'
 #Urmi 20080617: display grid in Plane Property Manager pref keys
 PlanePM_showGrid_prefs_key = 'V111/Show Grid on the Plane'
 PlanePM_showGridLabels_prefs_key = 'V111/Show Grid Labels on the Plane'
@@ -320,6 +325,11 @@ breakStrandsCommand_dnaStrandThreePrimeArrowheadsCustomColor_prefs_key = 'A110/ 
 breakStrandsCommand_useCustomColorForFivePrimeArrowheads_prefs_key = 'A110/ While in Break strands command,use custom color for five-prime arrowheads/spheres'
 breakStrandsCommand_dnaStrandFivePrimeArrowheadsCustomColor_prefs_key = 'A110/ While in Break strands command, Custom color for strand five-prime arrowheads/spheres'
 breakStrandsCommand_numberOfBasesBeforeNextBreak_prefs_key  = 'A111/Number of bases before the next break site'
+
+#Dna base number label prefs
+dnaBaseNumberLabelChoice_prefs_key = 'V120/display dna base numbering using the choice given by this keys value'
+dnaBaseNumberingOrder_prefs_key = 'V120/ display dna base numbering labels using the ordering choice given by this keys value'
+dnaBaseNumberLabelColor_prefs_key = 'V120/ display dna base numbering labels using color given by this keys value'
 
 #Various cursor text prefs =======================
 dnaDuplexEditCommand_showCursorTextCheckBox_prefs_key = 'A110/Show cursor text while drawing the duplex'
@@ -341,6 +351,8 @@ dnaStrandEditCommand_showCursorTextCheckBox_prefs_key = 'A110/Show cursor text w
 dnaStrandEditCommand_cursorTextCheckBox_numberOfBases_prefs_key = 'A110/Show number of bases info in cursor text while in DnaStrand_Editcommand'
 dnaStrandEditCommand_cursorTextCheckBox_changedBases_prefs_key = 'A110/Show changed number of basepairs info in cursor text while in DnaStrand_Editcommand'
 
+#DNA srand or segment search type preference
+dnaSearchTypeLabelChoice_prefs_key = 'V112/Dna Strand or sgment search type choice'
 
 makeCrossoversCommand_crossoverSearch_bet_given_segments_only_prefs_key = 'A110/search for crossover sites between the given dna segments only'
 # DNA Minor Groove Error Indicator prefs
@@ -446,6 +458,7 @@ rosetta_path_prefs_key = 'V111/Rosetta Path'
 rosetta_enabled_prefs_key = 'V111/Rosetta Enabled'
 rosetta_dbdir_prefs_key = 'V111/Rosetta Database'
 rosetta_database_enabled_prefs_key = 'V111/Rosetta Database Enabled'
+rosetta_backrub_enabled_prefs_key = 'V120/Rosetta Backrub Enabled'
 cpp_path_prefs_key = 'A10/cpp Path'
 cpp_enabled_prefs_key = 'A10/cpp Enabled'
 nv1_path_prefs_key = 'A10/NanoVision-1 Path'
@@ -501,6 +514,8 @@ proteinStyleColorsDiscrete_prefs_key = 'V111/Protein discrete colors'
 proteinStyleHelixColor_prefs_key ='V111/Protein helix color'
 proteinStyleStrandColor_prefs_key ='V111/Protein strand color'
 proteinStyleCoilColor_prefs_key ='V111/Protein coil color'
+
+proteinCustomDescriptors_prefs_key ='V111/Protein custom mutation descriptors'
 
 #==
 
@@ -610,6 +625,7 @@ prefs_table = (
     ('display_pov_axis', 'boolean', displayPOVAxis_prefs_key, False),
     ('', 'color', povAxisColor_prefs_key, darkgreen),
     ('', 'boolean', displayConfirmationCorner_prefs_key, True),
+    ('', 'boolean', enableAntiAliasing_prefs_key, False),
     ('default_projection', 'int', defaultProjection_prefs_key, ORTHOGRAPHIC), # Changed to Ortho. Mark 051029.
     ('animate_high_quality', 'boolean', animateHighQualityGraphics_prefs_key, True), # Mark 060315. NIY.
     ('animate_std_views', 'boolean', animateStandardViews_prefs_key, True), # Mark 051110.
@@ -618,6 +634,10 @@ prefs_table = (
     ('startup_display_style', 'int', startupGlobalDisplayStyle_prefs_key, diBALL), # Mark 060815 diTUBES; revised Ninad 080423 diBALL
     ('mouse_speed_during_rotation', 'float', mouseSpeedDuringRotation_prefs_key, 0.6), # Ninad 060906. 
     ('display origin as small axis', 'boolean', displayOriginAsSmallAxis_prefs_key, True), #Ninad 060920
+    
+    # Cursor text preferences (located on "Graphics Area" page).
+    ('', 'int', cursorTextFontSize_prefs_key, 11), 
+    ('', 'color', cursorTextColor_prefs_key, black ),
 
     #Paste offset scale factor preferences (see Ops_copy_Mixin._pasteGroup)
     ('paste offset scale for chunks', 'float', 
@@ -763,6 +783,7 @@ prefs_table = (
     ('', 'color', dnaDefaultStrand2Color_prefs_key, darkblue),
     ('', 'color', dnaDefaultSegmentColor_prefs_key, gray),
     ('', 'float', dnaStrutScaleFactor_prefs_key, 1.0),
+    ('', 'int', dnaSearchTypeLabelChoice_prefs_key, 0),
 
     # Strand arrowheads display option prefs.
     ('', 'boolean', arrowsOnBackBones_prefs_key, True), 
@@ -781,6 +802,12 @@ prefs_table = (
     ('', 'color', joinStrandsCommand_dnaStrandThreePrimeArrowheadsCustomColor_prefs_key, green),
     ('', 'boolean', joinStrandsCommand_useCustomColorForFivePrimeArrowheads_prefs_key, True),
     ('', 'color', joinStrandsCommand_dnaStrandFivePrimeArrowheadsCustomColor_prefs_key, green),
+    ('', 'boolean', joinStrandsCommand_clickToJoinDnaStrands_prefs_key, False),
+    ('', 'boolean', joinStrandsCommand_recursive_clickToJoinDnaStrands_prefs_key, True),
+    #Dna base number label prefs
+    ('', 'int',   dnaBaseNumberLabelChoice_prefs_key, 0),
+    ('', 'int',   dnaBaseNumberingOrder_prefs_key, 0),
+    ('', 'color', dnaBaseNumberLabelColor_prefs_key, green),
 
     #Urmi 20080617: Plane_PM display grid prefs
     ('','boolean',PlanePM_showGrid_prefs_key, False),
@@ -794,10 +821,9 @@ prefs_table = (
     ('', 'boolean', breakStrandsCommand_useCustomColorForThreePrimeArrowheads_prefs_key, True),
     ('', 'color', breakStrandsCommand_dnaStrandThreePrimeArrowheadsCustomColor_prefs_key, green),
     ('', 'boolean', breakStrandsCommand_useCustomColorForFivePrimeArrowheads_prefs_key, True),
-    ('', 'color', breakStrandsCommand_dnaStrandFivePrimeArrowheadsCustomColor_prefs_key, red),
-    
+    ('', 'color', breakStrandsCommand_dnaStrandFivePrimeArrowheadsCustomColor_prefs_key, green),    
     ('', 'int', breakStrandsCommand_numberOfBasesBeforeNextBreak_prefs_key, 5),
-
+    
     #DNA cursor text preferences 
 
     #Cursor text prefs while in DnaDuplex_EditCommand 
@@ -912,6 +938,9 @@ prefs_table = (
     ('', 'color', proteinStyleStrandColor_prefs_key, blue),
     ('', 'color', proteinStyleCoilColor_prefs_key, gray),
 
+    # piotr 080718
+    ('', 'string', proteinCustomDescriptors_prefs_key, "Nonpolar:PGAVILMFWYC:"),
+
     # DNA angle and base indicators 080325 piotr
     ('', 'boolean', dnaStrandLabelsEnabled_prefs_key, False),
     ('', 'color', dnaStrandLabelsColor_prefs_key, _default_strandLabelsColor),
@@ -976,6 +1005,7 @@ prefs_table = (
     ('rosetta_enabled', 'boolean', rosetta_enabled_prefs_key, False ),
     ('rosetta_database_dir', 'string', rosetta_dbdir_prefs_key, ""),
     ('rosetta_database_enabled', 'boolean', rosetta_database_enabled_prefs_key, False ),
+    ('rosetta_backrub_enabled', 'boolean', rosetta_backrub_enabled_prefs_key, False ),
     ('cpp_exe_path', 'string', cpp_path_prefs_key, "" ),
     ('cpp_enabled', 'boolean', cpp_enabled_prefs_key, False ),
     ('nv1_exe_path', 'string', nv1_path_prefs_key, "" ),

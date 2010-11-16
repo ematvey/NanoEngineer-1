@@ -3,7 +3,7 @@
 PM_WidgetRow.py
 
 @author: Ninad
-@version: $Id: PM_WidgetRow.py 13390 2008-07-10 21:37:17Z ninadsathaye $
+@version: $Id: PM_WidgetRow.py 14016 2008-08-22 17:03:23Z ninadsathaye $
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -46,7 +46,7 @@ class PM_WidgetRow( PM_WidgetGrid ):
                              labelColumn  = 0,
                              )
     @see: B{PM_WidgetGrid._createWidgetUsingParameters }
-    @see: B{Ui_CookiePropertyManager._loadLayerPropertiesGroupBox} that uses 
+    @see: B{Ui_BuildCrystal_PropertyManager._loadLayerPropertiesGroupBox} that uses 
           a B{PM_WidgetRow}
     
     """

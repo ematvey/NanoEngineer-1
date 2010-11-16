@@ -6,7 +6,7 @@ These functions all call ColorSorter.schedule_* methods, which record object
 data for sorting, including the object color and an eventual call on the
 appropriate drawing worker function.
 
-@version: $Id: CS_draw_primitives.py 13315 2008-07-02 22:32:16Z protkiewicz $
+@version: $Id: CS_draw_primitives.py 14385 2008-10-01 00:00:55Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -59,15 +59,24 @@ from graphics.drawing.ColorSorter import ColorSorter
 from graphics.drawing.drawers import drawPoint
 from graphics.drawing.gl_GLE import gleGetNumSides, gleSetNumSides
 
-def drawsphere(color, pos, radius, detailLevel, opacity = 1.0):
+def drawsphere(color, pos, radius, detailLevel,
+               opacity = 1.0,
+               testloop = 0
+               ):
     """
     Schedule a sphere for rendering whenever ColorSorter thinks is appropriate.
+
+    @param detailLevel: 0 (icosahedron), or 1 (4x as many triangles),
+                        or 2 (16x as many triangles)
+    @type detailLevel: int (0, 1, or 2)
     """
-    ColorSorter.schedule_sphere(color, 
-                                pos, 
-                                radius, 
-                                detailLevel, 
-                                opacity = opacity)
+    ColorSorter.schedule_sphere(
+        color, 
+        pos, 
+        radius, 
+        detailLevel, # see: _NUM_SPHERE_SIZES, len(drawing_globals.sphereList)
+        opacity = opacity,
+        testloop = testloop )
 
 def drawwiresphere(color, pos, radius, detailLevel = 1):
     """
@@ -324,3 +333,61 @@ def drawTag(color, basePoint, endPoint, pointSize = 20.0):
     """
     drawline(color, basePoint, endPoint)
     drawPoint(color, endPoint, pointSize = 20.0)
+    
+def draw3DFlag(glpane,
+              color, 
+              basePoint, 
+              cylRadius, 
+              cylHeight,
+              direction = None,
+              opacity = 1.0):
+    """
+    Draw a 3D flag with its base as a 'cylinder' and the head as a sphere. 
+    
+    @param glpane: The GLPane object
+    @type glpane: B{GLPane}
+    
+    @param color: color of the tag 
+    @type color: A
+    
+    @param basePoint: The base point of the tag 
+    @type basePoint: V
+    
+    @param cylRadius: Radius of the base cylinder  of the flag
+    @type  cylRadius: float
+    
+    @param cylHeight: Height of the base cylinder of the flag
+    @type  clyHeight: float
+    
+    @param direction: direction in which to draw the 3D flag. If this is not 
+                      spcified, it draws the flag using glpane.up
+    @type direction: V  (or None)
+    
+    @param opacity: Flag opacity (a value bet 0.0 to 1.0)
+    @type opacity: float
+    """
+    if direction is None:
+        direction = glpane.up
+        
+    scale = glpane.scale
+    
+    height = cylHeight
+    endPoint = basePoint + direction*height
+        
+    sphereRadius = cylHeight*0.7
+    sphereCenter = endPoint + direction*0.8*sphereRadius
+    SPHERE_DRAWLEVEL = 2
+    
+    drawcylinder(color, 
+                 basePoint,
+                 endPoint,
+                 cylRadius, 
+                 capped = True,
+                 opacity = opacity)
+    
+    drawsphere(color, 
+               sphereCenter, 
+               sphereRadius,
+               SPHERE_DRAWLEVEL,
+               opacity = opacity)
+

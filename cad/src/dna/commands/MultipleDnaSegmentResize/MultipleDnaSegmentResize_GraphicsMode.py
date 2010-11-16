@@ -6,7 +6,7 @@ Graphics mode for resizing multiple dna segments at once
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: MultipleDnaSegmentResize_GraphicsMode.py 13025 2008-06-02 17:58:44Z russfish $
+@version:$Id: MultipleDnaSegmentResize_GraphicsMode.py 14076 2008-08-28 21:31:50Z marksims $
 
 History:
 
@@ -18,6 +18,8 @@ from PyQt4.Qt import Qt
 from graphics.drawing.drawDnaRibbons import drawDnaRibbons
 import foundation.env as env
 from utilities.prefs_constants import selectionColor_prefs_key
+from utilities.prefs_constants import DarkBackgroundContrastColor_prefs_key
+from utilities.prefs_constants import cursorTextColor_prefs_key
 from utilities.constants import black, banana, silver, lighterblue, darkred
 from graphics.drawing.CS_draw_primitives import drawcylinder
 from graphics.drawing.CS_draw_primitives import drawsphere
@@ -111,8 +113,7 @@ class MultipleDnaSegmentResize_GraphicsMode(DnaSegment_GraphicsMode):
         if event.key() == Qt.Key_Delete:
             if self.command.propMgr and self.command.propMgr.listWidgetHasFocus():
                 self.command.propMgr.removeListWidgetItems()
-                return
-            
+                return            
 
         _superclass.keyPressEvent(self, event)
         
@@ -199,24 +200,28 @@ class MultipleDnaSegmentResize_GraphicsMode(DnaSegment_GraphicsMode):
                 handleType = 'RESIZE_HANDLE'
 
         if handleType and handleType == 'RESIZE_HANDLE': 
+            
+            # textColor is not used. I'm going to ask Ninad if this should 
+            # stay in or should be removed. --Mark
+            #textColor = env.prefs[cursorTextColor_prefs_key] # Mark 2008-08-28
+            
             for segment in self.command.getResizeSegmentList():  
                 self.command.currentStruct = segment
                 params_when_adding_bases, params_when_removing_bases = \
-                                        self.command.getDnaRibbonParams()  
+                                        self.command.getDnaRibbonParams() 
 
-                self.command.currentStruct = None
-                if params_when_adding_bases:                    
-                    numberOfBasePairs,\
-                                    end1, \
-                                    end2, \
-                                    basesPerTurn,\
-                                    duplexRise, \
-                                    ribbon1_start_point, \
-                                    ribbon2_start_point, \
-                                    ribbon1_direction, \
-                                    ribbon2_direction, \
-                                    ribbon1Color, \
-                                    ribbon2Color = params_when_adding_bases 
+                
+                if params_when_adding_bases:
+                    end1, \
+                        end2, \
+                        basesPerTurn,\
+                        duplexRise, \
+                        ribbon1_start_point, \
+                        ribbon2_start_point, \
+                        ribbon1_direction, \
+                        ribbon2_direction, \
+                        ribbon1Color, \
+                        ribbon2Color = params_when_adding_bases 
 
 
                     #Note: The displayStyle argument for the rubberband line should 
@@ -241,7 +246,7 @@ class MultipleDnaSegmentResize_GraphicsMode(DnaSegment_GraphicsMode):
                                    ribbon2_direction = ribbon2_direction,
                                    ribbon1Color = ribbon1Color,
                                    ribbon2Color = ribbon2Color,
-                                   stepColor = black ) 
+                                   ) 
                     
                     #Draw a sphere that indicates the current position of 
                     #the resize end of each segment . 
@@ -251,12 +256,14 @@ class MultipleDnaSegmentResize_GraphicsMode(DnaSegment_GraphicsMode):
                                SPHERE_DRAWLEVEL,
                                opacity = SPHERE_OPACITY) 
                     
-                    numberOfBasePairsString = "+" + str(numberOfBasePairs)
-                    self.glpane.renderTextAtPosition( end2, 
-                                                      numberOfBasePairsString)
+                    
+                    #Draw the text next to the cursor that gives info about 
+                    #number of base pairs etc            
+                    self._drawCursorText(position = end2)
+
                 
                 elif params_when_removing_bases:
-                    numberOfBasePairs , end2 = params_when_removing_bases
+                    end2 = params_when_removing_bases
                     #Draw a sphere that indicates the current position of 
                     #the resize end of each segment.
                     drawsphere(darkred, 
@@ -265,11 +272,12 @@ class MultipleDnaSegmentResize_GraphicsMode(DnaSegment_GraphicsMode):
                                SPHERE_DRAWLEVEL,
                                opacity = SPHERE_OPACITY)   
                     
-                    numberOfBasePairsString = str(numberOfBasePairs)
-                    self.glpane.renderTextAtPosition( end2, 
-                                                      textString = numberOfBasePairsString,
-                                                      )
-
-                #Draw the text next to the cursor that gives info about 
-                #number of base pairs etc
-                self._drawCursorText()
+                    
+                    #Draw the text next to the cursor that gives info about 
+                    #number of base pairs etc            
+                    self._drawCursorText(position = end2)
+                
+                #Reset the command.currentStruct to None. (it is set to 'segment' 
+                #at the beginning of the for loop.
+                self.command.currentStruct = None
+                                

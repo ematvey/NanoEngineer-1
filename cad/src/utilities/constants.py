@@ -4,11 +4,13 @@ constants.py -- constants and trivial functions used in multiple modules.
 
 Everything defined here must require no imports except from builtin
 modules or PyQt, and use names that we don't mind reserving throughout NE1.
+(At the moment there are some exceptions to that, but these should be
+cleaned up.)
 
 (Ideally this module would also contain no state; probably we should move
 gensym out of it for that reason.)
 
-@version: $Id: constants.py 13481 2008-07-16 15:44:55Z marksims $
+@version: $Id: constants.py 14198 2008-09-11 06:54:23Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -17,10 +19,10 @@ from PyQt4.Qt import Qt
 # ==
 
 #Urmi 20080617: grid origin related constants: UM 20080616
-LOWER_LEFT = 0
-LOWER_RIGHT = 1
-UPPER_LEFT = 2
-UPPER_RIGHT = 3
+PLANE_ORIGIN_LOWER_LEFT = 0
+PLANE_ORIGIN_LOWER_RIGHT = 1
+PLANE_ORIGIN_UPPER_LEFT = 2
+PLANE_ORIGIN_UPPER_RIGHT = 3
 LABELS_ALONG_ORIGIN = 0
 LABELS_ALONG_PLANE_EDGES = 1
 
@@ -32,13 +34,6 @@ MULTIPANE_GUI = True # enable some code which was intended to permit the main wi
     # this flag, and then decide whether the singleton partWindow should continue
     # to exist. [bruce 071008, replacing a debug_pref with this flag]
 
-GLPANE_IS_COMMAND_SEQUENCER = True
-    # This indicates that the GLPane and Command Sequencer are the same object.
-    # This is true for now, and False is not yet supported, but will someday
-    # only be False (and then this constant flag can be removed). It exists now
-    # mainly to mark code which is known to need changing when this can be False.
-    # [bruce 071010]
-
 DIAMOND_BOND_LENGTH = 1.544
     #bruce 051102 added this based on email from Damian Allis:
     # > The accepted bond length for diamond is 1.544 ("Interatomic  
@@ -46,26 +41,29 @@ DIAMOND_BOND_LENGTH = 1.544
 
 # ==
 
-# note: these Button constants might be no longer used [bruce 070601 comment]
-leftButton = 1
-rightButton = 2
-# in Qt/Mac, control key with left mouse button simulates right mouse button.
-midButton = 4
+RECENTFILES_QSETTINGS_KEY = '/Nanorex/NE1/recentFiles'
+
+# ==
+
 shiftModifier = 33554432
 cntlModifier = 67108864
-# in Qt/Mac, this flag indicates the command key rather than the control key.
+    # note: in Qt/Mac, this flag indicates the command key rather than the control key.
+altModifier = 134217728
+    # note: in Qt/Mac, this flag indicates the Alt/Option modifier key.
 
-altModifier = 134217728 # in Qt/Mac, this flag indicates the Alt/Option modifier key.
-
-# Note: it would be better if we replaced the above by the equivalent
-# named constants provided by Qt. Before doing this, we have to find
-# out how they correspond on each platform -- for example, I don't
-# know whether Qt's named constant for the control key will have the
-# same numeric value on Windows and Mac, as our own named constant
-# 'cntlButton' does. So no one should replace the above numbers by
-# Qt's declared names before they check this out on each platform. --
-# bruce 040916
-
+# Todo: it would be better if we replaced the above by the equivalent
+# named constants provided by Qt.
+# [namely, Qt.ShiftModifier, Qt.ControlModifier, Qt.AltModifier.]
+# [later, before 080728: This has been done for all of their uses in the code
+# except in the definition of debugModifiers (below), probably during the port
+# to Qt4.]
+#
+# Before doing this, we should find out how they correspond on each platform --
+# for example, I don't know whether Qt's named constant for the control key
+# will have the same numeric value on Windows and Mac, as our own named constant
+# 'cntlModifier' does. So no one should replace the above numbers by
+# Qt's declared names before they check this out on each platform.
+# [bruce 040916]
 
 # debugModifiers should be an unusual combination of modifier keys, used
 # to bring up an undocumented debug menu intended just for developers
@@ -77,7 +75,7 @@ altModifier = 134217728 # in Qt/Mac, this flag indicates the Alt/Option modifier
 # depending on the python installation.)  -- bruce 040916
 
 debugModifiers = cntlModifier | shiftModifier | altModifier
-# on the mac, this really means command-shift-alt
+    # note: on the mac, this really means command-shift-alt
 
 # ==
 
@@ -393,7 +391,7 @@ def _f_add_display_style_code( disp_name, disp_label, allowed_for_atoms):
     dispNames.append(disp_name)
     _new_dispNames.append(disp_name) #bruce 080415 fix bug 2809 in saving nodes with "chunk display styles" set (not in .rc1)
     dispLabel.append(disp_label)
-    ind = dispNames.index(disp_name) # internal value used by setDisplay
+    ind = dispNames.index(disp_name) # internal value used by setDisplayStyle
         # note: this always works, since we appended the same disp_name to *both*
         # dispNames and _new_dispNames [bruce 080415 comment]
     if not allowed_for_atoms:
@@ -571,20 +569,36 @@ def ave_colors(weight, color1, color2): #bruce 050805 moved this here from handl
     weight = float(weight)
     return tuple([weight * c1 + (1-weight)*c2 for c1,c2 in zip(color1,color2)])
 
-def color_difference(color1, color2, minimum_difference = 0.5):
+def colors_differ_sufficiently(color1, color2, minimum_difference = 0.51 ):
     """
-    Return True if the difference between color1 and color2 is greater than
-    minimum_difference (0.5 by default). Otherwise, return False.
+    Return True if the difference between color1 and color2
+    (as vectors in an RGB unit cube) is greater than minimum_difference
+    (0.51 by default). Otherwise, return False.
     """
     # [probably by Mark, circa 080710]
     # [revised by bruce 080711 to remove import cycle involving VQT]
-    # Note: this function name is misleading, since it does not return
-    # the color difference. [bruce 080711 comment]
-    color_diff_squared = sum([(color2[i] - color1[i])**2 for i in (0,1,2)])
+    # bruce 080910 renamed this from color_difference, since it does
+    # not return the color difference, and revised default value since
+    # all calls were passing the same value of minimum_difference.
+    color_diff_squared = sum([(color2[i] - color1[i]) ** 2
+                              for i in (0, 1, 2)
+                              ])
     if color_diff_squared > minimum_difference ** 2:
         return True
     return False
 
+def getTextHaloColor(textColor):
+    """
+    @return: a good halo color, given a text color.
+             The halo color will be either light gray or dark gray
+             and will not be too close to textColor.
+    """
+    if colors_differ_sufficiently(lightgray, textColor):
+        return lightgray
+    else:
+        return darkgray
+    pass
+    
 # colors
 # [note: some of the ones whose names describe their function
 #  are default values for user preferences]
@@ -688,7 +702,7 @@ SELSHAPE_RECT = 'RECTANGLE'
 # mark 060206 adding named constants for selection logic.  
 #& To do: Change these from ints to strings. mark 060211.
 SUBTRACT_FROM_SELECTION = 'Subtract Inside'
-OUTSIDE_SUBTRACT_FROM_SELECTION = 'Subtract Outside' # used in cookieMode only.
+OUTSIDE_SUBTRACT_FROM_SELECTION = 'Subtract Outside' # used in BuildCrystal_Command only.
 ADD_TO_SELECTION = 'Add'
 START_NEW_SELECTION = 'New'
 DELETE_SELECTION = 'Delete'
@@ -698,7 +712,29 @@ DELETE_SELECTION = 'Delete'
 
 # ==
 
-# Keys for user preferences for A6 [moved into prefs_constants.py by Bruce 050805]
+DEFAULT_COMMAND = 'SELECTMOLS' # commandName of default command
+
+# command level constants [bruce 080725]
+
+CL_DEFAULT_MODE = 'CL_DEFAULT_MODE'
+CL_ENVIRONMENT_PROVIDING = 'CL_ENVIRONMENT_PROVIDING'
+CL_MISC_TOPLEVEL = 'CL_MISC_TOPLEVEL'
+CL_SUBCOMMAND = 'CL_SUBCOMMAND'
+CL_EDIT_GENERIC = 'CL_EDIT_GENERIC'
+CL_EXTERNAL_ACTION = 'CL_EXTERNAL_ACTION'
+CL_GLOBAL_PROPERTIES = 'CL_GLOBAL_PROPERTIES'
+CL_VIEW_CHANGE = 'CL_VIEW_CHANGE'
+
+CL_REQUEST = 'CL_REQUEST' # for a request command (only one level?)
+
+CL_ABSTRACT = 'CL_ABSTRACT' # for abstract command classes
+    # (warning if instantiated directly)
+
+CL_UNUSED = 'CL_UNUSED' # for command classes thought to be presently unused
+    # (warning if instantiated directly, or (if practical) if a subclass is
+    #  instantiated)
+
+# ==
 
 # The far clipping plane normalized z value, actually it's a little closer than the actual far clipping 
 # plane to the eye. This is used to draw the blue sky backround polygon, and also used to check if user
@@ -712,9 +748,11 @@ GL_FAR_Z = 0.999
 # NE1's toplevel Python code, namely .../cad/src;
 # for users of a built release, this is the directory
 # containing the same toplevel Python modules as that does,
-# as they're built into NE1 and importable while running it
-# (not taking into account ALTERNATE_CAD_SRC_PATH even if it's defined).
-# [bruce 080111]
+# as they're built into NE1 and importable while running it.
+# Note that if ALTERNATE_CAD_SRC_PATH is defined, it will influence
+# the value of this constant (i.e. this constant always honors
+# that value).
+# [bruce 080111, comment revised 080721]
 
 try:
     __file__
@@ -735,6 +773,5 @@ else:
     # (spelling?) should also be available (only in a release and only on Mac),
     # and might make more sense to use then.]
     pass
-
-
+    
 # end

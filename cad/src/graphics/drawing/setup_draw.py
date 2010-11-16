@@ -4,7 +4,7 @@ setup_draw.py - The function to allocate and compile our standard display lists
 into the current GL context, and initialize the globals that hold their opengl
 names.
 
-@version: $Id: setup_draw.py 13207 2008-06-19 18:07:40Z russfish $
+@version: $Id: setup_draw.py 14412 2008-10-03 17:30:12Z russfish $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -75,16 +75,18 @@ from OpenGL.GL import glVertex3fv
 from geometry.VQT import norm, vlen, V, Q, A
 
 from utilities.debug_prefs import Choice
+from utilities.debug import print_compact_stack, print_compact_traceback
 
 import graphics.drawing.drawing_globals as drawing_globals
-from graphics.drawing.gl_buffers import GLBufferObject
 from graphics.drawing.shape_vertices import getSphereTriStrips
 from graphics.drawing.shape_vertices import getSphereTriangles
 from graphics.drawing.shape_vertices import indexVerts
+from graphics.drawing.gl_buffers import GLBufferObject
+from graphics.drawing.GLSphereBuffer import GLSphereBuffer
 
 import numpy
 
-numSphereSizes = 3
+_NUM_SPHERE_SIZES = 3
 
 def setup_drawer():
     """
@@ -96,16 +98,13 @@ def setup_drawer():
     drawer.py, since the allocated display list names are stored in globals set
     by this function, but in general those names might differ if this was called
     in different GL contexts.
-    """
-    #bruce 060613 added docstring, cleaned up display list name allocation
-    # bruce 071030 renamed from setup to setup_drawer
-
-    spherelistbase = glGenLists(numSphereSizes)
+    """    
+    spherelistbase = glGenLists(_NUM_SPHERE_SIZES)
     sphereList = []
-    for i in range(numSphereSizes):
+    for i in range(_NUM_SPHERE_SIZES):
         sphereList += [spherelistbase+i]
         glNewList(sphereList[i], GL_COMPILE)
-        glBegin(GL_TRIANGLE_STRIP) # GL_LINE_LOOP to see edges.
+        glBegin(GL_TRIANGLE_STRIP) # GL_LINE_LOOP to see edges
         stripVerts = getSphereTriStrips(i)
         for vertNorm in stripVerts:
             glNormal3fv(vertNorm)
@@ -121,7 +120,7 @@ def setup_drawer():
     # Can use in converter-wrappered calls like glVertexPointerfv,
     # but the python arrays are re-copied to C each time.
     sphereArrays = []
-    for i in range(numSphereSizes):
+    for i in range(_NUM_SPHERE_SIZES):
         sphereArrays += [getSphereTriStrips(i)]
         continue
     drawing_globals.sphereArrays = sphereArrays
@@ -130,8 +129,8 @@ def setup_drawer():
     # (Cache and re-use the work of converting a C version.)
     # Used in thinly-wrappered calls like glVertexPointer.
     sphereCArrays = []
-    for i in range(numSphereSizes):
-        CArray = numpy.array(sphereArrays[i], dtype=numpy.float32)
+    for i in range(_NUM_SPHERE_SIZES):
+        CArray = numpy.array(sphereArrays[i], dtype = numpy.float32)
         sphereCArrays += [CArray]
         continue
     drawing_globals.sphereCArrays = sphereCArrays
@@ -141,7 +140,7 @@ def setup_drawer():
     # Can use in converter-wrappered calls like glDrawElementsui,
     # but the python arrays are re-copied to C each time.
     sphereElements = []             # Pairs of lists (index, verts) .
-    for i in range(numSphereSizes):
+    for i in range(_NUM_SPHERE_SIZES):
         sphereElements += [indexVerts(sphereArrays[i], .0001)]
         continue
     drawing_globals.sphereElements = sphereElements
@@ -150,7 +149,7 @@ def setup_drawer():
     sphereCIndexTypes = []          # numpy index unsigned types.
     sphereGLIndexTypes = []         # GL index types for drawElements.
     sphereCElements = []            # Pairs of numpy arrays (Cindex, Cverts) .
-    for i in range(numSphereSizes):
+    for i in range(_NUM_SPHERE_SIZES):
         (index, verts) = sphereElements[i]
         if len(index) < 256:
             Ctype = numpy.uint8
@@ -161,8 +160,8 @@ def setup_drawer():
             pass
         sphereCIndexTypes += [Ctype]
         sphereGLIndexTypes += [GLtype]
-        sphereCIndex = numpy.array(index, dtype=Ctype)
-        sphereCVerts = numpy.array(verts, dtype=numpy.float32)
+        sphereCIndex = numpy.array(index, dtype = Ctype)
+        sphereCVerts = numpy.array(verts, dtype = numpy.float32)
         sphereCElements += [(sphereCIndex, sphereCVerts)]
         continue
     drawing_globals.sphereCIndexTypes = sphereCIndexTypes
@@ -173,7 +172,7 @@ def setup_drawer():
 
         # A GLBufferObject version for glDrawArrays.
         sphereArrayVBOs = []
-        for i in range(numSphereSizes):
+        for i in range(_NUM_SPHERE_SIZES):
             vbo = GLBufferObject(GL_ARRAY_BUFFER_ARB,
                                  sphereCArrays[i], GL_STATIC_DRAW)
             sphereArrayVBOs += [vbo]
@@ -182,7 +181,7 @@ def setup_drawer():
 
         # A GLBufferObject version for glDrawElements indexed verts.
         sphereElementVBOs = []              # Pairs of (IBO, VBO)
-        for i in range(numSphereSizes):
+        for i in range(_NUM_SPHERE_SIZES):
             ibo = GLBufferObject(GL_ELEMENT_ARRAY_BUFFER_ARB,
                                  sphereCElements[i][0], GL_STATIC_DRAW)
             vbo = GLBufferObject(GL_ARRAY_BUFFER_ARB,
@@ -307,6 +306,33 @@ def setup_drawer():
     glEnd()
     glEndList()                
 
+    drawing_globals.shaderCubeList = shaderCubeList = glGenLists(1)
+    drawing_globals.shaderCubeVerts = verts = [
+        (-1.0, -1.0, -1.0),
+        ( 1.0, -1.0, -1.0),
+        (-1.0,  1.0, -1.0),
+        ( 1.0,  1.0, -1.0),
+        (-1.0, -1.0,  1.0),
+        ( 1.0, -1.0,  1.0),
+        (-1.0,  1.0,  1.0),
+        ( 1.0,  1.0,  1.0)]
+    drawing_globals.shaderCubeIndices = indices = [
+        [0, 1, 3, 2], # -Z face.
+        [4, 5, 7, 6], # +Z face.
+        [0, 1, 5, 4], # -Y face.
+        [2, 3, 7, 6], # +Y face.
+        [0, 2, 6, 4], # -X face.
+        [1, 3, 7, 5]] # +X face.
+    glNewList(shaderCubeList, GL_COMPILE)
+    glBegin(GL_QUADS)
+    for i in range(6):
+        for j in range(4):
+            glVertex3fv(A(verts[indices[i][j]]))
+            continue
+        continue
+    glEnd()
+    glEndList()                
+
     drawing_globals.rotSignList = rotSignList = glGenLists(1)
     glNewList(rotSignList, GL_COMPILE)
     glBegin(GL_LINE_STRIP)
@@ -389,11 +415,22 @@ def setup_drawer():
     drawing_globals.use_color_sorted_dls_pref = debug_pref(
         "Use Color-sorted Display Lists?", initial_choice,
         prefs_key = drawing_globals.use_color_sorted_dls_prefs_key)
-    #russ 080225: Added.
+    #russ 080225: Added.  Russ 081002: XXX Deprecated, will be cleaned out.
     initial_choice = choices[drawing_globals.use_color_sorted_vbos_default]
     drawing_globals.use_color_sorted_vbos_pref = debug_pref(
         "Use Color-sorted Vertex Buffer Objects?", initial_choice,
         prefs_key = drawing_globals.use_color_sorted_vbos_prefs_key)
+    #russ 080819: Added.
+    initial_choice = choices[drawing_globals.use_sphere_shaders_default]
+    drawing_globals.use_sphere_shaders_pref = debug_pref(
+        "Use Color-sorted sphere-shaders?", initial_choice,
+        prefs_key = drawing_globals.use_sphere_shaders_prefs_key)
+    # Russ 081002: Added.
+    initial_choice = choices[
+        drawing_globals.use_batched_primitive_shaders_default]
+    drawing_globals.use_batched_primitive_shaders_pref = debug_pref(
+        "Use batched primitive shaders?", initial_choice,
+        prefs_key = drawing_globals.use_batched_primitive_shaders_prefs_key)
 
     #russ 080403: Added drawing variant selection
     variants = [
@@ -402,7 +439,8 @@ def setup_drawer():
         "2. OpenGL 1.1 - glDrawElements indexed arrays from CPU RAM.",
         "3. OpenGL 1.5 - glDrawArrays from graphics RAM VBO.",
         "4. OpenGL 1.5 - glDrawElements, verts in VBO, index in CPU.",
-        "5. OpenGL 1.5 - VBO/IBO buffered glDrawElements."]
+        "5. OpenGL 1.5 - VBO/IBO buffered glDrawElements.",
+        "6. OpenGL 1.4/2.0 - GLSL Vertex/Fragment shaders."]
     drawing_globals.use_drawing_variant = debug_pref(
         "GLPane: drawing method",
         Choice(names = variants, values = range(len(variants)),
@@ -417,13 +455,68 @@ def setup_drawer():
         print "\nnote: this session WILL use color sorted display lists"
     else:
         print "\nnote: this session will NOT use color sorted display lists"
+        pass
+
+    def initSphereShader():
+        try:
+            from graphics.drawing.gl_shaders import GLSphereShaderObject
+            drawing_globals.sphereShader = GLSphereShaderObject()
+            print "Sphere-shader initialization is complete.\n"
+        except:
+            print "Error initializing sphere shaders, NOT using them."
+            drawing_globals.use_sphere_shaders_pref = False
+
+            # Could we support shaders with the older GL_ARB_vertex_program and
+            # GL_ARB_fragment_program with some work?  Get assembly-like vertex
+            # and fragment programs from the GLSL source using an option of the
+            # nVidia Cg compiler.  Needs some loading API changes too...
+            return False
+        return True
+
     if (drawing_globals.allow_color_sorting_pref and
-        drawing_globals.use_color_sorted_vbos_pref):
-        print "note: this session WILL use", \
-              "color sorted Vertex Buffer Objects\n"
+        drawing_globals.use_sphere_shaders_pref):
+        if glGetString(GL_EXTENSIONS).find("GL_ARB_shader_objects") >= 0:
+            print "note: this session WILL use", \
+                  "sphere-shaders"
+            initSphereShader()
+            pass
+        else:
+            print "note: this session WOULD use", \
+              "sphere-shaders,\n", \
+              "but GL_EXTENSION GL_ARB_shader_objects is not supported.\n"
+            pass
+        pass
     else:
         print "note: this session will NOT use", \
-              "color sorted Vertex Buffer Objects\n"
+              "sphere-shaders\n"
+        pass
+
+    if (drawing_globals.allow_color_sorting_pref and
+        drawing_globals.use_batched_primitive_shaders_pref):
+        print "note: this session WILL use", \
+              "batched primitive shaders\n"
+        
+        try:
+            # GLSphereBuffer requires GLSphereShaderObject.
+            if not drawing_globals.use_sphere_shaders_pref:
+                if not initSphereShader():
+                    raise ValueError, "sphere shader setup failed."
+                pass
+
+            from graphics.drawing.GLSphereBuffer import GLSphereBuffer
+            drawing_globals.spherePrimitives = GLSphereBuffer()
+            print "Sphere primitive buffer initialization is complete.\n"
+        except:
+            print_compact_traceback(
+                "Error setting up sphere primitive buffers, NOT using them.\n")
+            drawing_globals.use_sphere_shaders_pref = False
+            pass
+        
+        pass
+    else:
+        print "note: this session will NOT use", \
+              "batched primitive shaders\n"
+        pass
 
     # 20060313 grantham Added use_c_renderer debug pref, can
     # take out when C renderer used by default.

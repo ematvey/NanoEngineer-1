@@ -1,7 +1,7 @@
 # Copyright 2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author: Ninad
-@version: $Id: MultipleDnaSegmentResize_PropertyManager.py 13151 2008-06-09 17:26:26Z marksims $
+@version: $Id: MultipleDnaSegmentResize_PropertyManager.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 @copyright:2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -13,8 +13,6 @@ TODO: as of 2008-01-18
 """
 from PyQt4.Qt import Qt, SIGNAL
 from PM.PM_GroupBox      import PM_GroupBox
-from widgets.DebugMenuMixin import DebugMenuMixin
-from command_support.EditCommand_PM import EditCommand_PM
 from PM.PM_Constants     import PM_DONE_BUTTON
 from PM.PM_Constants     import PM_WHATS_THIS_BUTTON
 from PM.PM_ToolButton    import PM_ToolButton
@@ -25,33 +23,28 @@ from geometry.VQT import V
 from utilities.debug import print_compact_stack
 from utilities       import debug_flags
 from utilities.Comparison import same_vals
-
+from command_support.DnaOrCnt_PropertyManager   import DnaOrCnt_PropertyManager
 from utilities.Log import redmsg
 
-_superclass = EditCommand_PM
-class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin ):
+from utilities.prefs_constants import dnaSegmentEditCommand_cursorTextCheckBox_length_prefs_key
+from utilities.prefs_constants import dnaSegmentEditCommand_cursorTextCheckBox_numberOfBasePairs_prefs_key
+from utilities.prefs_constants import dnaSegmentEditCommand_cursorTextCheckBox_changedBasePairs_prefs_key
+from utilities.prefs_constants import dnaSegmentEditCommand_showCursorTextCheckBox_prefs_key
+
+from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
+
+_superclass = DnaOrCnt_PropertyManager
+class MultipleDnaSegmentResize_PropertyManager( DnaOrCnt_PropertyManager ):
     
     title         =  "Resize Dna Segments"
-    pmName        =  title
     iconPath      =  "ui/actions/Properties Manager/Resize_Multiple_Segments.png"
-    
-    isAlreadyConnected = False
-    isAlreadyDisconnected = False
-    
-    def __init__( self, win, editCommand ):
+        
+    def __init__( self, command ):
         """
         Constructor for the Build DNA property manager.
         """
         
-        #For model changed signal    
-        #@see: self.model_changed() and self._current_model_changed_params 
-        #for example use
-        self._previous_model_changed_params = None
-        
-        #see self.connect_or_disconnect_signals for comment about this flag
-        self.isAlreadyConnected = False
-        self.isAlreadyDisconnected = False
-        
+                
         self.endPoint1 = V(0, 0, 0)
         self.endPoint2 = V(0, 0, 0)
                 
@@ -61,12 +54,7 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         self.basesPerTurn = 10
         self.dnaModel = 'PAM3'
         
-        _superclass.__init__( self, 
-                                    win,
-                                    editCommand)
-
-
-        DebugMenuMixin._init1( self )
+        _superclass.__init__( self,  command)
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_WHATS_THIS_BUTTON)
@@ -118,8 +106,9 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
                         SIGNAL("toggled(bool)"), 
                         self.activateRemoveSegmentsTool)
         
-    def model_changed(self): 
+    def _update_UI_do_updates(self):
         """
+        @see: Command_PropertyManager._update_UI_do_updates()
         @see: DnaSegment_EditCommand.model_changed()
         @see: DnaSegment_EditCommand.hasResizableStructure()
         @see: self._current_model_changed_params()
@@ -150,7 +139,7 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
             self.updateMessage(msg)
                     
         self.updateListWidgets() 
-        ##self.editCommand.updateHandlePositions()
+        ##self.command.updateHandlePositions()
             
                 
     def _current_model_changed_params(self):
@@ -163,11 +152,11 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         """
         params = None
         
-        if self.editCommand:
+        if self.command:
             #update the list first. 
-            self.editCommand.updateResizeSegmentList()
-            number_of_segments = len(self.editCommand.getResizeSegmentList())     
-            isStructResizable, why_not = self.editCommand.hasResizableStructure()
+            self.command.updateResizeSegmentList()
+            number_of_segments = len(self.command.getResizeSegmentList())     
+            isStructResizable, why_not = self.command.hasResizableStructure()
             params = (number_of_segments, isStructResizable, why_not)
         
         return params 
@@ -207,11 +196,15 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         @type  enable: bool
         """
         if enable:
+            if not self.addSegmentsToolButton.isChecked():
+                self.addSegmentsToolButton.setChecked(True)
             if self.removeSegmentsToolButton.isChecked():
                 self.removeSegmentsToolButton.setChecked(False)
             self.segmentListWidget.setAlternatingRowColors(False)
             self.segmentListWidget.setColor(lightgreen_2)            
         else:
+            if self.addSegmentsToolButton.isChecked():
+                self.addSegmentsToolButton.setChecked(False)
             self.segmentListWidget.setAlternatingRowColors(True)
             self.segmentListWidget.resetColor()
                 
@@ -225,12 +218,16 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         @type  enable: bool
         """
         if enable:
+            if not self.removeSegmentsToolButton.isChecked():
+                self.removeSegmentsToolButton.setChecked(True)
             if self.addSegmentsToolButton.isChecked():
                 self.addSegmentsToolButton.setChecked(False)
             self.segmentListWidget.setAlternatingRowColors(False)
             
             self.segmentListWidget.setColor(lightred_1)            
         else:
+            if self.removeSegmentsToolButton.isChecked():
+                self.removeSegmentsToolButton.setChecked(False)
             self.segmentListWidget.setAlternatingRowColors(True)
             self.segmentListWidget.resetColor()
             
@@ -246,7 +243,7 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         """
         self.segmentListWidget.deleteSelection()
         itemDict = self.segmentListWidget.getItemDictonary()           
-        self.editCommand.setResizeStructList(itemDict.values())
+        self.command.setResizeStructList(itemDict.values())
         self.updateListWidgets()            
         self.win.win_update()
         
@@ -257,6 +254,10 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         """                
         self._pmGroupBox1 = PM_GroupBox( self, title = "Segments for Resizing" )
         self._loadGroupBox1( self._pmGroupBox1 )
+        
+        self._displayOptionsGroupBox = PM_GroupBox( self, 
+                                                    title = "Display Options" )
+        self._loadDisplayOptionsGroupBox( self._displayOptionsGroupBox )
         
 
     def _loadGroupBox1(self, pmGroupBox):
@@ -320,7 +321,7 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         @see: self._deactivateAddRemoveSegmentsTool
         """
         _superclass.show(self)
-        self.updateListWidgets()       
+        ##self.updateListWidgets()       
         self._deactivateAddRemoveSegmentsTool()
         
     def _deactivateAddRemoveSegmentsTool(self):
@@ -341,7 +342,7 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         
     def listWidgetHasFocus(self):
         """
-        Checkes if the list widget that lists dnasegments to be resized has the 
+        Checks if the list widget that lists dnasegments to be resized has the 
         Qt focus. This is used to just remove items from the list widget 
         (without actually 'deleting' the corresponding Dnasegment in the GLPane)
         @see: MultipleDnaSegment_GraphicsMode.keyPressEvent() where it is called
@@ -367,8 +368,49 @@ class MultipleDnaSegmentResize_PropertyManager( EditCommand_PM, DebugMenuMixin )
         """
         segmentList = []
         
-        segmentList = self.editCommand.getResizeSegmentList()                        
+        segmentList = self.command.getResizeSegmentList()                        
                
         self.segmentListWidget.insertItems(
             row = 0,
             items = segmentList)
+        
+        
+    def _connect_showCursorTextCheckBox(self):
+        """
+        Connect the show cursor text checkbox with user prefs_key.
+        Overrides 
+        DnaOrCnt_PropertyManager._connect_showCursorTextCheckBox
+        """
+        connect_checkbox_with_boolean_pref(
+            self.showCursorTextCheckBox , 
+            dnaSegmentEditCommand_showCursorTextCheckBox_prefs_key)
+
+
+    def _params_for_creating_cursorTextCheckBoxes(self):
+        """
+        Returns params needed to create various cursor text checkboxes connected
+        to prefs_keys  that allow custom cursor texts. 
+        @return: A list containing tuples in the following format:
+                ('checkBoxTextString' , preference_key). PM_PrefsCheckBoxes 
+                uses this data to create checkboxes with the the given names and
+                connects them to the provided preference keys. (Note that 
+                PM_PrefsCheckBoxes puts thes within a GroupBox)
+        @rtype: list
+        @see: PM_PrefsCheckBoxes
+        @see: self._loadDisplayOptionsGroupBox where this list is used. 
+        @see: Superclass method which is overridden here --
+        DnaOrCnt_PropertyManager._params_for_creating_cursorTextCheckBoxes()
+        """
+        params = \
+               [  #Format: (" checkbox text", prefs_key)
+                  ("Number of base pairs", 
+                   dnaSegmentEditCommand_cursorTextCheckBox_numberOfBasePairs_prefs_key),
+
+                   ("Duplex length",
+                    dnaSegmentEditCommand_cursorTextCheckBox_length_prefs_key),
+
+                    ("Number of basepairs to be changed",
+                     dnaSegmentEditCommand_cursorTextCheckBox_changedBasePairs_prefs_key) 
+                 ]
+
+        return params

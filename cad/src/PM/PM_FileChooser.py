@@ -3,7 +3,7 @@
 PM_FileChooser.py
 
 @author: Mark
-@version: $Id: PM_FileChooser.py 12987 2008-05-29 20:58:46Z urmim $
+@version: $Id: PM_FileChooser.py 14246 2008-09-16 20:57:32Z derrickdb1 $
 @copyright: 2006-2008 Nanorex, Inc.  All rights reserved.
 
 History:
@@ -143,6 +143,11 @@ class PM_FileChooser( QWidget ):
         if label: # Create this widget's QLabel.
             self.labelWidget = QLabel()
             self.labelWidget.setText(label)
+        else:
+            # Create a dummy attribute for PM_GroupBox to see.  This might have
+            # needed to be fixed in PM_GroupBox, but it was done here to try to
+            # avoid causing errors in other PM widgets. -Derrick 20080916
+            self.labelWidget = None
         
         self.lineEdit = QLineEdit()
         self.browseButton = QToolButton()

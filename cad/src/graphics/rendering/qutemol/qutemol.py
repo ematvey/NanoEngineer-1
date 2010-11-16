@@ -3,7 +3,7 @@
 qutemol.py - provides routines to support QuteMolX as a plug-in.
 
 @author: Mark
-@version: $Id: qutemol.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: qutemol.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -288,7 +288,7 @@ def write_qutemol_files(part, excludeFlags = EXCLUDE_HIDDEN_ATOMS):
         EXCLUDE_HIDDEN_ATOMS = 2 (excludes both hidden and invisible atoms)
         EXCLUDE_DNA_ATOMS = 4 (excludes PAM3 and PAM5 pseudo atoms)
         EXCLUDE_DNA_AXIS_ATOMS = 8 (excludes PAM3 axis atoms)
-        EXCLUDE_DNA_AXIS_BONDS = 16 (supresses PAM3 axis bonds)
+        EXCLUDE_DNA_AXIS_BONDS = 16 (suppresses PAM3 axis bonds)
     @type  excludeFlags: int
     
     @return: the name of the temp PDB file, or None if no atoms are in I{part}.

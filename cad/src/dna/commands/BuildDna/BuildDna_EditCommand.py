@@ -3,7 +3,7 @@
 BuildDna_EditCommand.py
 
 @author: Ninad
-@version: $Id: BuildDna_EditCommand.py 13383 2008-07-10 17:30:29Z ninadsathaye $
+@version: $Id: BuildDna_EditCommand.py 14447 2008-11-10 18:55:03Z  $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -24,7 +24,7 @@ BUGS:
 from command_support.EditCommand import EditCommand
 from dna.model.DnaGroup import DnaGroup
 from utilities.Log  import greenmsg
-from command_support.GeneratorBaseClass import PluginBug, UserError
+from utilities.exception_classes import PluginBug, UserError
 
 from utilities.constants import gensym
 
@@ -34,28 +34,38 @@ from model.chem import Atom
 from model.chunk import Chunk
 from model.bonds import Bond
 
-##from SelectChunks_GraphicsMode import SelectChunks_GraphicsMode
-
 from dna.commands.BuildDna.BuildDna_GraphicsMode import BuildDna_GraphicsMode
+from dna.commands.BuildDna.BuildDna_PropertyManager import BuildDna_PropertyManager
+from utilities.Comparison import same_vals
 
+_superclass = EditCommand
 class BuildDna_EditCommand(EditCommand):
     """
     BuildDna_EditCommand provides a convenient way to edit or create
     a DnaGroup object
     """
+        
+    #GraphicsMode
+    GraphicsMode_class = BuildDna_GraphicsMode
+    
+    #Property Manager
+    PM_class = BuildDna_PropertyManager
+    
+    #Flyout Toolbar
+    FlyoutToolbar_class = DnaFlyout
+    
     cmd              =  greenmsg("Build DNA: ")
-    sponsor_keyword  =  'DNA'
     prefix           =  'DnaGroup'   # used for gensym
     cmdname          = "Build Dna"
+    
     commandName       = 'BUILD_DNA'
-    featurename       = 'Build_Dna'
-
-    GraphicsMode_class = BuildDna_GraphicsMode
+    featurename       = "Build Dna"
+    from utilities.constants import CL_ENVIRONMENT_PROVIDING
+    command_level = CL_ENVIRONMENT_PROVIDING   
 
     command_should_resume_prevMode = False
-    command_has_its_own_gui = True
-    command_can_be_suspended = True
-
+    command_has_its_own_PM = True
+    
     # Generators for DNA, nanotubes and graphene have their MT name
     # generated (in GeneratorBaseClass) from the prefix.
     create_name_from_prefix  =  True
@@ -66,97 +76,41 @@ class BuildDna_EditCommand(EditCommand):
     #See also other examples of its use in older Commands such as
     #BuildAtoms_Command (earlier depositmode)
     call_makeMenus_for_each_event = True
-
-    def __init__(self, commandSequencer, struct = None):
+    
+    _previous_command_stack_change_indicator = None
+    
+    def command_update_state(self):
         """
-        Constructor for BuildDna_EditCommand
+        @see superclass for documentation
         """
-
-        EditCommand.__init__(self, commandSequencer)
-        self.struct = struct
-
-
-    def init_gui(self):
-        """
-        Do changes to the GUI while entering this command. This includes opening
-        the property manager, updating the command toolbar , connecting widget
-        slots (if any) etc. Note: The slot connection in property manager and
-        command toolbar is handled in those classes.
-
-        Called once each time the command is entered; should be called only
-        by code in modes.py
-
-        @see: L{self.restore_gui}
-        """
-        EditCommand.init_gui(self)
-
-        if self.flyoutToolbar is None:
-            self.flyoutToolbar = DnaFlyout(self.win, self.propMgr)
-
-        self.flyoutToolbar.activateFlyoutToolbar()
-
-    def resume_gui(self):
-        """
-        Called when this command, that was suspended earlier, is being resumed.
-        The temporary command (which was entered by suspending this command)
-        might have made some changes to the model which need to be reflected
-        while resuming command.
-
-        Example: A user enters BreakStrands_Command by suspending
-        BuildDna_EditCommand, then breaks a few strands, thereby creating new
-        strand chunks. Now when the user returns to the BuildDna_EditCommand,
-        the command's property manager needs to update the list of strands
-        because of the changes done while in BreakStrands_Command.
-        @see: Command.resume_gui
-        @see: Command._enterMode where this method is called.
-        """
-        #NOTE: Doing command toolbar updates in this method doesn't alwayswork.
-        #consider this situation : You are in a) BuildDna_EditCommand, then you
-        #b) enter DnaDuplex_EditCommand(i.e. Dna line) and from this temporary
-        #command, you directly c) enter BreakStrands_Command
-        #-- During b to c, 1) it first exits (b) , 2) resumes (a)
-        #and then 3)enters (c)
-        #This method is called during operation #2 and any changes to flyout
-        #toolbar are reset during #3  --- Ninad 2008-01-14
-        if self.propMgr:
-            self.propMgr.updateListWidgets()
-
-        if self.flyoutToolbar:
-            self.flyoutToolbar.resetStateOfActions()
-
-
-    def restore_gui(self):
-        """
-        Do changes to the GUI while exiting this command. This includes closing
-        this mode's property manager, updating the command toolbar ,
-        Note: The slot connection/disconnection in property manager and
-        command toolbar is handled in those classes.
-        @see: L{self.init_gui}
-        """
-        EditCommand.restore_gui(self)
-        if self.flyoutToolbar:
-            self.flyoutToolbar.deActivateFlyoutToolbar()
-
-    def StateDone(self):
-        """
-        @see: Command.StateDone
-        """
-        return None
-
-    def StateCancel(self):
-        """
-        @see Command.StateCancel
-        """
-        return None
-
+        #Ths following code fixes a bug reported by Mark on 2008-11-10
+        #the bug is:
+            #1. Insert DNA
+            #2. Enter Break Strands command. Exit command.
+            #3. Do a region selection to select the middle of the DNA duplex.
+            #Notice that atoms are selected, not the strands/segment chunks.
+        #The problem is the selection state is not changed back to the Select Chunks
+        #the code that does this is in Enter_GraphicsMode. 
+        #(See SelectChunks_GraphicsMode) but when a command is 'resumed', that
+        #method is not called. The fix for this is to check if the command stack
+        #indicator changed in the command_update_state method, if it is changed
+        #and if currentCommand is BuildDna_EditCommand, call the code that 
+        #ensures that chunks will be selcted when you draw a selection lasso.
+        #-- Ninad 2008-11-10
+        if same_vals(self._previous_command_stack_change_indicator,
+                     self.assy.command_stack_change_indicator()):
+            return 
+        
+        if self.win.commandSequencer.currentCommand is self:
+            self.assy.selectChunksWithSelAtoms_noupdate()
+           
     def runCommand(self):
         """
         Overrides EditCommand.runCommand
         """
         self.struct = None
         self.existingStructForEditing = False
-        self.propMgr.updateListWidgets()
-
+       
     def keep_empty_group(self, group):
         """
         Returns True if the empty group should not be automatically deleted.
@@ -177,23 +131,8 @@ class BuildDna_EditCommand(EditCommand):
 
         return bool_keep
 
-    def create_and_or_show_PM_if_wanted(self, showPropMgr = True):
-        """
-        Create the property manager object if one doesn't already exist
-        and then show the propMgr if wanted by the user.
-        @param showPropMgr: If True, show the property manager
-        @type showPropMgr: boolean
-        """
-        EditCommand.create_and_or_show_PM_if_wanted(
-            self,
-            showPropMgr = showPropMgr)
-
-        self.propMgr.updateMessage("Use appropriate command in the command "\
-                                   "toolbar to create or modify a DNA Object"\
-                                   "<br>"
-                               )
-
-    def createStructure(self, showPropMgr = True):
+    
+    def createStructure(self):
         """
         Overrides superclass method. It doesn't do anything for this type
         of editcommand
@@ -240,17 +179,7 @@ class BuildDna_EditCommand(EditCommand):
         """
         return self.win.assy.DnaGroup
 
-
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager  object (that defines UI things) for this
-        editCommand.
-        """
-        assert not self.propMgr
-        propMgr = self.win.createBuildDnaPropMgr_if_needed(self)
-        return propMgr
-
-
+    
     def _createStructure(self):
         """
         creates and returns the structure (in this case a L{Group} object that
@@ -364,7 +293,7 @@ class BuildDna_EditCommand(EditCommand):
         empty it deletes it.
         @see: dna_model.DnaGroup.isEmpty
         @see: EditCommand.preview_or_finalize_structure
-        """
+        """        
         if self.struct is not None:
             if self.struct.isEmpty():
                 #Don't keep empty DnaGroup Fixes bug 2603.
@@ -391,22 +320,32 @@ class BuildDna_EditCommand(EditCommand):
                 self._removeStructure()
 
 
-    def provideParamsForTemporaryMode(self, temporaryModeName):
+    def provideParamsForTemporaryMode_in_BuildDna(self, temporaryModeName = None):
+        # REVIEW: this is called directly by our subcommand DnaDuplex_EditCommand.
+        # I'm not sure if it's ever called by a request command
+        # (but I guess not, due to its old-code check on
+        #  temporaryModeName == 'DNA_DUPLEX').
+        # If not, it should be removed in favor of direct access to
+        # methods or attrs of interest. See comment near its call in
+        # DnaDuplex_EditCommand.py.
+        #
+        # For now, I just renamed it and its call, to verify this theory.
+        # Later it should be renamed better and its argument removed.
+        # [bruce 080801 comment]
         """
-        NOTE: This needs to be a general API method. There are situations when
-        user enters a temporary mode , does something there and returns back to
-        the previous mode he was in. He also needs to send some data from
-        previous mode to the temporary mode .
-        @see: B{DnaLineMode}
-        @see: self.acceptParamsFromTemporaryMode
+##        NOTE: This needs to be a general API method. There are situations when
+##        user enters a temporary mode , does something there and returns back to
+##        the previous mode he was in. He also needs to send some data from
+##        previous mode to the temporary mode .
+##        @see: B{DnaLineMode}
+##        @see: self.acceptParamsFromTemporaryMode
 
         @see DnaDuplex_EditCommand._createSegment(),
         @see: DnaDuplex_EditCommand.createStructure()
-        @see: DnaDuplex_EditCommand.restore_gui()
         """
-        params = None
+        params = ()
 
-        if temporaryModeName == 'DNA_DUPLEX':
+        if temporaryModeName in ('DNA_DUPLEX', None):
             #Pass the self.struct to the DnaDuplex_EdiCommand
             #This deprecates use of self.callback_addSegments (in which
             #segments created while in DnaDuplex command are added after
@@ -415,8 +354,7 @@ class BuildDna_EditCommand(EditCommand):
             #segments directly to it.
             #See: DnaDuplex_EditCommand._createSegment(),
             #    DnaDuplex_EditCommand.createStructure(), and
-            #    DnaDuplex_EditCommand.restore_gui()
-
+            
             #following condition (hasValidStructure) fixes bug 2815.Earlier
             #ondition was just checking if self.struct is None.
             #self.hasValidStructure checks if the structure is killed etc
@@ -424,37 +362,11 @@ class BuildDna_EditCommand(EditCommand):
 
             if not self.hasValidStructure():
                 self.struct = self._createStructure()
-            params = (self.callback_addSegments, self.struct)
+            params = (self.struct)
 
         return params
 
-    def callback_addSegments(self, segmentList):
-        """
-        Call back method supplied to the temporary command DnaDuplex_EditCommand.
-        The DnaDuplex_EditCommand gives it a list of segments created
-        while that command was active.
-        To be revised and renamed.
-
-        @see: DnaDuplex_EditCommand.restore_gui
-
-        @TODO: Remove this method when safe. DEPRECATED AS OF 2008-02-24
-               See self.provideParametersForTemporaryMode which pass on
-               self.struct (a DnaGroup) to be used in DnaDuplex_EditCommand
-               (which adds created DnaSegments to it )
-        """
-
-        if self.struct is None:
-            self.struct = self._createStructure()
-
-        assert self.struct is not None
-        for segment in segmentList:
-            self.struct.addSegment(segment)
-        ##self.win.assy.place_new_geometry(dnaGroup)
-        self.propMgr.updateListWidgets()
-
-        self.previousParams = self._gatherParameters()
-
-        self.win.win_update()
+    
 
     def makeMenus(self):
         """
@@ -488,7 +400,4 @@ class BuildDna_EditCommand(EditCommand):
             highlightedChunk.make_glpane_context_menu_items(self.Menu_spec,
                                                             command = self)
             return
-        
-        
-            
         

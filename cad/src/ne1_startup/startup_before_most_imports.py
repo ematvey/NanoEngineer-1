@@ -1,10 +1,11 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 startup_before_most_imports.py - some application startup functions
 which need to be run before most imports are done, and which therefore
 need to be careful about doing imports themselves.
 
-$Id: startup_before_most_imports.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: startup_before_most_imports.py 14136 2008-09-05 20:00:33Z brucesmith $
+@copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
 
@@ -63,6 +64,18 @@ def before_most_imports( main_globals ):
     # certain code it might not be safe for end-users to run).
     # [bruce 050902 new feature; revised 051006 to work in Windows
     # built packages]
+    # [Russ 080905: Fixed after this file moved into ne1_startup.
+    #  bruce 080905 slightly revised that fix.
+    #  Note: see also NE1_Build_Constants.py, which has constants
+    #  that might be useable for this.]
+    _OUR_PACKAGE = "ne1_startup" # should be this file's package inside cad/src
+        # todo: this could be derived entirely from __name__.
+    our_basename = __name__.split('.')[-1] # e.g. startup_before_most_imports
+    assert _OUR_PACKAGE == __name__.split('.')[-2], \
+           "need to revise this code for moved file"
+        # this will fail if _OUR_PACKAGE has more than one component, or no
+        # components; that's intentional, since some of the code below would
+        # also fail in that case. If it fails, generalize this and that code.
 
     # Method 1. As of 050902, package builders on all platforms reportedly move main.py
     # (the __main__ script) into a higher directory than the compiled python files.
@@ -79,8 +92,8 @@ def before_most_imports( main_globals ):
         # *both* guessing methods, so on an exception we just have to skip the whole thing. Further study might show that there is
         # no problem with ourdir, only with maindir, but I won't force us to test that right now. [bruce 051006]
         # REVIEW: is this still correct now that this code is in a non-toplevel module? [bruce 080111 question]
-        ourdir,  filejunk = os.path.split( __file__ )
-        maindir, filejunk = os.path.split( __main__.__file__ )
+        ourdir = os.path.split(__file__)[0]
+        maindir = os.path.split(__main__.__file__)[0]
     except:
         # unfortunately it's not ok to print the exception or any error message, in case endUser = True is correct...
         # but maybe I can get away with printing something cryptic (since our code is known to print things sometimes anyway)?
@@ -94,13 +107,13 @@ def before_most_imports( main_globals ):
         # we set maindir and ourdir; try both guess-methods, etc
         def canon(path):
             #bruce 050908 bugfix in case developer runs python with relative (or other non-canonical) path as argument
-            return os.path.normcase( os.path.abspath(path) )
+            return os.path.normcase(os.path.abspath(path))
         maindir = canon(maindir)
         ourdir = canon(ourdir)
-        guess1 = (maindir != ourdir)
+        guess1 = (os.path.join(maindir, _OUR_PACKAGE) != ourdir) # Russ 080905: Loaded from package subdirectory.
 
         # Method 2. As of 050902, package builders on all platforms remove the .py files, leaving only .pyc files.
-        guess2 = not os.path.exists( os.path.join( ourdir, __name__ + ".py" ))
+        guess2 = not os.path.exists(os.path.join(ourdir, our_basename + ".py"))
 
         endUser = guess1 or guess2
         if EndUser.getAlternateSourcePath() != None:

@@ -14,7 +14,7 @@
 //
 // That could be done if sim.pyx can have cpp macros in it...
 
-static char const rcsid[] = "$Id: globals.c 12995 2008-05-30 00:06:10Z ericmessick $";
+static char const rcsid[] = "$Id: globals.c 14419 2008-10-06 18:12:42Z ericmessick $";
 
 int debug_flags;
 
@@ -48,6 +48,9 @@ char *BaseFileName;
 char *GromacsOutputBaseName;
 char *PathToCpp;
 char *SystemParametersFileName;
+char *AmberBondedParametersFileName;
+char *AmberNonbondedParametersFileName;
+char *AmberChargesFileName;
 int QualityWarningLevel;
 float SimpleMovieForceScale;
 double MinimizeThresholdCutoverRMS;
@@ -57,6 +60,8 @@ double MinimizeThresholdEndMax;
 int TimeReversal;
 double ThermostatGamma;
 double ThermostatG1;
+int UseAMBER;
+int TypeFeedback;
 
 // absolute distance in nm beyond which gromacs will consider vdW
 // forces to be exactly zero.  If less than zero, user defined tables
@@ -153,10 +158,15 @@ reinit_globals(void)
     GromacsOutputBaseName = NULL;
     PathToCpp = NULL;
     SystemParametersFileName = NULL;
+    AmberBondedParametersFileName = NULL;
+    AmberNonbondedParametersFileName = NULL;
+    AmberChargesFileName = NULL;
     QualityWarningLevel = 5;
     SimpleMovieForceScale = 1.0;
     TimeReversal = 0;
     ThermostatGamma = 0.01;
+    UseAMBER = 0;
+    TypeFeedback = 0;
     
     MinimizeThresholdCutoverRMS = 50.0; // pN
     MinimizeThresholdCutoverMax = 0.0; // set by constrainGlobals, below
@@ -237,9 +247,19 @@ printGlobals()
     write_traceline("# EnableElectrostatic: %d\n", EnableElectrostatic);
     write_traceline("# NeighborSearching: %d\n", NeighborSearching);
     write_traceline("# ThermostatGamma: %f\n", ThermostatGamma);
+    write_traceline("# UseAMBER: %d\n", UseAMBER);
     if (SystemParametersFileName != NULL && LoadedSystemParameters) {
         write_traceline("# SystemParametersFileName: %s\n", SystemParametersFileName);
     }
+    if (AmberBondedParametersFileName != NULL) {
+        write_traceline("# AmberBondedParametersFileName: %s\n", AmberBondedParametersFileName);
+    }        
+    if (AmberNonbondedParametersFileName != NULL) {
+        write_traceline("# AmberNonbondedParametersFileName: %s\n", AmberNonbondedParametersFileName);
+    }        
+    if (AmberChargesFileName != NULL) {
+        write_traceline("# AmberChargesFileName: %s\n", AmberChargesFileName);
+    }        
     if (UserParametersFileName != NULL && LoadedUserParameters) {
         write_traceline("# UserParametersFileName: %s\n", UserParametersFileName);
     }

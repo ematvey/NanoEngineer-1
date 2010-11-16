@@ -2,7 +2,7 @@
 
 #include "simulator.h"
 
-static char const rcsid[] = "$Id: pattern.c 12738 2008-05-12 18:40:45Z ericmessick $";
+static char const rcsid[] = "$Id: pattern.c 14287 2008-09-18 19:41:28Z ericmessick $";
 
 static int debugMatch = 0;
 
@@ -310,6 +310,25 @@ checkForDuplicateMatch(struct patternMatch *match)
   return !dup;
 }
 
+static int
+matchBondOrder(char order, struct compiledPatternTraversal *traversal)
+{
+  int i;
+  char matchBondOrder;
+  
+  for (i=0; i<4; i++) {
+    matchBondOrder = traversal->bondOrder[i];
+    if (matchBondOrder) {
+      if (matchBondOrder == order) {
+        return 1;
+      }
+    } else {
+      return 0;
+    }
+  }
+  return 0;
+}
+
 // Matches one traversal in a compiled pattern.  See
 // http://www.nanoengineer-1.net/mediawiki/index.php?title=User:Emessick/Molecular_pattern_matching
 // for a description of the algorithm.  Basically, each traversal
@@ -339,7 +358,7 @@ matchOneTraversal(struct patternMatch *match,
       printf("found match, checking for duplicate\n");
       printMatch(match);
     }
-    if (checkForDuplicateMatch(match)) {
+    if (pattern->allowDuplicates || checkForDuplicateMatch(match)) {
       traceMatch(match);
       pattern->matchFunction(match); BAIL();
       match->sequenceNumber++;
@@ -365,7 +384,7 @@ matchOneTraversal(struct patternMatch *match,
       continue;
     }
     // build list of atoms bonded to a
-    if (traversal->bondOrder == '0') {
+    if (traversal->bondOrder[0] == '0') {
       // a must not be bonded to b
       while ((atomB = matchOneAtom(match,
                                    pattern,
@@ -390,7 +409,7 @@ matchOneTraversal(struct patternMatch *match,
     }
     for (bondNumber=atomA->num_bonds-1; bondNumber>=0; bondNumber--) {
       bond = atomA->bonds[bondNumber];
-      if (bond->order == traversal->bondOrder) {
+      if (matchBondOrder(bond->order, traversal)) {
         if (atomA == bond->a1) {
           atomB = bond->a2;
         } else {
@@ -473,9 +492,9 @@ makePatternAtom(int id, char *type)
 }
 
 struct compiledPatternTraversal *
-makeTraversal(struct compiledPatternAtom *a,
-              struct compiledPatternAtom *b,
-              char bondOrder)
+makeTraversal2(struct compiledPatternAtom *a,
+               struct compiledPatternAtom *b,
+               char *bondOrders)
 {
   struct compiledPatternTraversal *t;
 
@@ -483,14 +502,29 @@ makeTraversal(struct compiledPatternAtom *a,
     allocate(sizeof(struct compiledPatternTraversal));
   t->a = a;
   t->b = b;
-  t->bondOrder = bondOrder;
+  t->bondOrder[0] = bondOrders[0];
+  t->bondOrder[1] = bondOrders[1];
+  t->bondOrder[2] = bondOrders[2];
+  t->bondOrder[3] = bondOrders[3];
   return t;
+}
+
+struct compiledPatternTraversal *
+makeTraversal(struct compiledPatternAtom *a,
+              struct compiledPatternAtom *b,
+              char bondOrder)
+{
+  char buf[4];
+
+  buf[0] = bondOrder;
+  buf[1] = '\0';
+  return makeTraversal2(a, b, buf);
 }
 
 static int numPatterns;
 static struct compiledPattern **allPatterns;
 
-void
+struct compiledPattern *
 makePattern(char *name,
             void (*matchFunction)(struct patternMatch *match),
             int numAtoms,
@@ -505,6 +539,7 @@ makePattern(char *name,
   pat->matchFunction = matchFunction;
   pat->numberOfAtoms = numAtoms;
   pat->numberOfTraversals = numTraversals;
+  pat->allowDuplicates = 0;
   pat->traversals = (struct compiledPatternTraversal **)
     allocate(sizeof(struct compiledPatternTraversal *) * numTraversals);
   for (i=0; i<numTraversals; i++) {
@@ -514,6 +549,7 @@ makePattern(char *name,
   numPatterns++;
   allPatterns = (struct compiledPattern **)accumulator(allPatterns, sizeof(struct compiledPattern *) * numPatterns, 0);
   allPatterns[numPatterns - 1] = pat;
+  return pat;
 }
 
 void
@@ -535,5 +571,9 @@ createPatterns(void)
 {
   numPatterns = 0;
   makeUnmatchableType();
-  createPam5Patterns();
+  if (UseAMBER) {
+    createAMBERPatterns();
+  } else {
+    createPam5Patterns();
+  }
 }

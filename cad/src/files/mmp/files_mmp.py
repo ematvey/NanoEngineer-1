@@ -5,7 +5,7 @@ files_mmp.py -- reading MMP files
 See also: files_mmp_writing.py, files_mmp_registration.py
 
 @author: Josh, others
-@version: $Id: files_mmp.py 13235 2008-06-25 20:13:27Z ninadsathaye $
+@version: $Id: files_mmp.py 14197 2008-09-11 04:52:29Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -590,7 +590,7 @@ class _readmmp_state:
             # so we'd detect more errors if they did search for it [bruce 050405]
         disp = molpat.match(card)
         if disp:
-            mol.setDisplay(interpret_dispName(disp.group(1), atom = False)) #bruce 080324 revised
+            mol.setDisplayStyle(interpret_dispName(disp.group(1), atom = False)) #bruce 080324 revised
         self.addmember(mol) #bruce 050405; removes need for _addMolecule
 
     def _read_atom(self, card):
@@ -622,7 +622,7 @@ class _readmmp_state:
         a.unset_atomtype() # let it guess atomtype later from the bonds read from subsequent mmp records [bruce 050707]
         disp = atom2pat.match(card)
         if disp:
-            a.setDisplay(interpret_dispName(disp.group(1))) #bruce 080324 revised
+            a.setDisplayStyle(interpret_dispName(disp.group(1))) #bruce 080324 revised
         self.ndix[n] = a
         self.prevatom = a
         self.prevcard = card
@@ -924,10 +924,10 @@ class _readmmp_state:
         list1 = map(int, re.findall("\d+", card[card.index(")") + 1:]))
         list1 = map((lambda n: self.ndix[n]), list1)
         
-        aas = AtomSet(self.assy, list1) # create atom set and set props
-        aas.name = name
-        aas.color = col
-        self.addmember(aas)
+        as = AtomSet(self.assy, list1) # create atom set and set props
+        as.name = name
+        as.color = col
+        self.addmember(as)
         
     def _read_espimage(self, card):
         """

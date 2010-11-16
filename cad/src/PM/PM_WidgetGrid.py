@@ -3,7 +3,7 @@
 PM_WidgetGrid.py
 
 @author: Ninad
-@version: $Id: PM_WidgetGrid.py 11951 2008-03-14 04:44:50Z ericmessick $
+@version: $Id: PM_WidgetGrid.py 14016 2008-08-22 17:03:23Z ninadsathaye $
 @copyright: 2007 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -187,7 +187,7 @@ class PM_WidgetGrid( PM_GroupBox ):
         if widgetType[0:3] == "PM_":
             #The given widget is already defined using a class in PM_Module
             #so simply use the specified object
-            #@see:Ui_CookiePropertyManager._loadLayerPropertiesGroupBox
+            #@see:Ui_BuildCrystal_PropertyManager._loadLayerPropertiesGroupBox
             #      for an example on how it is used. 
             widget = widgetParams[1]
             return widget

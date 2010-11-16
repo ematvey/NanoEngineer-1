@@ -1,10 +1,10 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details.
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 MotorPropertyManager.py
 
 @author: Ninad
-@version: $Id: MotorPropertyManager.py 13482 2008-07-16 15:48:06Z marksims $
-@copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
+@version: $Id: MotorPropertyManager.py 14140 2008-09-05 22:10:12Z ninadsathaye $
+@copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 """
 from PyQt4.Qt import QColorDialog
@@ -15,9 +15,8 @@ from PM.PM_SelectionListWidget import PM_SelectionListWidget
 from PM.PM_Constants     import PM_PREVIEW_BUTTON, PM_RESTORE_DEFAULTS_BUTTON
 from widgets.widget_helpers import QColor_to_RGBf
 
-from command_support.GeneratorBaseClass import AbstractMethod
+from utilities.exception_classes import AbstractMethod
 from command_support.EditCommand_PM import EditCommand_PM
-
 
 from utilities.debug import print_compact_traceback
 
@@ -35,14 +34,12 @@ class MotorPropertyManager(EditCommand_PM):
     #This should be overridden in subclasses
     iconPath = "ui/actions/Simulation/Motor_JUNK.png"
 
-    def __init__(self, win, motorEditCommand):
+    def __init__(self, command):
         """
         Construct the  Motor Property Manager.
         """
 
-        EditCommand_PM.__init__( self,
-                                    win,
-                                    motorEditCommand)
+        EditCommand_PM.__init__( self, command)
 
         msg = "Attach a " + self.title + " to the selected atoms"
 
@@ -63,8 +60,8 @@ class MotorPropertyManager(EditCommand_PM):
         #EditCommand_PM.show, the 'preview' properties are not updated
         #when you are editing an existing R.Motor. Don't know the cause at this
         #time, issue is trivial. So calling it in the end -- Ninad 2007-10-03
-        if self.editCommand and self.editCommand.struct:
-            self.editCommand.struct.updateCosmeticProps(previewing = True)
+        if self.command and self.command.struct:
+            self.command.struct.updateCosmeticProps(previewing = True)
 
         self.updateAttachedAtomListWidget()
 
@@ -121,8 +118,8 @@ class MotorPropertyManager(EditCommand_PM):
         @note: This overrides change_jig_color in class MotorPropertyManager.
         """
         color = self.motorColorComboBox.getColor()
-        self.editCommand.struct.color = color
-        self.editCommand.struct.normcolor = color
+        self.command.struct.color = color
+        self.command.struct.normcolor = color
         self.glpane.gl_update()
         return
 
@@ -138,8 +135,8 @@ class MotorPropertyManager(EditCommand_PM):
         Slot for reverse direction button.
         Reverses the direction of the motor.
         """
-        if self.editCommand.struct:
-            self.editCommand.struct.reverse_direction()
+        if self.command.struct:
+            self.command.struct.reverse_direction()
             self.glpane.gl_update()
 
     def updateAttachedAtomListWidget(self, atomList = None):
@@ -148,8 +145,8 @@ class MotorPropertyManager(EditCommand_PM):
         """
 
         if atomList is None:
-            if self.editCommand.struct:
-                atomList = self.editCommand.struct.atoms[:]
+            if self.command.struct:
+                atomList = self.command.struct.atoms[:]
 
         if atomList is not None:
             self.attachedAtomsListWidget.insertItems(row = 0,

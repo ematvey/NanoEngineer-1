@@ -3,8 +3,9 @@
 debug.py -- various debugging utilities and debug-related UI code
 
 TODO: split into several modules in a debug package.
+(Some of the functions here should logically be moved into ops_debug.py.)
 
-@version: $Id: debug.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: debug.py 14432 2008-10-16 00:55:49Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Names and behavior of some functions here (print_compact_traceback, etc)
@@ -43,7 +44,8 @@ from utilities import debug_flags
 
 _default_x = object()
 
-def print_verbose_traceback(x = _default_x):
+def print_verbose_traceback(x = _default_x): # by wware
+    # note: doesn't print the exception itself.
     traceback.print_stack(file = sys.stdout)
     if x is not _default_x:
         print x
@@ -234,7 +236,7 @@ def safe_repr(obj, maxlen = 1000):
 # traceback / stack utilities (see also print_verbose_traceback)
 
 def print_compact_traceback(msg = "exception ignored: "):
-    print >> sys.__stderr__, msg + compact_traceback() # bruce 061227 changed this back to old form
+    print >> sys.__stderr__, msg.encode("utf_8") + compact_traceback() # bruce 061227 changed this back to old form
     return
     ## import traceback
     ## print >> sys.__stderr__, msg
@@ -274,19 +276,23 @@ def compact_traceback():
 
 # stack
 
-def print_compact_stack( msg = "current stack:\n", skip_innermost_n = 2, **kws ):
+def print_compact_stack( msg = "current stack:\n", skip_innermost_n = 0, **kws ):
     #bruce 061118 added **kws
     #bruce 080314 pass our msg arg to new msg arg of compact_stack
+    #bruce 080917 revise semantics of skip_innermost_n in all related functions
+    # (now 0 means "only frames outside this function")
     print >> sys.__stderr__, \
-          compact_stack( msg, skip_innermost_n = skip_innermost_n, **kws )
+          compact_stack( msg, skip_innermost_n = skip_innermost_n + 1, **kws )
 
 STACKFRAME_IDS = False # don't commit with True,
     # but set to True in debugger to see more info in compact_stack printout [bruce 060330]
 
-def compact_stack( msg = "", skip_innermost_n = 1, linesep = ' ', frame_repr = None ):
+def compact_stack( msg = "", skip_innermost_n = 0, linesep = ' ', frame_repr = None ):
     #bruce 061118 added linesep, frame_repr; 080314 added msg arg
+    #bruce 080917 revise semantics of skip_innermost_n in all related functions
+    # (now 0 means "only frames outside this function")
     printlines = []
-    frame = sys._getframe( skip_innermost_n)
+    frame = sys._getframe( skip_innermost_n + 1)
     while frame is not None: # innermost first
         filename = frame.f_code.co_filename
         lineno = frame.f_lineno
@@ -473,9 +479,13 @@ def print_exec_timing(mycode, ntimes, glob): #bruce 051117
 _commands = {}
 
 class menu_cmd: #bruce 050923 [committed 051006]. #e maybe the maker option should be turned into a subclass-choice... we'll see.
-    "public attrs: name, order"
+    """
+    @note: public attributes: name, order
+    """
     def __init__(self, name, func, order = None, maker = False, text = None):
-        "for doc of args see register_debug_menu_command"
+        """
+        for doc of args see register_debug_menu_command
+        """
         # public attrs: 
         self.name = name # self.name is used for replacement of previous same-named commands in client-maintained sets
             # (but the name arg is also used as default value for some other attrs, below)
@@ -520,6 +530,10 @@ def register_debug_menu_command( *args, **kws ):
        If maker is true [experimental feature], then func is not the command but the sub-menu-spec maker,
     which runs (with widget as arg) when menu is put up, and returns a menu-spec list;
     in this case name is ignored except perhaps for sorting purposes.
+
+    @param name: text for menu command
+
+    @param function: function which implements menu command (runs with one arg, the widget)
     """
     cmd = menu_cmd( *args, **kws )
     _commands[cmd.name] = ( cmd.order, cmd )
@@ -714,6 +728,8 @@ def profile(func, *args, **keywordArgs):
 
     Fancier schemes, like profiling the Nth call of a function could
     be implemented here, if desired.
+    
+    @see: print_profile_output()
     """
     global _profile_function
     global _profile_args
@@ -725,15 +741,46 @@ def profile(func, *args, **keywordArgs):
     _profile_keywordArgs = keywordArgs
 
     if (DO_PROFILE):
-        import cProfile
+        try:
+            import cProfile as py_Profile
+        except ImportError:
+            print "Unable to import cProfile. Using profile module instead."
+            import profile as py_Profile
+            
+        
+        filePath = os.path.dirname(os.path.abspath(sys.argv[0])) + "/" + _profile_output_file
+        filePath = os.path.normpath(filePath) 
         print "Capturing profile..."
-        cProfile.run('from utilities.debug import _run_profile; _run_profile()', _profile_output_file)
-        print "...end of profile capture"
+        print "Profile output file: %s" % (filePath,)
+        py_Profile.run('from utilities.debug import _run_profile; _run_profile()', _profile_output_file)
+        print "...end of profile capture"  
+        
+        #Print the profile output in a human readable form. The call to the 
+        #function that does this is commented out by default. --        
+        ##print_profile_output(_profile_output_file)
+        
     else:
         _run_profile()
 
     _profile_function = None
     _profile_args = None
     _profile_keywordArgs = None
+    
+    
+def print_profile_output(raw_profile_result_file):
+    """
+    Print the profile output in the console window in a human readable form.
+    @param raw_profile_result_file: The file generated by running cProfile
+                                    or profile. 
+    @see: profile()
+    """
+    #The following code is useful to print the profiling output in a 
+    #human readable form. 
+    import pstats
+    p = pstats.Stats(raw_profile_result_file) 
+    #Strip directories etc could be an argument to this function. 
+    p.strip_dirs().sort_stats('cumulative').print_stats()
+     
+    
 
 # end

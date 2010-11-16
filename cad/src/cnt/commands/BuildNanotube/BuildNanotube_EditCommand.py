@@ -3,7 +3,7 @@
 BuildNanotube_EditCommand.py
 
 @author: Ninad
-@version: $Id: BuildNanotube_EditCommand.py 13383 2008-07-10 17:30:29Z ninadsathaye $
+@version: $Id: BuildNanotube_EditCommand.py 14391 2008-10-01 16:36:37Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -16,7 +16,7 @@ This is an initial implementation of default Cnt edit mode.
 
 BUGS:
 - Has bugs such as -- Flyout toolbar doesn't get updated when you return to 
-  BuildNanotube_EditCommand from a a temporary command. 
+  BuildNanotube_EditCommand from a temporary command. 
 - Just entering and leaving BuildNanotube_EditCommand creates an empty NanotubeGroup
 """
 
@@ -24,38 +24,48 @@ BUGS:
 from command_support.EditCommand import EditCommand
 from cnt.model.NanotubeGroup import NanotubeGroup
 from utilities.Log  import greenmsg
-from command_support.GeneratorBaseClass import PluginBug, UserError
+from utilities.exception_classes import PluginBug, UserError
 
 from utilities.constants import gensym
 
 from ne1_ui.toolbars.Ui_NanotubeFlyout import NanotubeFlyout
 
 from model.chem import Atom 
-from model.chunk import Chunk
 from model.bonds import Bond
 
-##from SelectChunks_GraphicsMode import SelectChunks_GraphicsMode
-
 from cnt.commands.BuildNanotube.BuildNanotube_GraphicsMode import BuildNanotube_GraphicsMode
+from cnt.commands.BuildNanotube.BuildNanotube_PropertyManager import BuildNanotube_PropertyManager
 
+_superclass = EditCommand
 class BuildNanotube_EditCommand(EditCommand):
     """
     BuildNanotube_EditCommand provides a convenient way to edit or create
     a NanotubeGroup object     
     """
+      
+    
+    #GraphicsMode
+    GraphicsMode_class = BuildNanotube_GraphicsMode
+    
+    #PropertyManager
+    PM_class = BuildNanotube_PropertyManager
+    
+    #Flyout Toolbar
+    FlyoutToolbar_class = NanotubeFlyout
+    
+    
     cmd              =  greenmsg("Build Nanotube: ")
-    sponsor_keyword  =  'Nanotube'
     prefix           =  'NanotubeGroup' # used for gensym
     cmdname          = "Build Nanotube"
-    commandName       = 'BUILD_NANOTUBE'
-    featurename       = 'Build_Nanotube'
 
-    GraphicsMode_class = BuildNanotube_GraphicsMode
+    commandName       = 'BUILD_NANOTUBE'
+    featurename       = "Build Nanotube"
+    from utilities.constants import CL_ENVIRONMENT_PROVIDING
+    command_level = CL_ENVIRONMENT_PROVIDING
 
     command_should_resume_prevMode = False
-    command_has_its_own_gui = True
-    command_can_be_suspended = True
-
+    command_has_its_own_PM = True
+    
     # Generators for DNA, nanotubes and graphene have their MT name 
     # generated (in GeneratorBaseClass) from the prefix.
     create_name_from_prefix  =  True 
@@ -67,88 +77,6 @@ class BuildNanotube_EditCommand(EditCommand):
     #BuildAtoms_Command (earlier depositmode) 
     call_makeMenus_for_each_event = True    
 
-    def __init__(self, commandSequencer, struct = None):
-        """
-        Constructor for BuildNanotube_EditCommand
-        """
-
-        EditCommand.__init__(self, commandSequencer)
-        self.struct = struct
-
-
-    def init_gui(self):
-        """
-        Do changes to the GUI while entering this command. This includes opening 
-        the property manager, updating the command toolbar , connecting widget 
-        slots (if any) etc. Note: The slot connection in property manager and 
-        command toolbar is handled in those classes. 
-
-        Called once each time the command is entered; should be called only 
-        by code in modes.py
-
-        @see: L{self.restore_gui}
-        """
-        EditCommand.init_gui(self)    
-
-        if self.flyoutToolbar is None:
-            self.flyoutToolbar = NanotubeFlyout(self.win, self.propMgr)
-
-        self.flyoutToolbar.activateFlyoutToolbar()
-
-    def resume_gui(self):
-        """
-        Called when this command, that was suspended earlier, is being resumed. 
-        The temporary command (which was entered by suspending this command)
-        might have made some changes to the model which need to be reflected 
-        while resuming command. 
-
-        Example: A user enters BreakStrands_Command by suspending 
-        BuildNanotube_EditCommand, then breaks a few strands, thereby creating new 
-        strand chunks. Now when the user returns to the BuildNanotube_EditCommand, 
-        the command's property manager needs to update the list of strands 
-        because of the changes done while in BreakStrands_Command.  
-        @see: Command.resume_gui
-        @see: Command._enterMode where this method is called.
-        """
-        #NOTE: Doing command toolbar updates in this method doesn't alwayswork.
-        #consider this situation : You are in a) BuildNanotube_EditCommand, then you 
-        #b) enter CntDuplex_EditCommand(i.e. Cnt line) and from this temporary 
-        #command, you directly c) enter BreakStrands_Command 
-        #-- During b to c, 1) it first exits (b) , 2) resumes (a) 
-        #and then 3)enters (c)
-        #This method is called during operation #2 and any changes to flyout 
-        #toolbar are reset during #3  --- Ninad 2008-01-14
-        if self.propMgr:
-            self.propMgr.updateListWidgets()        
-
-        if self.flyoutToolbar:
-            self.flyoutToolbar.resetStateOfActions()
-
-
-    def restore_gui(self):
-        """
-        Do changes to the GUI while exiting this command. This includes closing 
-        this mode's property manager, updating the command toolbar ,
-        Note: The slot connection/disconnection in property manager and 
-        command toolbar is handled in those classes.
-        @see: L{self.init_gui}
-        """
-        EditCommand.restore_gui(self)
-        if self.flyoutToolbar:
-            self.flyoutToolbar.deActivateFlyoutToolbar()
-
-    def StateDone(self):   
-        """
-        @see: Command.StateDone 
-        """
-        return None
-
-    def StateCancel(self):     
-        """
-        @see Command.StateCancel
-        """
-        return None
-
     def runCommand(self):
         """
         Overrides EditCommand.runCommand
@@ -156,6 +84,7 @@ class BuildNanotube_EditCommand(EditCommand):
         self.struct = None     
         self.existingStructForEditing = False
         self.propMgr.updateListWidgets()
+        return
 
     def keep_empty_group(self, group):
         """
@@ -176,24 +105,9 @@ class BuildNanotube_EditCommand(EditCommand):
                 bool_keep = True
 
         return bool_keep
+       
 
-    def create_and_or_show_PM_if_wanted(self, showPropMgr = True):
-        """
-        Create the property manager object if one doesn't already exist 
-        and then show the propMgr if wanted by the user. 
-        @param showPropMgr: If True, show the property manager 
-        @type showPropMgr: boolean
-        """
-        EditCommand.create_and_or_show_PM_if_wanted(
-            self,
-            showPropMgr = showPropMgr)
-
-        self.propMgr.updateMessage("Use appropriate command in the command "\
-                                   "toolbar to create or modify a CNT Object"\
-                                   "<br>"                                   
-                               )
-
-    def createStructure(self, showPropMgr = True):
+    def createStructure(self):
         """
         Overrides superclass method. It doesn't do anything for this type
         of editcommand
@@ -237,17 +151,6 @@ class BuildNanotube_EditCommand(EditCommand):
         @see: EditCommand._getStructureType() 
         """
         return self.win.assy.NanotubeGroup
-
-
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager  object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr        
-        propMgr = self.win.createBuildNanotubePropMgr_if_needed(self)
-        return propMgr
-
 
     def _createStructure(self):
         """
@@ -398,7 +301,7 @@ class BuildNanotube_EditCommand(EditCommand):
         self.Menu_spec = []
 
         highlightedChunk = None
-        if isinstance(selobj, Chunk):
+        if isinstance(selobj, self.assy.Chunk):
             highlightedChunk = selobj
         if isinstance(selobj, Atom):
             highlightedChunk = selobj.molecule

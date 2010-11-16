@@ -2,7 +2,7 @@
 #ifndef GLOBALS_H_INCLUDED
 #define GLOBALS_H_INCLUDED
 
-#define RCSID_GLOBALS_H  "$Id: globals.h 12995 2008-05-30 00:06:10Z ericmessick $"
+#define RCSID_GLOBALS_H  "$Id: globals.h 14419 2008-10-06 18:12:42Z ericmessick $"
 
 extern int debug_flags;
 
@@ -37,6 +37,9 @@ extern char *BaseFileName;
 extern char *GromacsOutputBaseName;
 extern char *PathToCpp;
 extern char *SystemParametersFileName;
+extern char *AmberBondedParametersFileName;
+extern char *AmberNonbondedParametersFileName;
+extern char *AmberChargesFileName;
 extern int QualityWarningLevel;
 extern float SimpleMovieForceScale;
 extern double MinimizeThresholdCutoverRMS;
@@ -50,6 +53,8 @@ extern int NeighborSearching;
 extern int TimeReversal;
 extern double ThermostatGamma;
 extern double ThermostatG1;
+extern int UseAMBER;
+extern int TypeFeedback;
 
 extern int LoadedSystemParameters;
 extern char *UserParametersFileName;

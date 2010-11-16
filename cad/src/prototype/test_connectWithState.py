@@ -1,9 +1,11 @@
-# Copyright 2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 test_connectWithState.py -- test the connectWithState features.
 Also serves as scratch code for their improvement.
- 
-$Id: test_connectWithState.py 12879 2008-05-21 16:22:55Z russfish $
+
+@author: Bruce
+@version: $Id: test_connectWithState.py 14194 2008-09-10 21:33:01Z brucesmith $
+@copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
 
@@ -63,8 +65,6 @@ DY = V(0,1,0)
 ORIGIN = V(0,0,0)
 from graphics.drawing.CS_draw_primitives import drawcylinder
 from graphics.drawing.CS_draw_primitives import drawsphere
-from exprs.ExprsMeta import ExprsMeta
-from exprs.instance_helpers import IorE_guest_mixin
 from exprs.attr_decl_macros import Instance, State
 from exprs.__Symbols__ import _self
 from exprs.Exprs import call_Expr ## , tuple_Expr ### TODO: USE tuple_Expr
@@ -77,52 +77,7 @@ from exprs.If_expr import If_expr
 
 from widgets.prefs_widgets import ObjAttr_StateRef
 
-class State_preMixin( IorE_guest_mixin):
-    # TODO: refile (alongside IorE_guest_mixin ? in its own file?), once cleaned up & bugfixed --
-    # note, as of 080128 or so, this is used in real code
-    """
-    Use this as the *first* superclass (thus the _preMixin in the name)
-    in order to permit use of the State macro in the class assignments
-    which set up instance variable defaults in a given class.
-    The glpane must be passed as the first argument to __init__.
-    """
-    # the following are needed for now in order to use the State macro,
-    # along with the IorE_guest_mixin superclass; this may be cleaned up:
-    __metaclass__ = ExprsMeta
-    _e_is_instance = True ### REVIEW: can the superclass define this, since to work as a noninstance you need a special subclass?
-    _e_has_args = True # not needed -- only purpose is to remove "w/o a" from repr(self)
-
-    def __init__(self, glpane, *args, **kws):
-        
-        #Following flag , if True, enables some debug prints in console
-        debug_init = False 
-        if debug_init:
-            print "State_preMixin.__init__", glpane, args, kws
-        IorE_guest_mixin.__init__(self, glpane)
-
-        # REVIEW: should callers do the following, not us?
-        if debug_init:
-            print " State_preMixin.__init__ will call", super(State_preMixin, self).__init__
-                ## <bound method test_connectWithState.__init__ of <test_connectWithState#4789(i w/o a)>>
-
-            # note: the following debug output suggests that this would cause
-            # infinite recursion, but something prevents it from happening at all
-            # (it seems likely that no call at all is happening, but this is not yet
-            #  fully tested -- maybe something different is called from what's printed)
-            #
-            ##debug fyi: starting DnaSegment_EditCommand.__init__
-            ##State_preMixin.__init__ <GLPane 0> () {}
-            ## State_preMixin.__init__ will call <bound method DnaSegment_EditCommand.__init__ of <DnaSegment_EditCommand#6986(i)>>
-            ## State_preMixin.__init__ returned from calling <bound method DnaSegment_EditCommand.__init__ of <DnaSegment_EditCommand#6987(i)>>
-            ##debug fyi: inside DnaSegment_EditCommand.__init__, returned from State_preMixin.__init__
-            
-        super(State_preMixin, self).__init__(glpane, *args, **kws)
-            # this is not calling ExampleCommand.__init__ as I hoped it would. I don't know why. ###BUG
-            # (but is it calling anything? i forget. clarify!)
-        if debug_init:
-            print " State_preMixin.__init__ returned from calling", super(State_preMixin, self).__init__
-    pass
-
+from exprs.State_preMixin import State_preMixin
 
 class _test_connectWithState_GM(ExampleCommand.GraphicsMode_class):
     """
@@ -167,8 +122,8 @@ class test_connectWithState(State_preMixin, ExampleCommand):
 
     # class constants needed by mode API for example commands
     commandName = 'test_connectWithState-commandName'
-    default_mode_status_text = "test_connectWithState"
     featurename = "Prototype: Test connectWithState"
+    
     PM_class = test_connectWithState_PM
 
     # tracked state -- this initializes specially defined instance variables
@@ -186,10 +141,13 @@ class test_connectWithState(State_preMixin, ExampleCommand):
     
     # init methods
     
-    def __init__(self, glpane):
+    def __init__(self, commandSequencer):
         # I don't know why this method is needed. ##### REVIEW (super semantics), FIX or clean up
+        # (note: that comment predates commandSequencer != glpane; after that, it's needed
+        #  due to different init args)
+        glpane = commandSequencer.assy.glpane
         super(test_connectWithState, self).__init__(glpane) # State_preMixin.__init__
-        ExampleCommand.__init__(self, glpane) # (especially this part)
+        ExampleCommand.__init__(self, commandSequencer) # (especially this part)
         return
 
 ##    def __init__(self, glpane):

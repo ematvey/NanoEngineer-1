@@ -3,7 +3,7 @@
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: NE1_QWidgetAction.py 13476 2008-07-16 02:20:39Z ninadsathaye $
+@version:$Id: NE1_QWidgetAction.py 13596 2008-07-23 17:56:28Z ninadsathaye $
 
 History:
 Created on 2008-07-15 . The main purpose of this class was a workaround to
@@ -16,8 +16,6 @@ from PyQt4.Qt import QWidgetAction
 
 from PyQt4.Qt import QToolButton
 from PyQt4.Qt import Qt
-
-import foundation.env as env
 
 
 def truncateText(text, length = 12, truncateSymbol = '...'):
@@ -44,25 +42,25 @@ def truncateText(text, length = 12, truncateSymbol = '...'):
     
     
 def wrapToolButtonText(text):
-        """
-        Add a newline character at the end of each word in the toolbutton text
-        """
-        #ninad 070126 QToolButton lacks this method. This is not really a 
-        #'word wrap' but OK for now. 
-        
-        #@@@ ninad 070126. Not calling this method as it is creating an annoying
-        #resizing problem in the Command toolbar layout. Possible solution is 
-        #to add a spacer item in a vbox layout to the command toolbar layout
-        
-        stringlist = text.split(" ", QString.SkipEmptyParts)
-        text2 = QString()
-        if len(stringlist) > 1:
-            for l in stringlist:
-                text2.append(l)
-                text2.append("\n")
-            return text2
-                
-        return None
+    """
+    Add a newline character at the end of each word in the toolbutton text
+    """
+    #ninad 070126 QToolButton lacks this method. This is not really a 
+    #'word wrap' but OK for now. 
+    
+    #@@@ ninad 070126. Not calling this method as it is creating an annoying
+    #resizing problem in the Command toolbar layout. Possible solution is 
+    #to add a spacer item in a vbox layout to the command toolbar layout
+    
+    stringlist = text.split(" ", QString.SkipEmptyParts)
+    text2 = QString()
+    if len(stringlist) > 1:
+        for l in stringlist:
+            text2.append(l)
+            text2.append("\n")
+        return text2
+            
+    return None
     
     
 

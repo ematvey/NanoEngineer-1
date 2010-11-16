@@ -1,7 +1,7 @@
 # Copyright 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 @author:    Ninad
-@version:   $Id: BreakStrands_Command.py 13294 2008-07-01 20:07:56Z ninadsathaye $
+@version:   $Id: BreakStrands_Command.py 14455 2008-11-14 21:01:59Z  $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 @license:   GPL
 
@@ -9,99 +9,109 @@ TODOs: [ as of 2008-01-04]
 - To be revised heavily . Still a stub, needs documentation.
 """
 
-import foundation.changes as changes
-
-from commands.BuildAtoms.BuildAtoms_Command import BuildAtoms_Command
+from dna.command_support.BreakOrJoinStrands_Command import BreakOrJoinStrands_Command
 from dna.commands.BreakStrands.BreakStrands_PropertyManager import BreakStrands_PropertyManager
 from dna.commands.BreakStrands.BreakStrands_GraphicsMode import BreakStrands_GraphicsMode
+from utilities.prefs_constants import cpkScaleFactor_prefs_key
+import foundation.env as env
 
-# == Command part
+#debug flag for experimental code Ninad is
+#working on (various break strands options)
+from utilities.GlobalPreferences import DEBUG_BREAK_OPTIONS_FEATURE
 
-_superclass = BuildAtoms_Command
-class BreakStrands_Command(BuildAtoms_Command):
+_superclass = BreakOrJoinStrands_Command
+class BreakStrands_Command(BreakOrJoinStrands_Command):
     """
 
     """
+    
     # class constants
-
     commandName = 'BREAK_STRANDS'
-    default_mode_status_text = ""
-    featurename = "Break Strands"
-
-    hover_highlighting_enabled = True
+    featurename = "Break Strands"    
     GraphicsMode_class = BreakStrands_GraphicsMode
-
-
-    command_can_be_suspended = False
-    command_should_resume_prevMode = True
-    command_has_its_own_gui = True
-
-    flyoutToolbar = None
-
-    def init_gui(self):
+    
+    PM_class = BreakStrands_PropertyManager
+    
+   
+    def _get_init_gui_flyout_action_string(self):
+        return 'breakStrandAction'
+    
+    
+    def command_entered(self):
         """
-        Initialize GUI for this mode
+        Extends superclass method.
         """
-        previousCommand = self.commandSequencer.prevMode
-        if previousCommand.commandName == 'BUILD_DNA':
-            try:
-                self.flyoutToolbar = previousCommand.flyoutToolbar
-                #Need a better way to deal with changing state of the
-                #corresponding action in the flyout toolbar. To be revised
-                #during command toolbar cleanup
-                self.flyoutToolbar.breakStrandAction.setChecked(True)
-            except AttributeError:
-                self.flyoutToolbar = None
-
-        if self.propMgr is None:
-            self.propMgr = BreakStrands_PropertyManager(self)
-            #@bug BUG: following is a workaround for bug 2494.
-            #This bug is mitigated as propMgr object no longer gets recreated
-            #for modes -- niand 2007-08-29
-            changes.keep_forever(self.propMgr)
-
-        self.propMgr.show()
-
-
-    def restore_gui(self):
+        _superclass.command_entered(self)
+        self._modifyCPKScaleFactor()
+        
+        
+    def command_will_exit(self):   
         """
-        Restore the GUI
+        Extends superclass method.
         """
-
-        if self.propMgr is not None:
-            self.propMgr.close()
-
-
-    def keep_empty_group(self, group):
+        self._restoreCPKScaleFactor()        
+        _superclass.command_will_exit(self)
+        
+    def _modifyCPKScaleFactor(self):
         """
-        Returns True if the empty group should not be automatically deleted.
-        otherwise returns False. The default implementation always returns
-        False. Subclasses should override this method if it needs to keep the
-        empty group for some reasons. Note that this method will only get called
-        when a group has a class constant autdelete_when_empty set to True.
-        (and as of 2008-03-06, it is proposed that dna_updater calls this method
-        when needed.
-        @see: Command.keep_empty_group() which is overridden here.
+        Modify the global CPK scale factor prefs_key temporarily , while in 
+        BreakStrands command. This prefs_key will be restored while exiting this
+        command
+        @see: self._restoreCPKScaleFactor()
+        @see: self.command_entered()
         """
-
-        bool_keep = _superclass.keep_empty_group(self, group)
-
-        if not bool_keep:
-            #Lets just not delete *ANY* DnaGroup while in BreakStrands_Command
-            #Although BreakStrands command can only be accessed through
-            #BuildDna_EditCommand, it could happen (due to a bug) that the
-            #previous command is not BuildDna_Editcommand. So bool_keep
-            #in that case will return False propmting dna updater to even delete
-            #the empty DnaGroup (if it becomes empty for some reasons) of the
-            #BuildDna command. To avoid this ,this method will instruct
-            # to keep all instances of DnaGroup even when they might be empty.
-            if isinstance(group, self.assy.DnaGroup):
-                bool_keep = True
-            #Commented out code that shows what I was planning to implement
-            #earlier.
-            ##previousCommand = self.commandSequencer.prevMode
-            ##if previousCommand.commandName == 'BUILD_DNA':
-                ##if group is previousCommand.struct:
-                    ##bool_keep = True
-
-        return bool_keep
+        #Note 2008-11-14: This is implemented based on Mark's NFR. 
+        self._original_cpkScaleFactor_prefs_key = env.prefs[cpkScaleFactor_prefs_key]
+        env.prefs[cpkScaleFactor_prefs_key] = 0.5
+            
+    def _restoreCPKScaleFactor(self):
+        """        
+        @see: self._modifyCPKScaleFactor()
+        @see: self.command_entered()
+        @see: self.command_will_exit()
+        """
+        env.prefs[cpkScaleFactor_prefs_key] = self._original_cpkScaleFactor_prefs_key
+        
+    
+    
+    
+    
+    #===========================================================================
+    #Methods used in experimental feature that provide various break options
+    #these are not called but thhe methods do have a safety check to 
+    #see id DEBUG_BREAK_OPTIONS_FEATURE is set to True. -- ninad 2008-08-06
+            
+    
+    def getStrandList(self):     
+        part = self.win.assy.part
+        return part.get_topmost_subnodes_of_class(self.win.assy.DnaStrand)
+    
+    def isSpecifyEndAtomsToolActive(self):
+        return False
+    
+    def isSpecifyStartAtomsToolActive(self):
+        if not DEBUG_BREAK_OPTIONS_FEATURE:
+            return False        
+        return True
+    
+    def getNumberOfBasesBeforeNextBreak(self):
+        if not DEBUG_BREAK_OPTIONS_FEATURE:
+            return 2
+        
+        if self.propMgr:
+            return self.propMgr.getNumberOfBasesBeforeNextBreak()
+        
+        return 2
+    
+    def breakStrandBonds(self):        
+        if not DEBUG_BREAK_OPTIONS_FEATURE:
+            return
+        
+        self.graphicsMode.breakStrandBonds()
+        
+    def updateBreakSites(self):
+        if not DEBUG_BREAK_OPTIONS_FEATURE:
+            return
+        self.graphicsMode.updateBreakSites()
+        
+    #===========================================================================

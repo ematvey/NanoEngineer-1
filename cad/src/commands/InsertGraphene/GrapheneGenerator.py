@@ -1,21 +1,24 @@
-# Copyright 2006-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2006-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 GrapheneGenerator.py
 
 @author: Will
-@version: $Id: GrapheneGenerator.py 12406 2008-04-09 01:58:17Z marksims $
-@copyright: 2006-2007 Nanorex, Inc.  See LICENSE file for details.
+@version: $Id: GrapheneGenerator.py 13597 2008-07-23 17:57:46Z ninadsathaye $
+@copyright: 2006-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
 
 Mark 2007-05-17: Implemented PropMgrBaseClass.
 Mark 2007-07-24: Now uses new PM module.
 Mark 2007-08-06: Renamed GrapheneGeneratorDialog to GrapheneGeneratorPropertyManager.
+
+Ninad 2008-07-23: Cleanup to port Graphene generator to the EditCommand API. 
+Now this class simply acts a generator object called from the editcommand 
+while creatigng the structure.
 """
 
 from math import atan2, pi
 
-from geometry.VQT import V
 from model.chem import Atom
 
 import model.bonds as bonds # for bond_atoms
@@ -27,59 +30,31 @@ from utilities.debug import Stopwatch
 from model.elements import PeriodicTable
 from utilities.Log import greenmsg
 
-from commands.InsertGraphene.GrapheneGeneratorPropertyManager import GrapheneGeneratorPropertyManager
-from command_support.GeneratorBaseClass import GeneratorBaseClass
 
+from geometry.VQT import V
 sqrt3 = 3 ** 0.5
 quartet = ((0, sqrt3 / 2), (0.5, 0), (1.5, 0), (2, sqrt3 / 2))
 
-TOROIDAL = False   # Just for Will
+TOROIDAL = False #debug flag , don't commit it with True!
 
-class GrapheneGenerator( GrapheneGeneratorPropertyManager, GeneratorBaseClass):
+
+class GrapheneGenerator:
     """
     The Graphene Sheet Generator class for the "Build Graphene (Sheet)" command.
     """
-
-    cmd = greenmsg("Build Graphene: ")
-    prefix = 'Graphene'   # used for gensym
-    # Generators for DNA, nanotubes and graphene have their MT name generated 
-    # (in GeneratorBaseClass) from the prefix.
-    create_name_from_prefix = True 
-    # We now support multiple keywords 
-    # We now support multiple keywords in a list or tuple
-    # sponsor_keyword = ('Graphenes', 'Carbon')
-    sponsor_keyword = 'Graphene'
-
-    # pass window arg to constructor rather than use a global, wware 051103
-    def __init__(self, win):
-        GrapheneGeneratorPropertyManager.__init__(self)
-        GeneratorBaseClass.__init__(self, win)
-
-    ###################################################
-    # How to build this kind of structure, along with
-    # any necessary helper functions
-
-    def gather_parameters(self):
-        """
-        Return all the parameters from the Property Manager.
-        """
-        height = self.heightField.value()
-        width = self.widthField.value()
-        self.bond_length = bond_length = self.bondLengthField.value()
-        endings = self.endingsComboBox.currentIndex()
-
-        return (height, width, bond_length, endings)
-
-    def build_struct(self, name, params, position):
-        """
-        Build a graphene sheet from the parameters in the Property Manager.
-        """
+    def make(self, 
+             assy, 
+             name, 
+             params,              
+             position = V(0, 0, 0),
+             editCommand = None):
+        
         height, width, bond_length, endings = params
         PROFILE = False
         if PROFILE:
             sw = Stopwatch()
             sw.start()
-        mol = Chunk(self.win.assy, self.name)
+        mol = Chunk(assy, name)
         atoms = mol.atoms
         z = 0.0
         self.populate(mol, height, width, z, bond_length, endings, position)
@@ -90,6 +65,7 @@ class GrapheneGenerator( GrapheneGeneratorPropertyManager, GeneratorBaseClass):
                                          (t, len(atoms.values()))))
         return mol
 
+    
     def populate(self, mol, height, width, z, bond_length, endings, position):
         """
         Create a graphene sheet chunk.

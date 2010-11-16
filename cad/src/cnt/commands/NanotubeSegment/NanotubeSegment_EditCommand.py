@@ -2,6 +2,10 @@
 """
 NanotubeSegment_EditCommand provides a way to edit an existing NanotubeSegment. 
 
+@author: Ninad, Mark
+@copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
+@version: $Id: NanotubeSegment_EditCommand.py 14380 2008-09-30 17:30:40Z ninadsathaye $
+
 To edit a segment, first enter BuildNanotube_EditCommand (accessed using Build > Cnt) 
 then, select an axis chunk of an existing NanotubeSegment  within the NanotubeGroup you
 are editing. When you select the axis chunk, it enters NanotubeSegment_Editcommand
@@ -21,28 +25,17 @@ While in this command, user can
     See also: NanotubeSegment_GraphicsMode .. the default graphics mode for this 
     command
 
-
-@author: Ninad, Mark
-@copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$
-
 History:
 Mark 2008-03-10: Created from copy of DnaSegment_EditCommand.py
 """
 
 import foundation.env as env
 from command_support.EditCommand       import EditCommand 
-from command_support.GeneratorBaseClass import PluginBug, UserError
-
-from geometry.VQT import V, Veq, vlen
+from utilities.exception_classes import PluginBug, UserError
+from geometry.VQT import V, vlen
 from geometry.VQT import cross, norm
-
 from utilities.constants  import gensym
-from utilities.Log        import redmsg
-from utilities.Comparison import same_vals
-
-from prototype.test_connectWithState import State_preMixin
-
+from exprs.State_preMixin import State_preMixin
 from exprs.attr_decl_macros import Instance, State
 from exprs.__Symbols__      import _self
 from exprs.Exprs            import call_Expr
@@ -57,7 +50,7 @@ from model.bonds import Bond
 from utilities.debug_prefs import debug_pref, Choice_boolean_True
 from utilities.constants   import noop
 from utilities.Comparison  import same_vals
-from utilities.constants   import black
+
 from utilities.debug import print_compact_stack
 
 from graphics.drawables.RotationHandle  import RotationHandle
@@ -69,6 +62,9 @@ from cnt.commands.NanotubeSegment.NanotubeSegment_GraphicsMode import NanotubeSe
 
 from utilities.prefs_constants import nanotubeSegmentEditCommand_cursorTextCheckBox_length_prefs_key
 from utilities.prefs_constants import nanotubeSegmentEditCommand_showCursorTextCheckBox_prefs_key
+from utilities.prefs_constants import cursorTextColor_prefs_key
+
+from cnt.commands.NanotubeSegment.NanotubeSegment_PropertyManager import NanotubeSegment_PropertyManager
 
 CYLINDER_WIDTH_DEFAULT_VALUE = 0.0
 HANDLE_RADIUS_DEFAULT_VALUE = 1.2
@@ -94,23 +90,30 @@ class NanotubeSegment_EditCommand(State_preMixin, EditCommand):
     enters NanotubeSegment_Editcommand and shows the property manager with its
     widgets showing the properties of selected segment.
     """
+    
+    #Graphics Mode 
+    GraphicsMode_class = NanotubeSegment_GraphicsMode
+    
+    #Property Manager
+    PM_class = NanotubeSegment_PropertyManager
+    
+    
     cmd              =  'Nanotube Segment'
-    sponsor_keyword  =  'Nanotube'
     prefix           =  'NanotubeSegment' # used for gensym
     cmdname          = "NANOTUBE_SEGMENT"
+
     commandName      = 'NANOTUBE_SEGMENT'
-    featurename      = 'Edit Nanotube Segment'
+    featurename      = "Edit Nanotube Segment"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_NANOTUBE'
 
     command_should_resume_prevMode = True
-    command_has_its_own_gui = True
-    command_can_be_suspended = False
-
+    command_has_its_own_PM = True
+  
     create_name_from_prefix  =  True 
 
     call_makeMenus_for_each_event = True 
-
-    #Graphics Mode 
-    GraphicsMode_class = NanotubeSegment_GraphicsMode
 
     #This is set to BuildDna_EditCommand.flyoutToolbar (as of 2008-01-14, 
     #it only uses 
@@ -188,16 +191,14 @@ class NanotubeSegment_EditCommand(State_preMixin, EditCommand):
 
                                          ))
 
-    def __init__(self, commandSequencer, struct = None):
+    def __init__(self, commandSequencer):
         """
         Constructor for DnaDuplex_EditCommand
         """
-
-        glpane = commandSequencer
+        glpane = commandSequencer.assy.glpane
         State_preMixin.__init__(self, glpane)        
         EditCommand.__init__(self, commandSequencer)
-        self.struct = struct
-
+        
         #Graphics handles for editing the structure . 
         self.handles = []        
         self.grabbedHandle = None
@@ -205,28 +206,7 @@ class NanotubeSegment_EditCommand(State_preMixin, EditCommand):
         #Initialize DEBUG preference
         pref_nt_segment_resize_by_recreating_nanotube()
         return
-
-    def init_gui(self):
-        """
-        Initialize gui. 
-        """
-
-        #Note that NanotubeSegment_EditCommand only act as an edit command for an 
-        #existing structure. The call to self.propMgr.show() is done only during
-        #the call to self.editStructure ..i .e. only after self.struct is 
-        #updated. This is done because of the following reason:
-        # - self.init_gui is called immediately after entering the command. 
-        # - self.init_gui in turn, initialized propMgr object and may also 
-        #  show the property manager. The self.propMgr.show routine calls 
-        #  an update widget method just before the show. This update method 
-        #  updates the widgets based on the parameters from the existing 
-        #  structure of the command (self.editCommand.struct)
-        #  Although, it checks whether this structure exists, the editCommand
-        #  could still have a self.struct attr from a previous run. (Note that 
-        #  EditCommand API was written before the command sequencer API and 
-        #  it has some loose ends like this. ) -- Ninad 2008-01-22
-        self.create_and_or_show_PM_if_wanted(showPropMgr = False)
-        return
+        
 
     def editStructure(self, struct = None):
         EditCommand.editStructure(self, struct)        
@@ -410,15 +390,7 @@ class NanotubeSegment_EditCommand(State_preMixin, EditCommand):
         self._resizeHandle_stopper_length = - total_length + nanotubeRise
         return
 
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr
-        propMgr = self.win.createNanotubeSegmentPropMgr_if_needed(self)
-        return propMgr
-
+    
     def _gatherParameters(self):
         """
         Return the parameters from the property manager UI.
@@ -679,11 +651,11 @@ class NanotubeSegment_EditCommand(State_preMixin, EditCommand):
         if self.grabbedHandle is None:
             return
         
+        text = ''
+        textColor = env.prefs[cursorTextColor_prefs_key]
+        
         if not env.prefs[nanotubeSegmentEditCommand_showCursorTextCheckBox_prefs_key]:
-            return '', black
-
-        text = ""
-        textColor = black
+            return text, textColor
 
         currentPosition = self.grabbedHandle.currentPosition
         fixedEndOfStructure = self.grabbedHandle.fixedEndOfStructure

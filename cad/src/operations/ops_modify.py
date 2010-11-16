@@ -4,7 +4,7 @@ ops_modify.py provides modifySlotsMixin for MWsemantics,
 with modify slot methods and related helper methods.
 
 @author: Mark
-@version: $Id: ops_modify.py 12113 2008-03-22 06:06:30Z brucesmith $
+@version: $Id: ops_modify.py 14229 2008-09-15 17:52:11Z ericmessick $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 Note: many ops_*.py files provide mixin classes for Part,
@@ -47,6 +47,15 @@ class modifySlotsMixin:
             reload_once_per_event(sim_commandruns)
         from simulation.sim_commandruns import Minimize_CommandRun
         cmdrun = Minimize_CommandRun( self, 'All', type = 'Adjust')
+        cmdrun.run()
+        return
+
+    def modifyCheckAtomTypes(self):
+        """
+        Check Atom Types for all atoms.
+        """
+        from simulation.sim_commandruns import CheckAtomTypes_CommandRun
+        cmdrun = CheckAtomTypes_CommandRun(self)
         cmdrun.run()
         return
 

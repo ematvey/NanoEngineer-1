@@ -3,7 +3,7 @@
 BuildDna_PropertyManager.py
 
 @author: Ninad
-@version: $Id: BuildDna_PropertyManager.py 13345 2008-07-07 21:32:55Z ninadsathaye $
+@version: $Id: BuildDna_PropertyManager.py 14404 2008-10-02 19:51:44Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -23,13 +23,11 @@ from utilities import debug_flags
 from utilities.debug import print_compact_stack
 
 from PyQt4.Qt import SIGNAL
-from PyQt4.Qt import QString
+
 
 from PM.PM_GroupBox      import PM_GroupBox
 from PM.PM_PushButton    import PM_PushButton
 from PM.PM_SelectionListWidget import PM_SelectionListWidget
-
-from widgets.DebugMenuMixin import DebugMenuMixin
 from command_support.EditCommand_PM import EditCommand_PM
 
 from PM.PM_Constants     import PM_DONE_BUTTON
@@ -37,8 +35,10 @@ from PM.PM_Constants     import PM_WHATS_THIS_BUTTON
 from PM.PM_Constants     import PM_CANCEL_BUTTON
 from PM.PM_Colors        import pmReferencesListWidgetColor
 from utilities.Comparison import same_vals
+from PM.PM_DnaBaseNumberLabelsGroupBox import PM_DnaBaseNumberLabelsGroupBox
 
-class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
+DEBUG_CHANGE_COUNTERS =  False
+class BuildDna_PropertyManager(EditCommand_PM):
     """
     The BuildDna_PropertyManager class provides a Property Manager 
     for the B{Build > DNA } command.
@@ -58,27 +58,26 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
     title         =  "Build DNA"
     pmName        =  title
     iconPath      =  "ui/actions/Tools/Build Structures/DNA.png"
+    sponsor_keyword = None # Nanorex is the sponsor. Change to 'DNA' to the
+                             # the NUPACK logo.
 
-    def __init__( self, win, editCommand ):
+    def __init__( self, command ):
         """
         Constructor for the Build DNA property manager.
         """
         
-        #For model changed signal
-        self._previousSelectionParams = None
-        
-        self._previousStructureParams = None
+        #Attributes for self._update_UI_do_updates() to keep track of changes
+        #in these , since the last call of that method. These are used to 
+        #determine whether certain UI updates are needed. 
+        self._previousSelectionParams = None        
+        self._previousStructureParams = None        
+        self._previousCommandStackParams = None
                 
         #see self.connect_or_disconnect_signals for comment about this flag
         self.isAlreadyConnected = False
         self.isAlreadyDisconnected = False           
         
-        EditCommand_PM.__init__( self, 
-                                    win,
-                                    editCommand)
-
-
-        DebugMenuMixin._init1( self )
+        EditCommand_PM.__init__( self, command)
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_CANCEL_BUTTON | \
@@ -136,6 +135,8 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         change_connect(self.searchForCrossoversButton,
                       SIGNAL("clicked()"),
                       self._enterMakeCrossoversCommand)
+        
+        self._baseNumberLabelGroupBox.connect_or_disconnect_signals(isConnect)
  
     
     def enable_or_disable_gui_actions(self, bool_enable = False):
@@ -144,57 +145,65 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         opened or closed, depending on the bool_enable. 
         
         """
-        #TODO: This is bad. It would have been much better to enable/disable 
-        #gui actions using a API method in command/commandSequencer which gets 
-        #called when you enter another command exiting or suspending the 
-        #previous one. . At present. it doesn't exist (first needs cleanup in 
-        #command/command sequencer (Done and other methods._)-- Ninad 2008-01-09
-        if hasattr(self.editCommand, 'flyoutToolbar') and \
-           self.editCommand.flyoutToolbar:            
-            self.editCommand.flyoutToolbar.exitDnaAction.setEnabled(not bool_enable)
-            
-                    
-    def model_changed(self):
-        """       
-        When the editCommand is treated as a 'command' by the 
-        commandSequencer. this method will override basicCommand.model_changed.
         
-        @WARNING: Ideally this property manager should implement both
-               model_changed and selection_changed methods in the mode/command
-               API. 
-               model_changed method will be used here when the selected atom is 
-               dragged, transmuted etc. The selection_changed method will be 
-               used when the selection (picking/ unpicking) changes. 
-               At present, selection_changed and model_changed methods are 
-               called too frequently that it doesn't matter which one you use. 
-               Its better to use only a single method for preformance reasons 
-               (at the moment). This should change when the original 
-               methods in the API are revised to be called at appropiraite 
-               time. 
-        """  
+        #For new command API, we will always show the exit button to check 
+        #if Exit button really exits the subcommand and the parent command 
+        #(earlier there were bugs) . Regaring 'whether this should be the 
+        #default behavior', its a UI design issue and we will worry about it 
+        #later -- Ninad 2008-08-27 (based on an email exchanged with Bruce)
+        pass
+    
+        
+    def _update_UI_do_updates(self):
+        """
+        Overrides superclass method. 
+        @see: Command_PropertyManager._update_UI_do_updates()
+        """                     
         
         newSelectionParams = self._currentSelectionParams()   
         
-        selection_params_unchanged = same_vals(newSelectionParams, 
-                                                  self._previousSelectionParams)
+        current_struct_params = self._currentStructureParams()
         
-        #introduing self._previousStructureParams and adding structure_params_unchanged
-        #check to the if condition below fixes bug 2910. 
+        selection_params_unchanged = same_vals(newSelectionParams,
+                                               self._previousSelectionParams)
+        
+        #introducing self._previousStructureParams and 
+        #adding structure_params_unchanged check to the 'if' condition below 
+        #fixes bug 2910. 
         structure_params_unchanged = same_vals(self._previousStructureParams, 
-                                                self._currentStructureParams())
+                                                current_struct_params)
         
-        if selection_params_unchanged and \
-           structure_params_unchanged:
-            #This second condition above fixes bug 2888
+        current_command_stack_params = self._currentCommandStackParams()
+        
+        #Check if command stack params changed since last call of this 
+        #PM update method. This is used to fix bugs like 2940
+        command_stack_params_unchanged = same_vals(
+            self._previousCommandStackParams, current_command_stack_params)
+              
+        #No need to proceed if any of the selection/ structure and commandstack 
+        #parameters remained unchanged since last call. --- [CONDITION A]
+        if selection_params_unchanged and structure_params_unchanged and command_stack_params_unchanged:
+            #This second condition above fixes bug 2888              
             return
         
-        self._previousStructureParams = self._currentStructureParams()
+        self._previousStructureParams = current_struct_params
+        self._previousSelectionParams =  newSelectionParams         
+        self._previousCommandStackParams  = current_command_stack_params
         
-        if not selection_params_unchanged and structure_params_unchanged:            
+        ##if not selection_params_unchanged or not command_stack_params_unchanged and structure_params_unchanged: 
+        if structure_params_unchanged: 
+            #NOTE: We checked if either of the selection struct or command stack
+            #parameters or both changed. (this was referred as '[CONDITION A]' 
+            #above). So, this condition (structure_params_unchanged)also means 
+            #either selection or command stack or both parameters were changed.    
             
-            self._previousSelectionParams = newSelectionParams  
-            
-            selectedStrands, selectedSegments = newSelectionParams
+            if not command_stack_params_unchanged:
+                #update the list widgets *before* updating the selection if 
+                #the command stack changed. This ensures that the selection box
+                #appears around the list widget items that are selected.
+                self.updateListWidgets()
+                
+            selectedStrands, selectedSegments = newSelectionParams    
             
             self.strandListWidget.updateSelection(selectedStrands) 
             self.segmentListWidget.updateSelection(selectedSegments)
@@ -208,7 +217,7 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
                 self.editSegmentPropertiesButton.setText("Edit Properties...")
                 self.editSegmentPropertiesButton.setEnabled(True)
             elif len(selectedSegments) > 1:
-                resizeString = "Resize Selected Segments (%d)..."%len(selectedSegments)
+                resizeString = "Resize Selected Segments (%d)..." % len(selectedSegments)
                 self.editSegmentPropertiesButton.setText(resizeString)
                 self.editSegmentPropertiesButton.setEnabled(True)
                 self.searchForCrossoversButton.setEnabled(True)
@@ -216,49 +225,71 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
                 self.editSegmentPropertiesButton.setText("Edit Properties...")
                 self.editSegmentPropertiesButton.setEnabled(False)
                 self.searchForCrossoversButton.setEnabled(False)
-                         
-        #Update the strand and segmment list widgets. 
-        #Ideally it should only update when the structure is modified 
-        #example --when structure is deleted. But as of 2008-02-21
-        #this feature is not easily available in the API method. 
-        #see Command class for some proposed methods such as 'something_changed'
-        #etc. The list widgets are updated even when selection changes.         
-        #NOTE: If this is called before listwidget's 'updateSelection' call, 
-        #done above, it 'may give' (as of 2008-02-25, it is unlikely to happen 
-        #because of a better implementation)  C/C++ object deleted errors. 
-        #So better to do it in the end. Cause -- unknown. 
-        #Guess : something to do with clearing the widget list and them readding
-        #items (done by self.updateListWidgets)
-        #..This probably interferes with the selection
-        #within that list. So better to do it after updating the selection.
-        if not structure_params_unchanged:  
-            self.updateListWidgets()   
+                
+            return
+                                         
+        ##if not structure_params_unchanged or not command_stack_params_unchanged: 
+        if selection_params_unchanged:
+            #Fixes bug 2940
+            #Thies means either stuct params or command stack params or both were 
+            #changed. (Because we checked '[CONDITION A]' at the beginning)
+            self.updateListWidgets()  
+            return
+            
+    
+    def _currentCommandStackParams(self):
+        """
+        The return value is supposed to be used by BUILD_DNA command PM ONLY
+        and NOT by any subclasses.         
+        
+        Returns a tuple containing current scommand stack change indicator and 
+        the name of the command 'BUILD_DNA'. These 
+        parameters are then used to decide whether updating widgets
+        in this property manager is needed, when self._update_UI_do_updates()
+        is called. 
+        
+        @NOTE: 
+        - Command_PropertyManager.update_UI() already does a check to see if 
+          any of the global change indicators in assembly (command_stack_change, 
+          model_change, selection_change) changed since last call and then only
+          calls self._update_UI_do_updates(). 
+        - But this method is just used to keep track of the 
+          local command stack change counter in order to update the list 
+          widgets.      
+        - This is used to fix bug 2940
+        
+        @see: self._update_UI_do_updates()
+        """
+        commandStackCounter = self.command.assy.command_stack_change_indicator()
+        #Append 'BUILD_DNA to the tuple to be returned. This is just to remind 
+        #us that this method is meant for BUIL_DNA command PM only. (and not 
+        #by any subclasses) Should we assert this? I think it will slow things 
+        #down so this comment is enough -- Ninad 2008-09-30
+        return (commandStackCounter, 'BUILD_DNA')
                       
     def _currentSelectionParams(self):
         """
-        This needs commandSequencer to treat various 
-        edit controllers as commands. Until then, the 'model_changed' method 
-        (and thus this method) will  never be called.
-        
         Returns a tuple containing current selection parameters. These 
         parameters are then used to decide whether updating widgets
-        in this property manager is needed when L{self.model_changed} or 
-        L{self.selection_changed} methods are called. 
+        in this property manager is needed when L{self.model_changed}
+        method is called.
+        
         @return: A tuple that contains following selection parameters
                    - Total number of selected atoms (int)
                    - Selected Atom if a single atom is selected, else None
                    - Position vector of the single selected atom or None
         @rtype:  tuple
-        @NOTE: The method name may be renamed in future. 
-        Its possible that there are other groupboxes in the PM that need to be 
+        
+        @NOTE: This method may be renamed in future. 
+        It's possible that there are other groupboxes in the PM that need to be 
         updated when something changes in the glpane.        
         """
          
         selectedStrands = []
         selectedSegments = []
-        if self.editCommand is not None and self.editCommand.hasValidStructure():
-            selectedStrands = self.editCommand.struct.getSelectedStrands()
-            selectedSegments = self.editCommand.struct.getSelectedSegments()             
+        if self.command is not None and self.command.hasValidStructure():
+            selectedStrands = self.command.struct.getSelectedStrands()
+            selectedSegments = self.command.struct.getSelectedSegments()             
                     
         return (selectedStrands, selectedSegments)
     
@@ -266,9 +297,9 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         """
         Return current structure parameters of interest to self.model_changed. 
         Right now it only returns the number of strands within the structure
-        (or None) .  This is a good enough check (and no need to compare 
-        each and evry strand within the structure with a previously stored 
-        set of strands)         
+        (or None). This is a good enough check (and no need to compare 
+        each and every strand within the structure with a previously stored 
+        set of strands).
         """
         #Can it happen that the total number of strands remains the same even 
         #after some alterations to the strands? Unlikely. (Example: a single
@@ -276,30 +307,13 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         #Or Join strands decrease it by 1)
         params = None
         
-        if self.editCommand and self.editCommand.hasValidStructure():
+        if self.command and self.command.hasValidStructure():
             strandList = []
-            strandList = self.editCommand.struct.getStrands()
+            strandList = self.command.struct.getStrands()
             params = len(strandList)
             
         return params 
-    
-  
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """   
-        if self.editCommand:
-            self.editCommand.preview_or_finalize_structure(previewing = False)
-        self.win.toolsDone()
-    
-    def cancel_btn_clicked(self):
-        """
-        Slot for the Cancel button.
-        """
-        if self.editCommand:
-            self.editCommand.cancelStructure()            
-        self.win.toolsCancel()
-        
+           
     
     def close(self):
         """
@@ -320,18 +334,21 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         As of 2007-11-20, it also shows the Sequence Editor widget and hides 
         the history widget. This implementation may change in the near future
         """
-        EditCommand_PM.show(self) 
-        self.updateListWidgets()    
+        EditCommand_PM.show(self)  
+        
+        self.updateMessage("Use appropriate command in the command "\
+                               "toolbar to create or modify a DNA Object"\
+                               "<br>" )
         
     def _editDnaStrand(self):  
         """
         Enter the DnaStrand_EditCommand to edit the selected strand. 
         """
         
-        if not self.editCommand.hasValidStructure():
+        if not self.command.hasValidStructure():
             return
         
-        selectedStrandList = self.editCommand.struct.getSelectedStrands()
+        selectedStrandList = self.command.struct.getSelectedStrands()
         
         if len(selectedStrandList) == 1:     
             strand = selectedStrandList[0]
@@ -341,8 +358,8 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
     def _editDnaSegment(self):
         """
         """
-        if self.editCommand is not None and self.editCommand.hasValidStructure(): 
-            selectedSegments = self.editCommand.struct.getSelectedSegments()
+        if self.command is not None and self.command.hasValidStructure(): 
+            selectedSegments = self.command.struct.getSelectedSegments()
             if len(selectedSegments) == 1:
                 selectedSegments[0].edit()
             elif len(selectedSegments) > 1:
@@ -360,28 +377,14 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         
         """
         self.win.enterMakeCrossoversCommand()
-                       
-        
-    def _update_widgets_in_PM_before_show(self):
-        """
-        Update various widgets  in this Property manager.
-        Overrides EditCommand_PM._update_widgets_in_PM_before_show. 
-        The various  widgets , (e.g. spinboxes) will get values from the 
-        structure for which this propMgr is constructed for 
-        (self.editcCommand.struct)
-        
-        @see: MotorPropertyManager._update_widgets_in_PM_before_show
-        @see: self.show  
-        """  
-        self.updateListWidgets()
-        
+                               
     
     def updateListWidgets(self):
         """
         Update List Widgets (strand list and segment list)
         in this property manager
         @see: self.updateSegmentListWidgets, self.updateStrandListWidget
-        """
+        """            
         self.updateStrandListWidget() 
         self.updateSegmentListWidget()
           
@@ -399,17 +402,17 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         """
         #TODO: 
         #Filter out only the chunks inside the dna group. the DnaDuplex.make 
-        #doesn't  implement the dan data model yet. Until thats implemented ,we
-        #will do an isinstance(node, Chunk) check . Note that it includes both  
+        #doesn't implement the dna data model yet. Until that's implemented, we
+        #will do an isinstance(node, Chunk) check. Note that it includes both  
         #Strands and Axis chunks -- Ninad 2008-01-09
-        
-        if self.editCommand and self.editCommand.hasValidStructure():
-            strandChunkList = self.editCommand.struct.getStrands()
+    
+        if self.command.hasValidStructure():
+            strandChunkList = self.command.struct.getStrands()
                         
             self.strandListWidget.insertItems(
                 row = 0,
                 items = strandChunkList)
-        else:
+        else:           
             self.strandListWidget.clear()
     
     def updateSegmentListWidget(self):
@@ -419,17 +422,18 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         """
         
         segmentList = []
-        if self.editCommand and self.editCommand.hasValidStructure(): 
-            def func(node):
-                if isinstance(node, self.win.assy.DnaSegment):
-                    segmentList.append(node)    
-                    
-            self.editCommand.struct.apply2all(func)
-            self.segmentListWidget.insertItems(
-                row = 0,
-                items = segmentList)
-        else:
-            self.segmentListWidget.clear()
+        if self.command.isCurrentCommand():
+            if self.command.hasValidStructure(): 
+                def func(node):
+                    if isinstance(node, self.win.assy.DnaSegment):
+                        segmentList.append(node)    
+                        
+                self.command.struct.apply2all(func)
+                self.segmentListWidget.insertItems(
+                    row = 0,
+                    items = segmentList)
+            else:
+                self.segmentListWidget.clear()
              
             
     def _addGroupBoxes( self ):
@@ -446,6 +450,8 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         
         self._pmGroupBox3 = PM_GroupBox( self, title = "Segments" )
         self._loadGroupBox3( self._pmGroupBox3 )
+        
+        self._loadBaseNumberLabelGroupBox(self)
         
         
     def _loadGroupBox1(self, pmGroupBox):
@@ -500,8 +506,14 @@ class BuildDna_PropertyManager( EditCommand_PM, DebugMenuMixin ):
             label = "",
             text  = "Search For Crossovers..." )
         self.searchForCrossoversButton.setEnabled(False)
+        
+        
+    def _loadBaseNumberLabelGroupBox(self, pmGroupBox):
+        """
+        """
+        self._baseNumberLabelGroupBox = PM_DnaBaseNumberLabelsGroupBox(pmGroupBox, 
+                                                                       self.command)
     
- 
     def _addWhatsThisText( self ):
         """
         What's This text for widgets in the DNA Property Manager.  

@@ -3,7 +3,7 @@
 PeptideSegment.py - ... 
 
 @author: Bruce, Mark
-@version: $Id: PeptideSegment.py 12741 2008-05-13 15:38:04Z ninadsathaye $
+@version: $Id: PeptideSegment.py 14379 2008-09-30 17:09:01Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 import foundation.env as env
@@ -115,9 +115,7 @@ class PeptideSegment(Group):
         
         commandSequencer = self.assy.w.commandSequencer       
         
-        if commandSequencer.currentCommand.commandName != "Peptide_SEGMENT":
-            commandSequencer.userEnterTemporaryCommand('Peptide_SEGMENT')
-            
+        commandSequencer.userEnterCommand('Peptide_SEGMENT')
         assert commandSequencer.currentCommand.commandName == 'Peptide_SEGMENT'
         commandSequencer.currentCommand.editStructure(self)
     

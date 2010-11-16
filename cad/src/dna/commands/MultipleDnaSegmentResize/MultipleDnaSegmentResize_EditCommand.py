@@ -9,7 +9,7 @@ and use the resize handles to resize all segments at once.
 
 @author: Ninad
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: MultipleDnaSegmentResize_EditCommand.py 12814 2008-05-16 22:14:30Z ninadsathaye $
+@version:$Id: MultipleDnaSegmentResize_EditCommand.py 14357 2008-09-25 21:53:46Z ninadsathaye $
 
 History:
 2008-05-09 - 2008-05-14 Created / modified.
@@ -17,7 +17,6 @@ History:
 """
 from Numeric import dot
 from geometry.VQT import V, norm, vlen
-
 from utilities.constants import applegreen
 
 from dna.commands.DnaSegment.DnaSegment_EditCommand import DnaSegment_EditCommand
@@ -26,7 +25,7 @@ from dna.commands.MultipleDnaSegmentResize.MultipleDnaSegmentResize_GraphicsMode
 from dna.model.Dna_Constants    import getDuplexLength 
 from dna.model.Dna_Constants    import getNumberOfBasePairsFromDuplexLength
 
-from dna.commands.BuildDuplex.DnaDuplex import B_Dna_PAM3
+from dna.generators.B_Dna_PAM3_Generator import B_Dna_PAM3_Generator
 
 from exprs.attr_decl_macros import Instance, State
 from exprs.__Symbols__      import _self
@@ -36,9 +35,9 @@ from exprs.ExprsConstants   import Width, Point
 from widgets.prefs_widgets  import ObjAttr_StateRef
 
 from dna.commands.DnaSegment.DnaSegment_ResizeHandle import DnaSegment_ResizeHandle
-from utilities.constants import black
 from utilities.debug import print_compact_stack
 from dna.command_support.DnaSegmentList import DnaSegmentList
+from dna.commands.MultipleDnaSegmentResize.MultipleDnaSegmentResize_PropertyManager import MultipleDnaSegmentResize_PropertyManager
 
 CYLINDER_WIDTH_DEFAULT_VALUE = 0.0
 HANDLE_RADIUS_DEFAULT_VALUE = 4.0
@@ -47,10 +46,21 @@ ORIGIN = V(0, 0, 0)
 
 _superclass = DnaSegment_EditCommand
 class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
+    
+    
+    #Graphics Mode 
+    GraphicsMode_class = MultipleDnaSegmentResize_GraphicsMode
+    
+    #Property Manager
+    PM_class = MultipleDnaSegmentResize_PropertyManager
+
+    cmdname = 'MULTIPLE_DNA_SEGMENT_RESIZE' # REVIEW: needed? correct?
 
     commandName = 'MULTIPLE_DNA_SEGMENT_RESIZE'
-    cmdname          = 'MULTIPLE_DNA_SEGMENT_RESIZE'    
-    featurename       = 'Edit Multiple Dna Segments'  
+    featurename = "Edit Multiple Dna Segments"
+    from utilities.constants import CL_SUBCOMMAND
+    command_level = CL_SUBCOMMAND
+    command_parent = 'BUILD_DNA'
 
     #This command operates on (resizes) multiple DnaSegments at once. 
     #It does that by  looping through the DnaSegments and resizing them 
@@ -60,8 +70,7 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
     #@see: self.modifyStructure()
     currentStruct = None
 
-    #Graphics Mode 
-    GraphicsMode_class = MultipleDnaSegmentResize_GraphicsMode
+    
 
 
     handlePoint1 = State( Point, ORIGIN)
@@ -107,8 +116,6 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
             sphereRadius = handleSphereRadius2,
             range = (_resizeHandle_stopper_length, 10000)
         ))
-
-
 
 
     def _update_previousParams_in_model_changed(self):
@@ -286,7 +293,7 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
 
         assert isinstance(self.currentStruct , self.win.assy.DnaSegment)
 
-        self.dna = B_Dna_PAM3()      
+        self.dna = B_Dna_PAM3_Generator()      
 
         duplexRise = self.currentStruct.getDuplexRise()
 
@@ -422,7 +429,7 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
 
     def _getStructureType(self):
         """
-        Returns the type of the structure this editCommand supports. 
+        Returns the type of the structure this command supports. 
         This is used in isinstance test. 
         @see: EditCommand._getStructureType() 
         """
@@ -484,7 +491,7 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
         axis_vector = ladderEndAxisAtom.posn() - other_axisEndAtom.posn()
         currentPosition = self.grabbedHandle.currentPosition
         changedLength = vlen(currentPosition - self.grabbedHandle.origin)
-
+        
         #NOTE: (TODO) we call self._determine_numberOfBasePairs_to_change() at the 
         #beginning of this method which checks various things such as 
         #total distance moved by the handle etc to determine whether to draw 
@@ -505,9 +512,7 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
         #direction of drag) , no need to draw the rubberband line. 
         if dot(self.grabbedHandle.direction, direction_of_drag) < 0:
             params_when_adding_bases = None
-            params_when_removing_bases = (numberOfBasePairsToAddOrRemove,
-                                          resizeEnd_final_position 
-                                      )
+            params_when_removing_bases = (resizeEnd_final_position)
 
             return params_when_adding_bases, \
                    params_when_removing_bases
@@ -551,9 +556,9 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
                 ribbon2Color = strand_atom2.molecule.color
                 if not ribbon2Color:
                     ribbon2Color = strand_atom2.element.color
-
-        params_when_adding_bases = ( numberOfBasePairsToAddOrRemove,
-                                     ladderEndAxisAtom.posn(),
+                    
+        
+        params_when_adding_bases = ( ladderEndAxisAtom.posn(),
                                      resizeEnd_final_position,                                     
                                      basesPerTurn,
                                      duplexRise, 
@@ -623,7 +628,8 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
             #duplex with the existing structure) So we need to compensate for
             #this basepair by adding 1 to the new number of base pairs. 
 
-            #UPDATE 2008-05-14: The following is not required in this particular
+            #UPDATE 2008-05-14: The following commented out code 
+            #i.e. "##numberOfBasesToAddOrRemove += 1" is not required in this 
             #class , because the way we compute the number of base pairs to 
             #be added is different than than how its done at the moment in the
             #superclass. In this method, we compute bases to be added from 
@@ -632,26 +638,22 @@ class MultipleDnaSegmentResize_EditCommand(DnaSegment_EditCommand):
             #bases to be added. so commenting out the following line
             # -- Ninad 2008-05-14
             ##numberOfBasesToAddOrRemove += 1
+            ##print "*** numberOfBasesToAddOrRemove = ", numberOfBasesToAddOrRemove
+            ##print "**** changedLength =", changedLength
             pass
+            ###UPDATE 2008-06-26: for some reason, when the number of base pairs
+            ###to be added (i.e. value of numberOfBasesToAddOrRemove) is  1 more 
+            ###than the actual number of base pairs to be added. So subtract 1 
+            ###from this number. Cause not debugged. -- Ninad
+            ##if numberOfBasesToAddOrRemove > 1:
+                ##numberOfBasesToAddOrRemove -= 1
+            #UPDATE 2008-08-20: Note that DnaSegment_EditCommand.getCursorText()
+            #does the job of removing the extra basepair from numberOfBasesToAddOrRemove
+            #It(subtracting 1 basePair) is not done here as 
+            #self._modifyStructure() needs it without the subtraction. This is
+            #prone to bugs and need to be cleaned up. -- Ninad
+            
 
         return numberOfBasesToAddOrRemove
 
-    def getCursorText(self):
-        """
-        Overrides superclass method. As of 2008-05-14, this command doesn't
-        show any cursor text.        
-        """
-        #@TODO 2008-05-14: It doesn't draw any cursor text at the moment. Its 
-        #hard to determine what info should be givem in the cursor text! We can't
-        #give information about the changed bases because the duplexrise etc 
-        #for DnaSegments being resized together might be different. 
-        return '', black
-
-    def _createPropMgrObject(self):
-        """
-        Creates a property manager object (that defines UI things) for this 
-        editCommand. 
-        """
-        assert not self.propMgr
-        propMgr = self.win.createMultipleDnaSegmentPropMgr_if_needed(self)
-        return propMgr
+    

@@ -11,7 +11,7 @@ inherited by the subclass 'Select_basicGraphicsMode' _before_ it inherits the
 
 To be used as a Mixin class only for Select_basicGraphicsMode. 
 
-@version: $Id: Select_GraphicsMode_DrawMethod_preMixin.py 11951 2008-03-14 04:44:50Z ericmessick $
+@version: $Id: Select_GraphicsMode_DrawMethod_preMixin.py 14020 2008-08-22 20:09:37Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 
 """
@@ -126,9 +126,7 @@ class Select_GraphicsMode_DrawMethod_preMixin(commonGraphicsMode):
         else:
             if self.bc_in_use is not None: #bruce 060414
                 self.bc_in_use.draw(self.o, 'fake dispdef kluge')
-            # bruce comment 040922: code is almost identical with modifyMode.Draw;
-            # the difference (no check for self.o.assy existing) might be a bug
-            # in this version, or might have no effect.
+            
             commonGraphicsMode.Draw(self)   
             #self.griddraw()
             if self.selCurve_List: self.draw_selection_curve()

@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_FileMenu.py 13399 2008-07-11 00:41:45Z protkiewicz $
+$Id: Ui_FileMenu.py 14056 2008-08-27 20:57:46Z protkiewicz $
 """
 
 from PyQt4 import QtGui
@@ -16,6 +16,7 @@ def setupUi(win):
     # Populate the "Import" submenu.
     win.importMenu.addAction(win.fileInsertMmpAction)
     win.importMenu.addAction(win.fileInsertPdbAction)
+    win.importMenu.addAction(win.fileInsertInAction)
     win.importMenu.addSeparator()
     win.importMenu.addAction(win.fileImportOpenBabelAction)
     win.importMenu.addAction(win.fileImportIOSAction)
@@ -45,8 +46,8 @@ def setupUi(win):
     win.fileMenu.addMenu(win.importMenu)
     win.fileMenu.addMenu(win.exportMenu)
     
-    from protein.model.Protein import enableProteins
-    if enableProteins:
+    from utilities.GlobalPreferences import ENABLE_PROTEINS
+    if ENABLE_PROTEINS:
         win.fileMenu.addMenu(win.fetchMenu)
         
     win.fileMenu.addSeparator()

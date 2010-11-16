@@ -5,7 +5,7 @@ smaller chains (or 1 smaller ring) often known as rails (short for ladder rails,
 referring to DnaLadder), with refs to markers and a strand or segment
 
 @author: Bruce
-@version: $Id: WholeChain.py 12633 2008-04-23 00:04:31Z brucesmith $
+@version: $Id: WholeChain.py 13844 2008-08-07 22:52:46Z brucesmith $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
@@ -17,6 +17,7 @@ from dna.model.DnaMarker import DnaSegmentMarker # constructor
 from dna.model.DnaMarker import DnaStrandMarker # constructor
 
 from utilities.debug import print_compact_traceback
+from utilities.debug import print_compact_stack
 
 class WholeChain(object):
     """
@@ -300,14 +301,39 @@ class WholeChain(object):
     
     def get_all_baseatoms(self):
         """
-        Returns a list of all base atoms within the whole chain. 
-        The atoms are IN ARBITRARY ORDER because self.rails() returns the rails
-        in arbitrary order.
+        @return: a list of all baseatoms within self, IN ARBITRARY ORDER
+        @rtype: list
+        
+        @see: self.get_all_baseatoms_in_order() which returns the base atoms
+              in a fixed order
         """
         baseAtomList = []
         for rail in self.rails():
             baseAtomList.extend(rail.baseatoms)
         return baseAtomList
+    
+    def get_all_baseatoms_in_order(self): #Ninad 2008-08-06
+        """
+        @return: a list of all baseatoms within self, in a fixed
+                 order -- from first baseatom of first rail to
+                 last base atom of last rail, in same order as
+                 wholechain_baseindex indices.
+        @rtype: list
+        
+        @see: self.get_rails_in_order()
+        """
+        rails = self.get_rails_in_order()   
+        atomList = []
+        for rail in rails:            
+            baseatoms = list(rail.baseatoms)
+            first_index = self.wholechain_baseindex(rail, 0)
+            last_index = self.wholechain_baseindex(rail, len(baseatoms) - 1)
+            if first_index > last_index:
+                baseatoms.reverse()
+            
+            atomList.extend(baseatoms)
+            
+        return atomList
         
     def __repr__(self):
         classname = self.__class__.__name__.split('.')[-1]
@@ -766,6 +792,31 @@ class WholeChain(object):
         last  = self.wholechain_baseindex(rail, len(rail) - 1)
         return first, last
     
+    def get_rails_in_order(self): #Ninad 2008-08-06
+        """
+        @return: a list containing self's rails, in increasing
+                 order of the index of each rail's baseatoms,
+                 according to wholechain_baseindex_range_for_rail.
+        @rtype: list
+        
+        @see: self.get_all_baseatoms_in_order()
+        @see: self.rails() (much faster when order doesn't matter)
+        """
+        rails = self.rails()
+        lst = []
+        
+        for rail in rails:
+            first_baseindex, last_baseindex = self.wholechain_baseindex_range_for_rail(rail)
+            lst.append( (first_baseindex, rail) )
+        
+        # Sort the list so that the rails are arranged in increasing order 
+        # of the baseindex of the first (or any) baseatom of each rail.
+        # (Which baseatom is used in each rail doesn't matter, since within
+        #  any single rail the indices are contiguous.)
+        lst.sort()            
+        
+        return [rail for (baseindex, rail) in lst]
+
     def _compute_wholechain_baseindices(self): #bruce 080421 (not in rc2)
         """
         Compute and assign the correct values to

@@ -1,15 +1,14 @@
 # Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
-fusechunksMode.py
+fusechunksMode.py - helpers for Fuse Chunks command and related functionality
 
 @author: Mark
-@version: $Id: fusechunksMode.py 13494 2008-07-16 19:06:48Z marksims $
+@version: $Id: fusechunksMode.py 14020 2008-08-22 20:09:37Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 
 import foundation.env as env
 from geometry.VQT import vlen
-from commands.Move.modifyMode import modifyMode
 from model.bonds import bond_at_singlets
 from utilities.Log import orangemsg
 from utilities.constants import diINVISIBLE
@@ -288,13 +287,4 @@ class fusechunksBase:
 
     pass # end of class fusechunksBase
 
-# ==
-
-class fusechunksMode(modifyMode, fusechunksBase):
-    """
-    This class is deprecated. Scheduled for deletion. 
-    @see: B{FuseChunks_Command}, B{FuseChunks_GraphicsMode} for new 
-    implementation
-    """
-    pass
 # end

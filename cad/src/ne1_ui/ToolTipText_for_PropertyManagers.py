@@ -5,12 +5,12 @@ ToolTipText_for_MainWindow.py
 This file provides functions for setting the Tool tip text
 for widgets in the Property Managers.
 
-@version:$Id: ToolTipText_for_PropertyManagers.py 13482 2008-07-16 15:48:06Z marksims $
+@version:$Id: ToolTipText_for_PropertyManagers.py 14019 2008-08-22 19:16:12Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 """
 def ToolTip_CookiePropertyManager(propMgr):
     """
-    "Tool Tip" text for widgets in the Crystal (Cookie) Property Manager.
+    "Tool Tip" text for widgets in the BuildCrystal Property Manager.
     """
 
     propMgr.addLayerButton.setToolTip("Add Layer")

@@ -12,7 +12,7 @@ For example:
 - Key bindings or context menu
 
 
-@version: $Id: SelectAtoms_GraphicsMode.py 13233 2008-06-25 14:40:04Z russfish $
+@version: $Id: SelectAtoms_GraphicsMode.py 14378 2008-09-30 16:56:28Z ninadsathaye $
 @copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
 
 
@@ -76,8 +76,7 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
     @see: cad/doc/splitting_a_mode.py that gives a detailed explanation about
           how this is implemented.
     @see: B{SelectAtoms_GraphicsMode}
-    @see: B{SelectAtoms_Command}, B{SelectAtoms_basicCommand},
-          B{selectAtomsMode}
+    @see: B{SelectAtoms_Command}, B{SelectAtoms_basicCommand},         
     @see: B{Select_basicGraphicsMode}
     """
     eCCBtab1 = [1, 2,
@@ -96,8 +95,7 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
         """
         Things needed while entering the GraphicsMode (e.g. updating cursor,
         setting some attributes etc).
-        This method is called in self.command.Enter
-        @see: B{SelectAtoms_basicCommand.Enter} B{basicCommand.Enter}
+        This method is called in self.command.command_entered()
         @see: B{Select_basicGraphicsMode.Enter_GraphicsMode()}
         """
 
@@ -347,7 +345,7 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
     # == LMB event handling methods ====================================
     #
     # The following sections include all the LMB event handling methods for
-    # selectAtomsMode. The section includes the following methods:
+    # this class. The section includes the following methods:
     #
     #   - LMB down-click (button press) methods
     #       leftShiftDown()
@@ -377,10 +375,11 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
         """
         Event handler for all LMB press events.
         """
-        # Note: the code of selectAtomsMode and selectMolsMode .leftDown methods
-        # is very similar, so I'm removing the redundant comments from
-        # the other one (selectMolsMode); i.e. some of this method's comments
-        # also apply to the same code in the same method in selectMolsMode.
+        # Note: the code of SelectAtoms_GraphicsMode and SelectChunks_GraphicsMode 
+        # .leftDown methods  is very similar, so I'm removing the redundant 
+        #comments the other one (SelectChunks_GraphicsMode); 
+        #i.e. some of this method's comments
+        # also apply to the same code in the same method in SelectChunks_GraphicsMode.
         # [bruce 071022]
 
         self.set_cmdname('BuildClick')
@@ -446,7 +445,7 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
             #k (is this always desirable? note, a few cases above return
             # early just so they can skip it.)
 
-        return # from selectAtomsMode.leftDown
+        return # from SelectAtoms_GraphicsMode.leftDown
 
     def call_leftClick_method(self, method, obj, event):#bruce 071022 split this
                                                         #out
@@ -646,7 +645,7 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
         # not clear this would be good, so *this* is what I won't do for now.
         #self.o.gl_update() #& Now handled in modkey*() methods. mark 060210.
 
-        return # from selectAtomsMode.leftUp
+        return # from SelectAtoms_GraphicsMode.leftUp
 
     def leftUp_reset_a_few_drag_vars(self):
         """
@@ -893,16 +892,35 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
             self.current_obj_clicked = False # atom was dragged. mark 060125.
             self.o.gl_update()
 
-    def drag_selected_atom(self, a, delta): # bruce 060316 revised API for
+    def drag_selected_atom(self, a, delta, computeBaggage = False): # bruce 060316 revised API for
                                             # uniformity and no redundant
                                             # dragto, re bug 1474
         """
         Drag real atom <a> by the xyz offset <delta>, adjusting its baggage
         atoms accordingly(how that's done depends on its other neighbor atoms).
+        
+        @param computeBaggage: If this is true, the baggage and non-baggage of
+        the atom to be dragged will be computed in this method before dragging 
+        the atom. Otherwise  it assumes that the baggage and non-baggage atoms 
+        are up-to-date and are computed elsewhere , for example in 'atomSetUp'
+        See a comment in the method that illustrates an example use. 
+        @type recompueBaggage: boolean 
+        @see: BuildAtomsPropertyManager._moveSelectedAtom()
+        @see: SelectAtoms_Command.drag_selected_atom()  
         """
+       
         apo = a.posn()
         ## delta = px - apo
         px = apo + delta
+        
+        #Example use of flag 'computeBaggage': If this method is called as a 
+        #result of a value change in a UI element, the methods such as 
+        #self.atomLeftDown or self.atomSetUp are not called. Those methods do 
+        #the job of computing baggage etc. So a workaround is to instruct this 
+        #method to recompute the baggage and non baggage before proceeding. 
+        if computeBaggage:
+            self.baggage, self.nonbaggage = a.baggage_and_other_neighbors()
+        
 
         n = self.nonbaggage
             # n = real atoms bonded to <a> that are not singlets or
@@ -963,9 +981,9 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
 
     def drag_selected_atoms(self, offset):
         # WARNING: this (and quite a few other methods) is probably only called
-        #(ultimately) from event handlers
-        # in selectAtomsMode, and probably uses some attrs of self that only
-        # exist in that mode. [bruce 070412 comment]
+        # (ultimately) from event handlers in SelectAtoms_GraphicsMode,
+        # and probably uses some attrs of self that only exist in that mode.
+        # [bruce 070412 comment]
 
         if self.maybe_use_bc and self.dragatoms and self.bc_in_use is None:
             #bruce 060414 move selatoms optimization (unfinished);
@@ -1765,9 +1783,9 @@ class SelectAtoms_basicGraphicsMode(Select_basicGraphicsMode):
 
     def update_cursor_for_no_MB(self):
         """
-        Update the cursor for 'Select Atoms' mode (selectAtomsMode)
+        Update the cursor for 'Select Atoms' mode (SelectAtoms_GraphicsMode)
         """
-        ## print "selectAtomsMode.update_cursor_for_no_MB(): button=",\
+        ## print "SelectAtoms_GraphicsMode.update_cursor_for_no_MB(): button=",\
         ## self.o.button, ", modkeys=", self.o.modkeys
 
         if self.w.selection_filter_enabled:
@@ -2016,15 +2034,7 @@ class SelectAtoms_GraphicsMode(SelectAtoms_basicGraphicsMode):
         self.command.set_cmdname(name)
         return
 
-    def _get_hover_highlighting_enabled(self):
-        return self.command.hover_highlighting_enabled
-
-    def _set_hover_highlighting_enabled(self, val):
-        self.command.hover_highlighting_enabled = val
-
-    hover_highlighting_enabled = property(_get_hover_highlighting_enabled,
-                                          _set_hover_highlighting_enabled)
-
+    
     def _get_highlight_singlets(self):
         return self.command.highlight_singlets
 

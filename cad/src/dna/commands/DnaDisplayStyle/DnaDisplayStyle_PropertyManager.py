@@ -7,7 +7,7 @@ DnaDisplayStyle_PropertyManager.py
  Build > Dna mode.
 
 @author: Mark, Urmi
-@version: $Id: DnaDisplayStyle_PropertyManager.py 13378 2008-07-10 01:50:20Z marksims $
+@version: $Id: DnaDisplayStyle_PropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 @copyright: 2008 Nanorex, Inc. See LICENSE file for details.
 
 To do:
@@ -18,7 +18,7 @@ the Preferences dialog.
 import os, time, fnmatch, string
 import foundation.env as env
 
-from widgets.DebugMenuMixin import DebugMenuMixin
+from command_support.Command_PropertyManager import Command_PropertyManager
 from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
 
 from utilities.prefs_constants import getDefaultWorkingDirectory
@@ -29,7 +29,6 @@ from PyQt4.Qt import SIGNAL
 from PyQt4.Qt import Qt
 from PyQt4 import QtGui
 from PyQt4.Qt import QFileDialog, QString, QMessageBox
-from PM.PM_Dialog   import PM_Dialog
 from PM.PM_GroupBox import PM_GroupBox
 from PM.PM_ComboBox import PM_ComboBox
 from PM.PM_StackedWidget import PM_StackedWidget
@@ -65,6 +64,7 @@ from utilities.prefs_constants import dnaStyleBasesDisplayLetters_prefs_key
 
 from utilities.prefs_constants import dnaStrandLabelsEnabled_prefs_key
 from utilities.prefs_constants import dnaStrandLabelsColorMode_prefs_key
+
 
 dnaDisplayStylePrefsList = \
                          [dnaRendition_prefs_key,
@@ -299,8 +299,8 @@ def saveFavoriteFile( savePath, fromPath ):
     return
 
 # =
-
-class DnaDisplayStyle_PropertyManager( PM_Dialog, DebugMenuMixin ):
+_superclass = Command_PropertyManager
+class DnaDisplayStyle_PropertyManager( Command_PropertyManager):
     """
     The DnaDisplayStyle_PropertyManager class provides a Property Manager
     for the B{Display Style} command on the flyout toolbar in the
@@ -323,25 +323,18 @@ class DnaDisplayStyle_PropertyManager( PM_Dialog, DebugMenuMixin ):
     iconPath      =  "ui/actions/Edit/EditDnaDisplayStyle.png"
 
 
-    def __init__( self, parentCommand ):
+    def __init__( self, command ):
         """
         Constructor for the property manager.
         """
 
-        self.parentMode = parentCommand
-        self.w = self.parentMode.w
-        self.win = self.parentMode.w
-        self.pw = self.parentMode.pw
-        self.o = self.win.glpane
         self.currentWorkingDirectory = env.prefs[workingDirectory_prefs_key]
 
-        PM_Dialog.__init__(self, self.pmName, self.iconPath, self.title)
+        _superclass.__init__(self, command)
 
-        DebugMenuMixin._init1( self )
-
+        
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_WHATS_THIS_BUTTON)
-
         msg = "Modify the DNA display settings below."
         self.updateMessage(msg)
 
@@ -454,46 +447,38 @@ class DnaDisplayStyle_PropertyManager( PM_Dialog, DebugMenuMixin ):
                       SIGNAL("currentIndexChanged(int)"),
                       self.change_dnaStrandLabelsDisplay )
 
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """
-        self.win.toolsDone()
-
-    def cancel_btn_clicked(self):
-        """
-        Slot for the Cancel button.
-        """
-        #TODO: Cancel button needs to be removed. See comment at the top
-        self.win.toolsDone()
-
+    
     def show(self):
         """
-        Shows the Property Manager. Overrides PM_Dialog.show.
+        Shows the Property Manager. Extends superclass method
         """
-        PM_Dialog.show(self)
+        _superclass.show(self)
+        
+        #@REVIEW: Is it safe to do the follwoing before calling superclass.show()?
+        #-- Ninad 2008-10-02
 
         # Force the Global Display Style to "DNA Cylinder" so the user
         # can see the display style setting effects on any DNA in the current
         # model. The current global display style will be restored when leaving
         # this command (via self.close()).
-        self.originalDisplayStyle = self.o.getGlobalDisplayStyle()
+        self.originalDisplayStyle = self.o.displayMode
+            # TODO: rename that public attr of GLPane (widely used)
+            # from displayMode to displayStyle. [bruce 080910 comment]
         self.o.setGlobalDisplayStyle(diDNACYLINDER)
 
-        # Update all PM widgets, then establish their signal-slot connections.
-        # note: It is important to update the widgets *first* since doing
-        # it in the reverse order will generate signals when updating
-        # the PM widgets (via updateDnaDisplayStyleWidgets()), causing
-        # unneccessary repaints of the model view.
-        self.updateDnaDisplayStyleWidgets()
-        self.connect_or_disconnect_signals(isConnect = True)
-
+        # Update all PM widgets, .
+        # note: It is important to update the widgets by blocking the 
+        # 'signals'. If done in the reverse order, it will generate signals 
+        #when updating the PM widgets (via updateDnaDisplayStyleWidgets()), 
+        #causing unneccessary repaints of the model view.
+        self.updateDnaDisplayStyleWidgets(blockSignals = True)
+        
+        
     def close(self):
         """
-        Closes the Property Manager. Overrides PM_Dialog.close.
+        Closes the Property Manager. Extends superclass method.
         """
-        self.connect_or_disconnect_signals(False)
-        PM_Dialog.close(self)
+        _superclass.close(self)
 
         # Restore the original global display style.
         self.o.setGlobalDisplayStyle(self.originalDisplayStyle)
@@ -831,39 +816,77 @@ class DnaDisplayStyle_PropertyManager( PM_Dialog, DebugMenuMixin ):
                         widgetColumn = 1
                         )
 
-    def updateDnaDisplayStyleWidgets( self ):
+    def updateDnaDisplayStyleWidgets( self , blockSignals = False):
         """
         Updates all the DNA Display style widgets based on the current pref keys
         values.
+        
+        @param blockSignals: If its set to True, the set* methods of the 
+                             the widgets (currently only PM_ Spinboxes and 
+                             ComboBoxes) won't emit a signal.
+        @type blockSignals: bool 
+        
+        @see: self.show() where this method is called. 
+        @see: PM_Spinbox.setValue() 
+        @see: PM_ComboBox.setCurrentIndex()
 
         @note: This should be called each time the PM is displayed (see show()).
         """
-        self.dnaRenditionComboBox.setCurrentIndex(env.prefs[dnaRendition_prefs_key])
+        
+        self.dnaRenditionComboBox.setCurrentIndex(
+            env.prefs[dnaRendition_prefs_key], 
+            blockSignals = blockSignals )
 
-        self.axisShapeComboBox.setCurrentIndex(env.prefs[dnaStyleAxisShape_prefs_key])
-        self.axisScaleDoubleSpinBox.setValue(env.prefs[dnaStyleAxisScale_prefs_key])
-        self.axisColorComboBox.setCurrentIndex(env.prefs[dnaStyleAxisColor_prefs_key])
-        self.axisEndingStyleComboBox.setCurrentIndex(env.prefs[dnaStyleAxisEndingStyle_prefs_key])
+        self.axisShapeComboBox.setCurrentIndex(
+            env.prefs[dnaStyleAxisShape_prefs_key], blockSignals = blockSignals)
+        
+        self.axisScaleDoubleSpinBox.setValue(
+            env.prefs[dnaStyleAxisScale_prefs_key], blockSignals = blockSignals)
+        
+        self.axisColorComboBox.setCurrentIndex(
+            env.prefs[dnaStyleAxisColor_prefs_key], blockSignals = blockSignals)
+        
+        self.axisEndingStyleComboBox.setCurrentIndex(
+            env.prefs[dnaStyleAxisEndingStyle_prefs_key], blockSignals = blockSignals)
 
-        self.strandsShapeComboBox.setCurrentIndex(env.prefs[dnaStyleStrandsShape_prefs_key])
-        self.strandsScaleDoubleSpinBox.setValue(env.prefs[dnaStyleStrandsScale_prefs_key])
-        self.strandsColorComboBox.setCurrentIndex(env.prefs[dnaStyleStrandsColor_prefs_key])
-        self.strandsArrowsComboBox.setCurrentIndex(env.prefs[dnaStyleStrandsArrows_prefs_key])
+        self.strandsShapeComboBox.setCurrentIndex(
+            env.prefs[dnaStyleStrandsShape_prefs_key], blockSignals = blockSignals)
+        
+        self.strandsScaleDoubleSpinBox.setValue(
+            env.prefs[dnaStyleStrandsScale_prefs_key], blockSignals = blockSignals)
+        
+        self.strandsColorComboBox.setCurrentIndex(
+            env.prefs[dnaStyleStrandsColor_prefs_key], blockSignals = blockSignals)
+        
+        self.strandsArrowsComboBox.setCurrentIndex(
+            env.prefs[dnaStyleStrandsArrows_prefs_key], blockSignals = blockSignals)
+        
 
-        self.strutsShapeComboBox.setCurrentIndex(env.prefs[dnaStyleStrutsShape_prefs_key])
-        self.strutsScaleDoubleSpinBox.setValue(env.prefs[dnaStyleStrutsScale_prefs_key])
-        self.strutsColorComboBox.setCurrentIndex(env.prefs[dnaStyleStrutsColor_prefs_key])
+        self.strutsShapeComboBox.setCurrentIndex(
+            env.prefs[dnaStyleStrutsShape_prefs_key], blockSignals = blockSignals)
+        
+        self.strutsScaleDoubleSpinBox.setValue(
+            env.prefs[dnaStyleStrutsScale_prefs_key], blockSignals = blockSignals)
+        
+        self.strutsColorComboBox.setCurrentIndex(
+            env.prefs[dnaStyleStrutsColor_prefs_key], blockSignals = blockSignals)
 
-        self.nucleotidesShapeComboBox.setCurrentIndex(env.prefs[dnaStyleBasesShape_prefs_key])
-        self.nucleotidesScaleDoubleSpinBox.setValue(env.prefs[dnaStyleBasesScale_prefs_key])
-        self.nucleotidesColorComboBox.setCurrentIndex(env.prefs[dnaStyleBasesColor_prefs_key])
+        self.nucleotidesShapeComboBox.setCurrentIndex(
+            env.prefs[dnaStyleBasesShape_prefs_key], blockSignals = blockSignals)
+        
+        self.nucleotidesScaleDoubleSpinBox.setValue(
+            env.prefs[dnaStyleBasesScale_prefs_key], blockSignals = blockSignals)
+        
+        self.nucleotidesColorComboBox.setCurrentIndex(
+            env.prefs[dnaStyleBasesColor_prefs_key], blockSignals = blockSignals)
 
         # DNA Strand label combobox.
         if env.prefs[dnaStrandLabelsEnabled_prefs_key]:
             _dnaStrandColorItem = env.prefs[dnaStrandLabelsColorMode_prefs_key] + 1
         else:
             _dnaStrandColorItem = 0
-        self.standLabelColorComboBox.setCurrentIndex(_dnaStrandColorItem)
+        self.standLabelColorComboBox.setCurrentIndex(
+            _dnaStrandColorItem, blockSignals = blockSignals)
 
     def change_dnaStrandLabelsDisplay(self, mode):
         """

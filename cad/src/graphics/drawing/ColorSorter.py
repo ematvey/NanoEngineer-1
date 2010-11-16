@@ -9,7 +9,7 @@ Later, it was extended to handle multiple display lists per Chunk object as an
 optimization to avoid rebuilding a single display list when the appearance of
 the object changes for hover-highlighting and selection.
 
-@version: $Id: ColorSorter.py 13393 2008-07-10 22:18:29Z protkiewicz $
+@version: $Id: ColorSorter.py 14412 2008-10-03 17:30:12Z russfish $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 History:
@@ -75,6 +75,7 @@ from utilities.prefs_constants import hoverHighlightingColorStyle_prefs_key
 from utilities.prefs_constants import HHS_HALO
 from utilities.prefs_constants import selectionColorStyle_prefs_key
 from utilities.prefs_constants import SS_HALO
+from utilities.debug import print_compact_traceback
 
 import graphics.drawing.drawing_globals as drawing_globals
 if drawing_globals.quux_module_import_succeeded:
@@ -86,22 +87,129 @@ from graphics.drawing.CS_workers import drawline_worker
 from graphics.drawing.CS_workers import drawpolycone_multicolor_worker
 from graphics.drawing.CS_workers import drawpolycone_worker
 from graphics.drawing.CS_workers import drawsphere_worker
+from graphics.drawing.CS_workers import drawsphere_worker_loop
 from graphics.drawing.CS_workers import drawsurface_worker
 from graphics.drawing.CS_workers import drawwiresphere_worker
 from graphics.drawing.CS_workers import drawtriangle_strip_worker
 from graphics.drawing.gl_lighting import apply_material
+from graphics.drawing.TransformControl import TransformControl
+
+# ==
+
+_csdl_id_counter = 0
+_warned_del = False
 
 class ColorSortedDisplayList:         #Russ 080225: Added.
     """
     The ColorSorter's parent uses one of these to store color-sorted display
     list state.  It's passed in to ColorSorter.start() .
+
+    CSDLs are now created with a TransformControl reference as an argument (and
+    are internally listed in it while they exist). This TransformControl
+    reference is constant (although the transform in the TransformControl is
+    mutable.)
+
+    For convenience, the TransformControl argument can be left out if you don't
+    want to use a TransformControl to move the CSDL. This has the same effect as
+    giving a TransformControl whose transform remains as the identity matrix.
     """
-    def __init__(self):
+    def __init__(self, transformControl = None):
+        
+        # [Russ 080915: Added.
+        # A unique integer ID for each CSDL.
+        global _csdl_id_counter
+        _csdl_id_counter += 1
+        self.csdl_id = _csdl_id_counter
+
+        # Support for lazily updating drawing caches, namely a
+        # timestamp showing when this CSDL was last changed.
+        self.changed = drawing_globals.eventStamp()
+
+        # Cached drawing-primitive IDs.
+        self.spheres = []
+
+        # TransformControl constructor argument is optional.
+        self.transformControl = transformControl
+        if self.transformControl is not None:
+            # Note: this requires the csdlID to be already set!
+            self.transformControl.addCSDL(self)
+            pass
+        # Russ 080915]
+
         self.clear()
+
         # Whether to draw in the selection over-ride color.
-        self.selected = False 
+        self.selected = False
+
         return
 
+    # Russ 080925: Added.
+    def transform_id(self):
+        """
+        Return the transform_id of the CSDL, or None if there is no associated
+        TransformControl.
+        """
+        if self.transformControl is None:
+            return None
+        return self.transformControl.transform_id
+
+    # Russ 080915: Added.
+    def __del__(self):         # Called by Python when an object is being freed.
+        self.destroy()
+        return
+    def destroy(self):         # Called by us to break cyclic reference loops.
+        # Free any OpenGL resources.
+        ## REVIEW: Need to wait for our OpenGL context to become current when
+        ## GLPane calls its method saying it's current again.  See chunk dealloc
+        ## code for details. This hangs NE1 now, so it's commented out.
+        ####self.deallocate_displists()
+
+        # Unregister the CSDL from its TransformControl, breaking the Python
+        # reference cycle so the CSDL can be reclaimed.
+        if self.transformControl is not None:
+            try:
+                transformControl.removeCSDL(self.csdl_id)
+            except:
+                global _warned_del
+                if not _warned_del:
+                    print_compact_traceback(
+                        "exception in ColorSortedDisplayList.destroy ignored:")
+                    _warned_del = True
+                    pass
+                pass
+            pass
+        return
+
+    # ==
+
+    # Russ 080925: For batched primitive drawing, drawing-primitive functions
+    # conditionally collect lists of primitive IDs here in the CSDL, rather than
+    # sending them down through the ColorSorter schedule methods into the DL
+    # layer. Later, those primitive lists are are collected across the CSDLs in
+    # a DrawingSet, into the per-primitive-type VBO caches and MultiDraw indices
+    # managed by its GLPrimitiveSet.  Most of the intermediate stuff will be
+    # cached in the underlying GLPrimitiveBuffer, since glPrimitiveSet is meant
+    # to be very transient.
+    #
+    # This can be factored when we get a lot of primitive shaders.  For now,
+    # simply cache the drawing-primitive IDs at the top level of CSDL.
+    def clearPrimitives(self):
+        # Free them in the primitive
+        if drawing_globals.use_batched_primitive_shaders:
+            drawing_globals.spherePrimitives.releasePrimitives(self.spheres)
+        self.spheres = []
+        return
+        
+    def addSphere(self, center, radius, color, transform_id):
+        """
+        Allocate a sphere primitive and add its ID to the sphere list.
+        color is a list of components: [R, G, B].
+        transform_id may be None.
+        """
+        self.spheres += drawing_globals.spherePrimitives.addSpheres(
+            [center], radius, color, self.transform_id())
+        return
+    
     # ==
 
     def draw(self, highlighted = False, selected = False,
@@ -405,7 +513,7 @@ class ColorSorter:
                 pass
 
             apply_material(color)
-            func(params)
+            func(params)                # Call the draw worker function.
 
             if opacity > 0.0 and opacity != 1.0:
                 glDisable(GL_BLEND)
@@ -420,7 +528,8 @@ class ColorSorter:
 
     schedule = staticmethod(schedule)
 
-    def schedule_sphere(color, pos, radius, detailLevel, opacity = 1.0):
+    def schedule_sphere(color, pos, radius, detailLevel,
+                        opacity = 1.0, testloop = 0):
         """
         Schedule a sphere for rendering whenever ColorSorter thinks is
         appropriate.
@@ -440,18 +549,37 @@ class ColorSorter:
                 raise ValueError, \
                       "unexpected different sphere LOD levels within same frame"
             ColorSorter.sphereLevel = detailLevel
+            pass
         else: # Older sorted material rendering
-            if len(color) == 3:		
+            vboLevel = drawing_globals.use_drawing_variant
+            sphereBatches = drawing_globals.use_batched_primitive_shaders
+            if vboLevel == 6 and not sphereBatches:
+                #russ 080714: Individual "shader spheres" are signaled
+                # by an opacity of -3 (4th component of the color.)
+                lcolor = (color[0], color[1], color[2], -3)
+            elif len(color) == 3:		
                 lcolor = (color[0], color[1], color[2], opacity)
             else:
                 lcolor = color	
-            ColorSorter.schedule(
-                lcolor,
-                drawsphere_worker, ### drawsphere_worker_loop ### Testing.
-                (pos, radius, detailLevel))
+                pass
+
+            if testloop > 0:
+                worker = drawsphere_worker_loop
+            else:
+                worker = drawsphere_worker
+                pass
+            
+            if sphereBatches and ColorSorter.parent_csdl: # Russ 080925: Added.
+                # Collect lists of primitives in the CSDL, rather than sending
+                # them down through the ColorSorter schedule methods into DLs.
+                ColorSorter.parent_csdl.addSphere(
+                    pos, radius, lcolor,
+                    ColorSorter.parent_csdl.transform_id())
+            else:
+                ColorSorter.schedule(
+                    lcolor, worker, (pos, radius, detailLevel, testloop))
 
     schedule_sphere = staticmethod(schedule_sphere)
-
 
     def schedule_wiresphere(color, pos, radius, detailLevel = 1):
         """
@@ -616,6 +744,12 @@ class ColorSorter:
             pass
 
         if csdl != None:
+            # Russ 080915: This supports lazily updating drawing caches.
+            csdl.changed = drawing_globals.eventStamp()
+
+            # Clear the primitive data to start collecting a new set.
+            csdl.clearPrimitives()
+
             if not (drawing_globals.allow_color_sorting and
                     (drawing_globals.use_color_sorted_dls
                      or drawing_globals.use_color_sorted_vbos)): #russ 080320
@@ -636,7 +770,8 @@ class ColorSorter:
                     print ("data related to following exception: csdl.dl = %r" %
                            (csdl.dl,)) #bruce 070521
                     raise
-
+                pass
+            pass
         assert not ColorSorter.sorting, \
                "Called ColorSorter.start but already sorting?!"
         ColorSorter.sorting = True
@@ -650,9 +785,13 @@ class ColorSorter:
 
     def finish():
         """
-        Finish sorting - objects recorded since "start" will
-        be sorted and invoked now.
+        Finish sorting -- objects recorded since"start" will be sorted and
+        invoked now.  If there's no CSDL, we're in all-in-one-display-list mode,
+        which is still a big speedup over plain immediate-mode drawing.
         """
+        if not ColorSorter.sorting:
+            return                      # Plain immediate-mode, nothing to do.
+
         from utilities.debug_prefs import debug_pref, Choice_boolean_False
         debug_which_renderer = debug_pref(
             "debug print which renderer",
@@ -728,6 +867,7 @@ class ColorSorter:
 
                 parent_csdl.reset()
                 selColor = env.prefs[selectionColor_prefs_key]
+                vboLevel = drawing_globals.use_drawing_variant
 
                 # First build the lower level per-color sublists of primitives.
                 for color, funcs in ColorSorter.sorted_by_color.iteritems():
@@ -745,15 +885,25 @@ class ColorSorter:
                         glDisable(GL_LIGHTING) # Don't forget to re-enable it!
                         pass
 
+                    if opacity == -3 and vboLevel == 6:
+                        #russ 080714: "Shader spheres" are signaled
+                        # by an opacity of -3 (4th component of the color.)
+                        drawing_globals.sphereShader.use(True)
+                        pass
+
                     for func, params, name in funcs:
                         objects_drawn += 1
                         if name != 0:
                             glPushName(name)
-                        func(params)
+                        func(params)    # Call the draw worker function.
                         if name != 0:
                             glPopName()
                             pass
                         continue
+
+                    if opacity == -3 and vboLevel == 6:
+                        drawing_globals.sphereShader.use(False)
+                        pass
 
                     if opacity == -1:
                         # Enable lighting after drawing "unshaded" objects.
@@ -898,7 +1048,7 @@ class ColorSorter:
                 objects_drawn += 1
                 if name != 0:
                     glPushName(name)
-                func(params)
+                func(params)            # Call the draw worker function.
                 if name != 0:
                     glPopName()
                     pass

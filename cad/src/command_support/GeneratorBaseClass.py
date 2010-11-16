@@ -1,10 +1,13 @@
-# Copyright 2006-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2006-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
-GeneratorBaseClass.py -- base class for generator dialogs or their controllers
-which supplies ok/cancel/preview logic and some other common behavior.
-Sometimes abbreviated as GBC in docstrings, comments, or identifier prefixes.
+GeneratorBaseClass.py -- DEPRECATED base class for generator dialogs
+or their controllers, which supplies ok/cancel/preview logic and some
+other common behavior. Sometimes abbreviated as GBC in docstrings,
+comments, or identifier prefixes.
 
-$Id: GeneratorBaseClass.py 12377 2008-04-07 22:02:49Z brucesmith $
+@author: Will
+@version: $Id: GeneratorBaseClass.py 13977 2008-08-18 16:45:05Z brucesmith $
+@copyright: 2006-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
 
@@ -52,8 +55,6 @@ Also needs generalization in several ways (mentioned but not fully explained):
 
 """
 
-__author__ = "Will"
-
 from PyQt4.Qt import Qt
 from PyQt4.Qt import QApplication
 from PyQt4.Qt import QCursor
@@ -68,69 +69,7 @@ from utilities.debug import print_compact_traceback
 from utilities.constants import gensym
 from utilities.constants import permit_gensym_to_reuse_name
 
-# == private definitions
-
-# REVIEW: AbstractMethod should either be renamed to look private, or
-# (preferably) moved to a more general place and used more widely
-# (but ideally merged with the other 2 or 3 variants of this idea,
-#  including the exception built into Python for this purpose).
-# [070724 code review]
-
-class AbstractMethod(Exception):
-    def __init__(self):
-        Exception.__init__(self, 'Abstract method - must be overloaded')
-
-# == public exception classes for use by our client subclasses
-
-# REVIEW: These might benefit from being renamed with a Generator_ prefix,
-# unless we decide they're more general and can be used in any Command,
-# in which case they should be moved, and some other prefix would be better.
-# They should also be taught to help print messages about themselves, so that
-# handlePluginExceptions doesn't need to catch each one individually. This
-# should be revisited after our overall error handling code is revised.
-# [070724 code review]
-#
-# REVIEW: I suspect these exceptions are not handled in the best way, and in
-# particular, I am not sure it's useful to have a CadBug exception class,
-# given that any unexpected exception (of any class) also counts as a "bug
-# in the cad code".
-# [bruce 070719 comments]
-
-class CadBug(Exception):
-    """
-    Useful for distinguishing between an exception from subclass
-    code which is a bug in the cad, a report of an error in the
-    plugin, or a report of a user error.
-    """
-    def __init__(self, arg = None):
-        if arg is not None:
-            Exception.__init__(self, arg)
-        else:
-            Exception.__init__(self)
-
-class PluginBug(Exception):
-    """
-    Useful for distinguishing between an exception from subclass
-    code which is a bug in the cad, a report of an error in the
-    plugin, or a report of a user error.
-    """
-    def __init__(self, arg = None):
-        if arg is not None:
-            Exception.__init__(self, arg)
-        else:
-            Exception.__init__(self)
-
-class UserError(Exception):
-    """
-    Useful for distinguishing between an exception from subclass
-    code which is a bug in the cad, a report of an error in the
-    plugin, or a report of a user error.
-    """
-    def __init__(self, arg = None):
-        if arg is not None:
-            Exception.__init__(self, arg)
-        else:
-            Exception.__init__(self)
+from utilities.exception_classes import CadBug, PluginBug, UserError, AbstractMethod
 
 # ==
 
@@ -138,6 +77,9 @@ class GeneratorBaseClass:
     ### REVIEW: docstring needs reorganization, and clarification re whether all
     # generators have to inherit it
     """
+    DEPRECATED, and no longer used for supported commands as of circa 080727.
+    (Still used for some test/example commands.)
+    
     Mixin-superclass for use in the property managers of generator commands.
     In spite of the class name, this class only works when inherited *after*
     a property manager class (e.g. PM_Dialog) in a class's list of superclasses.
@@ -171,7 +113,7 @@ class GeneratorBaseClass:
 
     [As of bruce 070719 I am not sure if not inheriting QDialog is possible.]
     There are some other methods here that merit mentioning: 
-    done_btn_clicked, abort_btn_clicked, cancel_btn_clicked, close.
+    done_btn_clicked, cancel_btn_clicked, close.
     """
     # default values of class constants; subclasses should override these as
     # needed
@@ -497,10 +439,6 @@ class GeneratorBaseClass:
         if debug_flags.atom_debug:
             print "done button clicked"
         self.ok_btn_clicked()
-
-    def abort_btn_clicked(self):
-        "Slot for the Abort button"
-        self.cancel_btn_clicked()
 
     def cancel_btn_clicked(self):
         "Slot for the Cancel button"

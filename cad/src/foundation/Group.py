@@ -4,7 +4,7 @@ Group.py -- Class (or superclass) for all non-leaf nodes in the
 internal model tree of Nodes.
 
 @author: Josh
-@version: $Id: Group.py 13248 2008-06-27 05:11:48Z brucesmith $
+@version: $Id: Group.py 14272 2008-09-18 00:36:43Z brucesmith $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -97,11 +97,9 @@ class Group(NodeWithAtomContents):
         for ob in members:
             self.addchild(ob)
 
-        #@WARNING: Following (self.editCommand) is a temporary code that
-        # allows editing of DNA Duplex which is, at the moment, same as a
-        # group in the MT. Once we have a DNA object model ready,
-        # the following should be removed/ revised .
-        # See also self.edit where this is being used. -- Ninad 2007-10-26
+        #@Note: subclasses use this argument in self.edit()
+        # REVIEW: is defining this in the superclass Group,
+        # which no longer uses it, still justified? [bruce 080801 question]
         self.editCommand = editCommand
 
         return
@@ -203,7 +201,7 @@ class Group(NodeWithAtomContents):
                 return True
         return False
 
-    def changed_members(self): #bruce 050121 new feature, now needed by depositMode
+    def changed_members(self): #bruce 050121 new feature, now needed by BuildAtoms
         """
         Whenever something changes self.members in any way (insert, delete, reorder),
         it MUST call this method to inform us (but only *after* it makes the change);
@@ -224,7 +222,7 @@ class Group(NodeWithAtomContents):
             # [bruce 050429 comment: I'm suspicious this is needed or good if we have no part (re bug 413),
             #  but it's too dangerous to change it just before a release, so bug 413 needs a different fix
             #  (and anyway this is not the only source of assy.changed() from opening a file -- at least
-            #   chunk.setDisplay also does it). For Undo we might let .changed() propogate only into direct
+            #   chunk.setDisplayStyle also does it). For Undo we might let .changed() propogate only into direct
             #   parents, and then those assy.changed() would not happen and bug 413 might be fixable differently.]
             self.assy.changed()
             # it is ok for something in part.changed() or assy.changed() to modify self.__cmfuncs
@@ -268,6 +266,8 @@ class Group(NodeWithAtomContents):
         explicitly permit func, when called from our code, to itself call this method,
         supplying either the same func or a new one.)
         """
+        # note: this method is no longer used as of 080821, but it can remain,
+        # since it's still correct and potentially useful. [bruce 080821]
         if only_if_new and (func in self.__cmfuncs):
             return
         self.__cmfuncs.append( func) # might occur during use of same func!
@@ -275,31 +275,34 @@ class Group(NodeWithAtomContents):
 
     # methods before this are by bruce 050108 and should be reviewed when my rewrite is done ###@@@
 
-    def get_topmost_subnodes_of_class(self, class_or_classname): #bruce 080115
+    def get_topmost_subnodes_of_class(self, clas): #bruce 080115, revised 080807
         """
         Return a list of the topmost (direct or indirect)
         children of self (Nodes or Groups), but never self itself,
-        with the given class_or_classname (known to self.assy),
-        or with a subclass of the class that refers to.
-
-        That is, scanning depth-first into our child nodes,
+        which are instances of the given class (or of a subclass).
+        
+        That is, scanning depth-first into self's child nodes,
         for each child we include in our return value, we won't
         include any of its children.
 
-        @param class_or_classname: a class or registered classname.
-                                   (The classname case is NIM in
-                                    self.assy.class_or_classname_to_class
-                                    except for a few hardcoded examples,
-                                    as of 080115. String args can be useful
-                                    for avoiding import cycles.)
+        @param clas: a class.
+
+        @note: to avoid import cycles, it's often desirable to
+               specify the class as an attribute of a convenient
+               Assembly object (e.g. xxx.assy.DnaSegment)
+               rather than as a global value that needs to be imported
+               (e.g. DnaSegment, after "from xxx import DnaSegment").
+
+        @see: same-named method on class Part.
         """
-        class1 = self.assy.class_or_classname_to_class(class_or_classname)
+        #NOTE: this method is duplicated in class Part (see Part.py) 
+        #-- Ninad 2008-08-06
         res = []
         for child in self.members:
-            if isinstance( child, class1): ## was: issubclass( child.__class__, class1)
+            if isinstance( child, clas):
                 res.append(child)
             elif child.is_group():
-                res.extend( child.get_topmost_subnodes_of_class( class1) )
+                res.extend( child.get_topmost_subnodes_of_class( clas) )
         return res
 
     def kluge_change_class(self, subclass):
@@ -977,19 +980,6 @@ class Group(NodeWithAtomContents):
         del mapping
         return self.__class__
 
-# probably not needed (based on Ninad reply to Bruce email query, 080414 late;
-#  if this is confirmed, we can remove it entirely after the release --
-#  and maybe we can remove everything about editCommand from this class?
-#  I don't know...):
-##    def _copy_editCommand_to_copy_of_self_if_desirable(self, new): #bruce 080414, total guess
-##        """
-##        New is a copy or partial copy of self. If it is a good idea to do so,
-##        copy self.editCommand to new.editCommand.
-##        """
-##        if not new.editCommand and self.editCommand and new.assy is self.assy:
-##            new.editCommand = self.editCommand
-##        return
-
     def copy_with_provided_copied_partial_contents( self, name, assy, dad, members): #bruce 080414
         """
         Imitate Group(name, assy, dad, members) but using the correct class
@@ -1160,31 +1150,26 @@ class Group(NodeWithAtomContents):
     def edit(self):
         """
         [this is overridden in some subclasses of Group]
+        @see: DnaGroup.edit() for an example (overrides this method)
         """
-        if self.editCommand:
-            commandSequencer = self.assy.w.commandSequencer
-            commandSequencer.userEnterCommand('DNA_DUPLEX')
-            currentCommand = commandSequencer.currentCommand
-            assert currentCommand.commandName == 'DNA_DUPLEX'
-            currentCommand.editStructure(self)
-        else:
-            cntl = GroupProp(self) # Normal group prop
-            cntl.exec_()
-            self.assy.mt.mt_update()
+        cntl = GroupProp(self) # Normal group prop
+        cntl.exec_()
+        self.assy.mt.mt_update()
 
     def getProps(self):
         """
-        Temporary method to support Dna duplex editing. see Group.__init__ for
-        a comment
+        Get specific properties of the Group (if it is editable) Overridden in 
+        subclasses. Default implementation returns an empty tuple
+        @see: DnaSegment.getProps() for an example. 
         """
-        if self.editCommand:
-            props = ()
-            return props
+        return ()
 
     def setProps(self, props):
         """
-        Temporary method to support Dna duplex editing. see Group.__init__ for
-        a comment
+        Set certain properties (set vals for some attrs of this group) 
+        Overridden in subclasses, default implementation doesn nothing. 
+        @see: self.getProps()
+        @see: DnaSegment.setProps() for an example
         """
         pass
 
@@ -1218,24 +1203,23 @@ class Group(NodeWithAtomContents):
 
     def draw_after_highlighting(self, glpane, dispdef, pickCheckOnly = False):
         """
-        Things to draw after highlighting. Subclasses should override this
-        method. see superclass method for more documentation
+        Things to draw after highlighting. See superclass method for more info.
         @see: self.draw()
         @see: GraphicsMode.Draw_after_highlighting()
-        @see: Node.draw_after_highlighting() which is overridden here.
+        @see: Node.draw_after_highlighting() which this overrides
         @see: Plane.draw_after_highlighting()
         @see: ESPImage.draw_after_highlighting()
         """
         anythingDrawn = False
-        anythingDrawn_by_any_member = False
 
-        for member in self.members:
-            anythingDrawn_by_any_member = member.draw_after_highlighting(
-                glpane,
-                dispdef,
-                pickCheckOnly = pickCheckOnly )
-            if anythingDrawn_by_any_member and not anythingDrawn:
-                anythingDrawn = anythingDrawn_by_any_member
+        if not self.hidden:
+            for member in self.members:
+                anythingDrawn_by_member = member.draw_after_highlighting(
+                    glpane,
+                    dispdef,
+                    pickCheckOnly = pickCheckOnly )
+                if anythingDrawn_by_member:
+                    anythingDrawn = True
 
         return anythingDrawn
 

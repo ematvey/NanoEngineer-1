@@ -3,10 +3,15 @@
 
 @author: Ninad
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: PlanePropertyManager.py 13291 2008-07-01 19:03:37Z ninadsathaye $
+@version:$Id: PlanePropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 
 History:
 ninad 20070602: Created.
+Summer 2008: Urmi and Piotr added code to support image display and grid display
+             within Plane objects.
+             
+TODO 2008-09-19:
+See Plane_EditCommand.py
 
 """
 from PyQt4.Qt import SIGNAL
@@ -26,12 +31,17 @@ from command_support.EditCommand_PM import EditCommand_PM
 import foundation.env as env
 from utilities.constants import yellow, orange, red, magenta
 from utilities.constants import cyan, blue, white, black, gray
-from utilities.constants import LOWER_LEFT, LOWER_RIGHT, UPPER_LEFT, UPPER_RIGHT
+from utilities.constants import  PLANE_ORIGIN_LOWER_LEFT
+from utilities.constants import  PLANE_ORIGIN_LOWER_RIGHT
+from utilities.constants import  PLANE_ORIGIN_UPPER_LEFT
+from utilities.constants import  PLANE_ORIGIN_UPPER_RIGHT
 from utilities.constants import LABELS_ALONG_ORIGIN, LABELS_ALONG_PLANE_EDGES
 from utilities.prefs_constants import PlanePM_showGridLabels_prefs_key, PlanePM_showGrid_prefs_key
 
 from utilities import debug_flags
 from widgets.prefs_widgets import connect_checkbox_with_boolean_pref
+
+_superclass = EditCommand_PM
 
 class PlanePropertyManager(EditCommand_PM):
     """
@@ -48,7 +58,7 @@ class PlanePropertyManager(EditCommand_PM):
     # The relative path to the PNG file that appears in the header
     iconPath = "ui/actions/Insert/Reference Geometry/Plane.png"
 
-    def __init__(self, win, planeEditCommand):
+    def __init__(self, command):
         """
         Construct the Plane Property Manager.
 
@@ -59,36 +69,20 @@ class PlanePropertyManager(EditCommand_PM):
         #see self.connect_or_disconnect_signals for comment about this flag
         self.isAlreadyConnected = False
         self.isAlreadyDisconnected = False
-
-
-        EditCommand_PM.__init__( self, 
-                                 win,
-                                 planeEditCommand) 
-
-
-
-        msg = "Insert a Plane parallel to the screen. Note: This feature is "\
-            "experimental for Alpha9 and has known bugs."
-
-        # This causes the "Message" box to be displayed as well.
-        self.updateMessage(msg)
-
-        # self.resized_from_glpane flag makes sure that the 
-        #spinbox.valueChanged()
-        # signal is not emitted after calling spinbox.setValue.
-        self.resized_from_glpane = False
-
-        # Hide Preview and Restore defaults button for Alpha9.
-        self.hideTopRowButtons(PM_RESTORE_DEFAULTS_BUTTON)
-        # needed to figure out if the model has changed or not
-        self.previousPMParams = None
+        
         self.gridColor = black
         self.gridXSpacing = 4.0
         self.gridYSpacing = 4.0
         self.gridLineType = 3
         self.displayLabels = False
-        self.originLocation = LOWER_LEFT
+        self.originLocation = PLANE_ORIGIN_LOWER_LEFT
         self.displayLabelStyle = LABELS_ALONG_ORIGIN
+
+        EditCommand_PM.__init__( self, command) 
+        
+        # Hide Preview and Restore defaults buttons
+        self.hideTopRowButtons(PM_RESTORE_DEFAULTS_BUTTON)        
+        
 
     def _addGroupBoxes(self):
         """
@@ -398,13 +392,13 @@ class PlanePropertyManager(EditCommand_PM):
         @type idx: int
         """
         if idx == 0:
-            self.originLocation = LOWER_LEFT
+            self.originLocation = PLANE_ORIGIN_LOWER_LEFT
         elif idx ==1:
-            self.originLocation = UPPER_LEFT
+            self.originLocation = PLANE_ORIGIN_UPPER_LEFT
         elif idx == 2:
-            self.originLocation = LOWER_RIGHT
+            self.originLocation = PLANE_ORIGIN_LOWER_RIGHT
         elif idx == 3:
-            self.originLocation = UPPER_RIGHT
+            self.originLocation = PLANE_ORIGIN_UPPER_RIGHT
         else:
             print "Invalid index", idx
         return
@@ -419,7 +413,7 @@ class PlanePropertyManager(EditCommand_PM):
             self.gpOriginComboBox.setEnabled(True)
             self.gpPositionComboBox.setEnabled(True)
             self.displayLabels = True
-            self.originLocation = LOWER_LEFT
+            self.originLocation = PLANE_ORIGIN_LOWER_LEFT
             self.displayLabelStyle = LABELS_ALONG_ORIGIN
         else:
             self.gpOriginComboBox.setEnabled(False)
@@ -714,15 +708,15 @@ class PlanePropertyManager(EditCommand_PM):
         else:
             pass
 
-        self.editCommand.struct.glpane.gl_update()
+        self.command.struct.glpane.gl_update()
 
 
     def toggleHeightfield(self, checked):
         """
         Enables 3D relief drawing mode.
         """
-        if self.editCommand and self.editCommand.struct:
-            plane = self.editCommand.struct
+        if self.command and self.command.struct:
+            plane = self.command.struct
             plane.display_heightfield = checked
             if checked:
                 self.heightfieldHQDisplayCheckBox.setEnabled(True)
@@ -740,8 +734,8 @@ class PlanePropertyManager(EditCommand_PM):
         """
         Enables high quality rendering in 3D relief mode.
         """
-        if self.editCommand and self.editCommand.struct:
-            plane = self.editCommand.struct
+        if self.command and self.command.struct:
+            plane = self.command.struct
             plane.heightfield_hq = checked
             plane.computeHeightfield()
             plane.glpane.gl_update()
@@ -750,34 +744,44 @@ class PlanePropertyManager(EditCommand_PM):
         """
         Enables texturing in 3D relief mode.
         """
-        if self.editCommand and self.editCommand.struct:
-            plane = self.editCommand.struct
+        if self.command and self.command.struct:
+            plane = self.command.struct
             plane.heightfield_use_texture = checked
-            #if plane.display_heightfield and plane.image:
-            #    plane.computeHeightfield()
+            # It is not necessary to re-compute the heightfield coordinates
+            # at this point, they are re-computed whenever the "3D relief image"
+            # checkbox is set. 
             plane.glpane.gl_update()
-
+            
     def update_spinboxes(self): 	 
         """ 	 
 	Update the width and height spinboxes. 	 
         @see: Plane.resizeGeometry()
+        This typically gets called when the plane is resized from the 
+        3D workspace (which marks assy as modified) .So, update the spinboxes
+        that represent the Plane's width and height, but do no emit 'valueChanged'
+        signal when the spinbox value changes. 
+        
+        @see: Plane.resizeGeometry()
+        @see: self._update_UI_do_updates()
+        @see: Plane_EditCommand.command_update_internal_state()        
 	""" 	 
-        # self.resized_from_glpane flag makes sure that the 	 
-        # spinbox.valueChanged() 	 
-        # signal is not emitted after calling spinbox.setValue(). 	 
-        # This flag is used in change_plane_size method.-- Ninad 20070601 	 
-        if self.editCommand and self.editCommand.hasValidStructure(): 	 
-            self.resized_from_glpane = True 	 
-            self.heightDblSpinBox.setValue(self.editCommand.struct.height) 	 
-            self.widthDblSpinBox.setValue(self.editCommand.struct.width) 	 
-            self.win.glpane.gl_update() 	 
-            self.resized_from_glpane = False
+        # blockSignals = True make sure that spinbox.valueChanged() 	 
+        # signal is not emitted after calling spinbox.setValue().  This is done
+        #because the spinbox valu changes as a result of resizing the plane 
+        #from the 3D workspace.
+        if self.command.hasValidStructure():            	 
+            self.heightDblSpinBox.setValue(self.command.struct.height, 
+                                           blockSignals = True) 	 
+            self.widthDblSpinBox.setValue(self.command.struct.width, 
+                                          blockSignals = True) 
+                        
 
     def update_imageFile(self):
         """
         Loads image file if path is valid
         """
-
+        
+        # Update buttons and checkboxes.
         self.mirrorButton.setEnabled(False)
         self.plusNinetyButton.setEnabled(False)
         self.minusNinetyButton.setEnabled(False)
@@ -787,7 +791,9 @@ class PlanePropertyManager(EditCommand_PM):
         self.heightfieldTextureCheckBox.setEnabled(False)
         self.vScaleSpinBox.setEnabled(False)
 
-        plane = self.editCommand.struct
+        plane = self.command.struct
+
+        # Delete current image and heightfield
         plane.deleteImage()
         plane.heightfield = None
         plane.display_image = self.imageDisplayCheckBox.isChecked()
@@ -801,9 +807,11 @@ class PlanePropertyManager(EditCommand_PM):
             if validPath:
                 from PIL import Image
 
+                # Load image from file
                 plane.image = Image.open(imageFile)
                 plane.loadImage(imageFile)
 
+                # Compute the relief image
                 plane.computeHeightfield()
 
                 if plane.image:
@@ -828,9 +836,9 @@ class PlanePropertyManager(EditCommand_PM):
         #when you are editing an existing plane. Don't know the cause at this
         #time, issue is trivial. So calling it in the end -- Ninad 2007-10-03
 
-        if self.editCommand.struct:
+        if self.command.struct:
 
-            plane = self.editCommand.struct 
+            plane = self.command.struct 
             plane.updateCosmeticProps(previewing = True)
             if plane.imagePath:
                 self.imageDisplayFileChooser.setText(plane.imagePath)
@@ -843,15 +851,13 @@ class PlanePropertyManager(EditCommand_PM):
              gridXSpacing, gridYSpacing, originLocation, \
              displayLabelStyle = params
 
-        # self.resized_from_glpane flag makes sure that the 
+        # blockSignals = True  flag makes sure that the 
         # spinbox.valueChanged()
         # signal is not emitted after calling spinbox.setValue(). 
-        # This flag is used in change_plane_size method.-- Ninad 20070601
-        self.resized_from_glpane = True
-        self.widthDblSpinBox.setValue(width)
-        self.heightDblSpinBox.setValue(height)  
+        self.widthDblSpinBox.setValue(width, blockSignals = True)
+        self.heightDblSpinBox.setValue(height, blockSignals = True)  
         self.win.glpane.gl_update()
-        self.resized_from_glpane = False                
+               
 
         self.gpColorTypeComboBox.setColor(gridColor)
         self.gridLineType = gridLineType
@@ -861,6 +867,22 @@ class PlanePropertyManager(EditCommand_PM):
 
         self.gpOriginComboBox.setCurrentIndex(originLocation)
         self.gpPositionComboBox.setCurrentIndex(displayLabelStyle)
+        
+        
+    def getCurrrentDisplayParams(self):
+        """
+        Returns a tuple containing current display parameters such as current 
+        image path and grid display params.
+        @see: Plane_EditCommand.command_update_internal_state() which uses this
+        to decide whether to modify the structure (e.g. because of change in the
+        image path or display parameters.)        
+        """
+        imagePath = self.imageDisplayFileChooser.text
+        gridColor = self.gpColorTypeComboBox.getColor()
+        
+        return (imagePath, gridColor, self.gridLineType, 
+                self.gridXSpacing, self.gridYSpacing, 
+                self.originLocation, self.displayLabelStyle)
 
     def getParameters(self):
         """
@@ -882,10 +904,10 @@ class PlanePropertyManager(EditCommand_PM):
 
         @param newWidth: width in Angstroms.
         @type  newWidth: float
-        """        
+        """      
         if self.aspectRatioCheckBox.isChecked():
-            self.editCommand.struct.width   =  newWidth
-            self.editCommand.struct.height  =  self.editCommand.struct.width / \
+            self.command.struct.width   =  newWidth
+            self.command.struct.height  =  self.command.struct.width / \
                 self.aspectRatioSpinBox.value() 
             self.update_spinboxes()
         else:
@@ -900,8 +922,8 @@ class PlanePropertyManager(EditCommand_PM):
         @type  newHeight: float
         """        
         if self.aspectRatioCheckBox.isChecked():
-            self.editCommand.struct.height  =  newHeight 
-            self.editCommand.struct.width   =  self.editCommand.struct.height * \
+            self.command.struct.height  =  newHeight 
+            self.command.struct.width   =  self.command.struct.height * \
                 self.aspectRatioSpinBox.value()
             self.update_spinboxes()
         else:
@@ -915,18 +937,17 @@ class PlanePropertyManager(EditCommand_PM):
         @param gl_update: Forces an update of the glpane.
         @type  gl_update: bool
         """
-        if not self.resized_from_glpane:
-            self.editCommand.struct.width   =  self.widthDblSpinBox.value()
-            self.editCommand.struct.height  =  self.heightDblSpinBox.value() 
+        self.command.struct.width   =  self.widthDblSpinBox.value()
+        self.command.struct.height  =  self.heightDblSpinBox.value() 
         if gl_update:
-            self.editCommand.struct.glpane.gl_update()
+            self.command.struct.glpane.gl_update()
 
     def change_vertical_scale(self, scale):
         """
         Changes vertical scaling of the heightfield.
         """
-        if self.editCommand and self.editCommand.struct:
-            plane = self.editCommand.struct
+        if self.command and self.command.struct:
+            plane = self.command.struct
             plane.heightfield_scale = scale
             plane.computeHeightfield()
             plane.glpane.gl_update()
@@ -945,23 +966,23 @@ class PlanePropertyManager(EditCommand_PM):
                 "With <b>Parallel to Screen</b> plane placement option, the "\
                 "center of the plane is always (0,0,0)" 
             self.updateMessage(msg)
-            self.editCommand.placePlaneParallelToScreen()            
+            self.command.placePlaneParallelToScreen()            
         elif buttonId == 1:
             msg = "Create a Plane with center coinciding with the common center "\
                 "of <b> 3 or more selected atoms </b>. If exactly 3 atoms are "\
                 "selected, the Plane will pass through those atoms."        
             self.updateMessage(msg)            
-            self.editCommand.placePlaneThroughAtoms()
-            if self.editCommand.logMessage:
-                env.history.message(self.editCommand.logMessage)
+            self.command.placePlaneThroughAtoms()
+            if self.command.logMessage:
+                env.history.message(self.command.logMessage)
         elif buttonId == 2:
             msg = "Create a Plane at an <b>offset</b> to the selected plane "\
                 "indicated by the direction arrow. "\
                 "you can click on the direction arrow to reverse its direction."
             self.updateMessage(msg)            
-            self.editCommand.placePlaneOffsetToAnother()
-            if self.editCommand.logMessage:
-                env.history.message(self.editCommand.logMessage)
+            self.command.placePlaneOffsetToAnother()
+            if self.command.logMessage:
+                env.history.message(self.command.logMessage)
         elif buttonId == 3:
             #'Custom' plane placement. Do nothing (only update message box)
             # Fixes bug 2439
@@ -986,8 +1007,22 @@ class PlanePropertyManager(EditCommand_PM):
         """
         Updates the Aspect Ratio spin box based on the current width and height.
         """
-        aspectRatio = self.editCommand.struct.width / self.editCommand.struct.height
+        aspectRatio = self.command.struct.width / self.command.struct.height
         self.aspectRatioSpinBox.setValue(aspectRatio)
+        
+    def _update_UI_do_updates(self):
+        """
+        Overrides superclass method. 
+        @see: Command_PropertyManager._update_UI_do_updates() for documentation. 
+        
+        @see: Plane.resizeGeometry()
+        @see: self.update_spinboxes()
+        @see: Plane_EditCommand.command_update_internal_state()
+        """
+        #This typically gets called when the plane is resized from the 
+        #3D workspace (which marks assy as modified) . So, update the spinboxes
+        #that represent the Plane's width and height.
+        self.update_spinboxes()
 
 
     def update_props_if_needed_before_closing(self):
@@ -1012,10 +1047,10 @@ class PlanePropertyManager(EditCommand_PM):
         EditCommand_PM.update_props_if_needed_before_closing(self)
 
         #Don't draw the direction arrow when the object is finalized. 
-        if self.editCommand.struct and \
-           self.editCommand.struct.offsetParentGeometry:
+        if self.command.struct and \
+           self.command.struct.offsetParentGeometry:
 
-            dirArrow = self.editCommand.struct.offsetParentGeometry.directionArrow 
+            dirArrow = self.command.struct.offsetParentGeometry.directionArrow 
             dirArrow.setDrawRequested(False)
 
     def updateMessage(self, msg = ''):
@@ -1033,30 +1068,30 @@ class PlanePropertyManager(EditCommand_PM):
         """
         Rotate the image clockwise.
         """
-        if self.editCommand.hasValidStructure():
-            self.editCommand.struct.rotateImage(0)
+        if self.command.hasValidStructure():
+            self.command.struct.rotateImage(0)
         return
 
     def rotate_neg_90(self):
         """
         Rotate the image counterclockwise.
         """
-        if self.editCommand.hasValidStructure():
-            self.editCommand.struct.rotateImage(1)
+        if self.command.hasValidStructure():
+            self.command.struct.rotateImage(1)
         return
 
     def flip_image(self):
         """ 
         Flip the image horizontally.
         """
-        if self.editCommand.hasValidStructure():
-            self.editCommand.struct.mirrorImage(1)
+        if self.command.hasValidStructure():
+            self.command.struct.mirrorImage(1)
         return
 
     def mirror_image(self):
         """
         Flip the image vertically.
         """
-        if self.editCommand.hasValidStructure():
-            self.editCommand.struct.mirrorImage(0)
+        if self.command.hasValidStructure():
+            self.command.struct.mirrorImage(0)
         return

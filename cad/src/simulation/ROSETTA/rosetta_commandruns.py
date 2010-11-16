@@ -3,7 +3,7 @@
 rosetta_commandruns.py -- user-visible commands for running the rosetta simulator,
 
 @author: Urmi
-@version: $Id$
+@version: $Id: rosetta_commandruns.py 13908 2008-08-12 17:05:32Z urmim $
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -14,12 +14,16 @@ from utilities.debug import print_compact_traceback
 from simulation.ROSETTA.RosettaSetup import RosettaSetup
 from utilities.Log import redmsg, greenmsg, orangemsg
 import foundation.env as env
-# possibly some non-toplevel imports too (of which a few must remain non-toplevel)
-from simulation.runSim import FAILURE_ALREADY_DOCUMENTED
 from simulation.ROSETTA.runRosetta import RosettaRunner
 from model.chunk import Chunk
 
 def checkIfProteinChunkInPart(part):
+    """
+    See if there is a protein among various chunks in NE-1 part
+    
+    @param part: NE-1 part
+    @type part: L{Part}
+    """
     chunkList = []     
     def getAllChunks(node):
         if isinstance(node, Chunk):
@@ -47,6 +51,24 @@ def writemovie(part,
     frames(??), or an .xyz file containing what would have
     been the moviefile's final frame.  The name of the file it creates is found in
     movie.filename 
+    
+    @param part: NE-1 part
+    @type part: L{Part}
+    
+    @param args: argument list for rosetta simulation
+    @type args: list
+    
+    @param movie: simulation object
+    @type movie: L{Movie}
+    
+    @param simaspect: simulation aspect
+    @type simaspect: 
+    
+    @param cmdname: name of the command
+    @type cmdname: str
+    
+    @param cmd_type: name of type of command
+    @type cmd_type: str
     """
     
     simrun = RosettaRunner(part,
@@ -58,8 +80,7 @@ def writemovie(part,
                        background = background,
                        )
     movie._simrun = simrun 
-    simrun.run_using_old_movie_obj_to_hold_sim_params(movie, args)
-    
+    simrun.run_rosetta(movie, args)
     return simrun.errcode
 
 
@@ -71,6 +92,9 @@ class CommandRun:
     but can be coded and invoked as subclasses of CommandRun.
     """
     def __init__(self, win, *args, **kws):
+        """
+        Constructor for CommandRun
+        """
         self.win = win
         self.args = args 
         self.kws = kws 
@@ -89,7 +113,9 @@ class rosettaSetup_CommandRun(CommandRun):
     
     cmdname = 'Rosetta Design' 
     def run(self):
-        
+        """
+        Execute a rosetta simulation
+        """
         if not self.part.molecules: # Nothing in the part to simulate.
             msg = redmsg("Nothing to simulate.")
             env.history.message(self.cmdname + ": " + msg)
@@ -114,6 +140,9 @@ class rosettaSetup_CommandRun(CommandRun):
     
     
     def makeSimMovie(self):
+        """
+        Make simulation movie or in other words execute rosetta simulation
+        """
         suffix = self.part.movie_suffix()
         if suffix is None: 
             msg = redmsg( "Simulator is not yet implemented for clipboard items.")
@@ -121,9 +150,12 @@ class rosettaSetup_CommandRun(CommandRun):
             return -1
         
         self.simcntl = RosettaSetup(self.win, self.part, suffix = suffix)
-        movie = self.simcntl.movie 
+        movie = self.simcntl.movie
+        #we are passing the type of rosetta simulation we intend to run as the second
+        #argument in the argument list
+        self.cmd_type = self.args[1]
         r = writemovie(self.part, self.args, movie, print_sim_warnings = True, 
-                       cmdname = self.cmdname, useRosetta = True)
+                       cmdname = self.cmdname, cmd_type = self.cmd_type, useRosetta = True)
             
         if not r:
             # Movie file created. 

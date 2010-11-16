@@ -14,7 +14,7 @@ While in this command, user can
 
 @author: Ninad, Mark
 @copyright: 2008 Nanorex, Inc.  See LICENSE file for details.
-@version:$Id: NanotubeSegment_GraphicsMode.py 13386 2008-07-10 19:59:15Z ninadsathaye $
+@version:$Id: NanotubeSegment_GraphicsMode.py 14413 2008-10-03 18:00:29Z ninadsathaye $
 
 History:
 Created 2008-03-10 from copy of DnaSegment_GraphicsMode.py
@@ -106,12 +106,12 @@ class NanotubeSegment_GraphicsMode(BuildNanotube_GraphicsMode):
         """
         value = _superclass.bareMotion(self, event)
 
-        #When the cursor is over a specifit atom, we need to display
+        #When the cursor is over a specific atom, we need to display
         #a different icon. (e.g. when over a strand atom, it should display
         # rotate cursor)
         self.update_cursor()
 
-        return value # russ 080527
+        return value
 
     def update_cursor_for_no_MB(self):
         """
@@ -339,15 +339,15 @@ class NanotubeSegment_GraphicsMode(BuildNanotube_GraphicsMode):
             ###Exit this command by directly calling command.Done.
             ###This skips call of command.preview_or_finalize_structure
             ###Not calling 'preview_or_finialize_structure before calling
-            ###command.Done(), has an advantage. As of 2008-02-20, we
+            ###command.command_Done(), has an advantage. As of 2008-02-20, we
             ###remove the structure (segment) and recreate it upon done.
             ###This also removes, for instance, any cross overs you created
             ###earlier. although same thing happens when you hit 'Done button',
             ###it is likely to happen by accident while you are in segment edit
             ###mode and just click on empty space, Therefore, we simply call
-            ###Command.Done(). See a related bug mentioned in
+            ###Command.command_Done(). See a related bug mentioned in
             ###NanotubeSegment_EditCommand.setStructureName
-            ##self.command.Done()
+            ##self.command.command_Done()
 
 
     def leftDrag(self, event):
@@ -365,7 +365,7 @@ class NanotubeSegment_GraphicsMode(BuildNanotube_GraphicsMode):
 
         #NOTE:
         #In SelectChunks_GraphicsMode.leftDrag, there is a condition statement
-        #which checkes if self.drag_handler is in assy.getSelecteedMovables
+        #which checks if self.drag_handler is in assy.getSelecteedMovables
         #I don't know why it does that... I think it always assums that the
         #drag handler is officially a node in the MT? In our case,
         #the drag handler is a 'Highlightable' object (actually

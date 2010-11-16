@@ -4,7 +4,7 @@ runSim.py -- setting up and running the simulator, for Simulate or Minimize
 (i.e. the same code that would change if the simulator interface changed),
 and part of the implementation of user-visible commands for those operations.
 
-@version: $Id: runSim.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: runSim.py 14229 2008-09-15 17:52:11Z ericmessick $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -205,7 +205,9 @@ class SimRunner:
                  cmd_type = 'Minimize',
                  useGromacs = False,
                  background = False,
-                 hasPAM = False ):
+                 hasPAM = False,
+                 useAMBER = False,
+                 typeFeedback = False):
             # [bruce 051230 added use_dylib_sim; revised 060102; 060106 added cmdname]
         """
         set up external relations from the part we'll operate on;
@@ -226,6 +228,8 @@ class SimRunner:
         self.useGromacs = useGromacs
         self.background = background
         self.hasPAM = hasPAM
+        self.useAMBER = useAMBER
+        self.typeFeedback = typeFeedback
         self.gromacsLog = None
         self.tracefileProcessor = None
 
@@ -1141,6 +1145,9 @@ class SimRunner:
                     # mdrun.  See GROMACS user manual section
                     # 6.6.2
                     simopts.VanDerWaalsCutoffRadius = self.yukawaRCutoff
+                if (self.useAMBER):
+                    simopts.UseAMBER = self.useAMBER
+                    simopts.TypeFeedback = self.typeFeedback
 
             #e we might need other options to make it use Python callbacks (nim, since not needed just to launch it differently);
             # probably we'll let the later sim-start code set those itself.
@@ -1205,7 +1212,7 @@ class SimRunner:
             # kluge for A8 -- ideally these prefs keys or their prefs values
             # would be set as movie object attrs like all other sim params
             cmd_type = self.cmd_type
-            if cmd_type == 'Adjust' or cmd_type == 'Adjust Atoms':
+            if cmd_type == 'Adjust' or cmd_type == 'Adjust Atoms' or cmd_type == 'Check AtomTypes':
                 endRMS_prefs_key = Adjust_endRMS_prefs_key
                 endMax_prefs_key = Adjust_endMax_prefs_key
                 cutoverRMS_prefs_key = Adjust_cutoverRMS_prefs_key
@@ -1221,7 +1228,7 @@ class SimRunner:
             # The following are partly redundant with the formulas,
             # which is intentional, for error checking of the formulas.
             # Only the first (endRMS) values are independent.
-            if cmd_type == 'Adjust':
+            if cmd_type == 'Adjust' or cmd_type == 'Check AtomTypes':
                 defaults = (100.0, 500.0, 100.0, 500.0) # also hardcoded in prefs_constants.py
             elif cmd_type == 'Adjust Atoms':
                 defaults = (50.0, 250.0, 50.0, 250.0)
@@ -2160,6 +2167,8 @@ class TracefileProcessor: #bruce 060109 split this out of SimRunner to support c
             self.gotPatternSetStretchType(rest)
         elif (start == "# Pattern makeVanDerWaals:"):
             self.gotPatternMakeVanDerWaals(rest)
+        elif (start == "# Pattern setType:"):
+            self.gotPatternSetType(rest)
         else:
             print "gotPattern(): unknown type: ", start, rest
 
@@ -2213,6 +2222,11 @@ class TracefileProcessor: #bruce 060109 split this out of SimRunner to support c
 
     def gotPatternMakeVanDerWaals(self, rest):
         pass
+
+    def gotPatternSetType(self, rest):
+        line = rest.rstrip().split()
+        atom = self.interpret_pattern_atom_id(line[1])
+        atom.setOverlayText(line[2])
 
     def newAtomPositions(self, positions):
         for handle in self.PAM5_handles:
@@ -2496,7 +2510,9 @@ def writemovie(part,
                cmdname = "Simulator",
                cmd_type = 'Minimize',
                useGromacs = False,
-               background = False):
+               background = False,
+               useAMBER = False,
+               typeFeedback = False):
         #bruce 060106 added cmdname
     """
     Write an input file for the simulator, then run the simulator,
@@ -2540,7 +2556,9 @@ def writemovie(part,
                        cmd_type = cmd_type,
                        useGromacs = useGromacs,
                        background = background,
-                       hasPAM = hasPAM)
+                       hasPAM = hasPAM,
+                       useAMBER = useAMBER,
+                       typeFeedback = typeFeedback)
         #e in future mflag should choose subclass (or caller should)
     movie._simrun = simrun #bruce 050415 kluge... see also the related movie._cmdname kluge
     movie.currentFrame = 0 #bruce 060108 moved this here, was in some caller's success cases

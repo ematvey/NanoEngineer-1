@@ -13,7 +13,7 @@ For example:
   and the code is still clean, *and* no command-half subclass needs
   to override them).
 
-@version: $Id: SelectAtoms_Command.py 13072 2008-06-04 05:31:54Z marksims $
+@version: $Id: SelectAtoms_Command.py 14356 2008-09-25 21:52:21Z ninadsathaye $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 
@@ -32,11 +32,12 @@ from utilities import debug_flags
 from utilities.debug import print_compact_traceback
 from utilities.debug import reload_once_per_event
 
-from commands.Select.Select_Command import Select_basicCommand
+from commands.Select.Select_Command import Select_Command
 from command_support.GraphicsMode_API import GraphicsMode_API
 from commands.SelectAtoms.SelectAtoms_GraphicsMode import SelectAtoms_GraphicsMode
 
-class SelectAtoms_basicCommand(Select_basicCommand):
+_superclass = Select_Command
+class SelectAtoms_Command(Select_Command):
     """
     SelectAtoms_basicCommand
     The 'Command' part of the SelectAtoms Mode (SelectAtoms_basicCommand and 
@@ -50,26 +51,17 @@ class SelectAtoms_basicCommand(Select_basicCommand):
       that the mouse event bindings in the _GM half can do them directly
       and the code is still clean, *and* no command-half subclass needs
       to override them).
-    """
+    """ 
+    GraphicsMode_class = SelectAtoms_GraphicsMode
+    
     commandName = 'SELECTATOMS'
-    default_mode_status_text = "Mode: Select Atoms"
     featurename = "Select Atoms Mode"
+    from utilities.constants import CL_ABSTRACT
+    command_level = CL_ABSTRACT #??
     
-    # Don't highlight singlets in selectAtomsMode. Fixes bug 1540.mark 060220.
-    highlight_singlets = False         
-    water_enabled = False # Fixes bug 1583. mark 060301.
-    
-    def Enter(self): 
-        Select_basicCommand.Enter(self)        
+    # Don't highlight singlets in SelectAtoms_Command. Fixes bug 1540.mark 060220.
+    highlight_singlets = False    
         
-        self.w.win_update()
-            #k needed? I doubt it, I bet caller of Enter does it
-            # [bruce comment 050517]
-
-        self.dont_update_gui = True # until changed in init_gui
-        
-            
-    
     call_makeMenus_for_each_event = True     
     
     def makeMenus(self): 
@@ -114,7 +106,7 @@ class SelectAtoms_basicCommand(Select_basicCommand):
 
         # Enable/Disable Jig Selection.
         # This is duplicated in depositMode.makeMenus() and 
-        #selectMolsMode.makeMenus().
+        # SelectChunks_Command.makeMenus().
         if self.o.jigSelectionEnabled:
             self.Menu_spec.extend( [("Enable Jig Selection",  
                                      self.graphicsMode.toggleJigSelection, 
@@ -151,29 +143,19 @@ class SelectAtoms_basicCommand(Select_basicCommand):
         from simulation.sim_commandruns import LocalMinimize_function # should not be toplevel
         LocalMinimize_function( [atom], nlayers )
         return
-
-
-class SelectAtoms_Command(SelectAtoms_basicCommand):
-    """
-    SelectAtoms_Command  
-    @see: B{SelectAtoms_basicCommand}
-    @see: cad/doc/splitting_a_mode.py
-    """
-    GraphicsMode_class = SelectAtoms_GraphicsMode
     
-    def __init__(self, commandSequencer):
-        SelectAtoms_basicCommand.__init__(self, commandSequencer)
-        self._create_GraphicsMode()
-        self._post_init_modify_GraphicsMode()
-        return
+    def drag_selected_atom(self, a, delta, computeBaggage = False):
+        """
+        Delegates this to self's GraphicsMode
         
-    def _create_GraphicsMode(self):
-        GM_class = self.GraphicsMode_class
-        assert issubclass(GM_class, GraphicsMode_API)
-        args = [self] 
-        kws = {} 
-        self.graphicsMode = GM_class(*args, **kws)
-
-    def _post_init_modify_GraphicsMode(self):
-        pass
-    
+        @param computeBaggage: If this is true, the baggage and non-baggage of
+        the atom to be dragged will be computed in this method before dragging 
+        the atom. Otherwise  it assumes that the baggage and non-baggage atoms 
+        are up-to-date and are computed elsewhere , for example in 'atomSetUp'
+        See a comment in the method that illustrates an example use. 
+        @type recompueBaggage: boolean 
+        
+        @see: SelectAtoms_GraphicsMode.drag_selected_atom()
+        """
+        self.graphicsMode.drag_selected_atom(a, delta, 
+                                             computeBaggage = computeBaggage)

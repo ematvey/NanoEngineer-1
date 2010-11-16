@@ -3,7 +3,7 @@
 BuildNanotube_PropertyManager.py
 
 @author: Ninad, Mark
-@version: $Id: BuildNanotube_PropertyManager.py 13151 2008-06-09 17:26:26Z marksims $
+@version: $Id: BuildNanotube_PropertyManager.py 14404 2008-10-02 19:51:44Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -30,8 +30,6 @@ from PyQt4.Qt import QString
 from PM.PM_GroupBox      import PM_GroupBox
 from PM.PM_PushButton    import PM_PushButton
 from PM.PM_SelectionListWidget import PM_SelectionListWidget
-
-from widgets.DebugMenuMixin import DebugMenuMixin
 from command_support.EditCommand_PM import EditCommand_PM
 
 from PM.PM_Constants     import PM_DONE_BUTTON
@@ -41,7 +39,7 @@ from PM.PM_Colors        import pmReferencesListWidgetColor
 from utilities.Comparison import same_vals
 from cnt.model.NanotubeSegment import NanotubeSegment
 
-class BuildNanotube_PropertyManager( EditCommand_PM, DebugMenuMixin ):
+class BuildNanotube_PropertyManager(EditCommand_PM):
     """
     The BuildNanotube_PropertyManager class provides a Property Manager 
     for the B{Build > CNT } command.
@@ -62,13 +60,16 @@ class BuildNanotube_PropertyManager( EditCommand_PM, DebugMenuMixin ):
     pmName        =  title
     iconPath      =  "ui/actions/Tools/Build Structures/Nanotube.png"
 
-    def __init__( self, win, editCommand ):
+    def __init__( self, command ):
         """
         Constructor for the Build Nanotube property manager.
         """
         
-        #For model changed signal
-        self.previousSelectionParams = None
+        #For self._update_UI_* check
+        self._previousSelectionParams = None        
+        self._previousStructureParams = None
+        
+        self._previous_model_change_indicator = None
                 
         #see self.connect_or_disconnect_signals for comment about this flag
         self.isAlreadyConnected = False
@@ -76,12 +77,7 @@ class BuildNanotube_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         
         self.sequenceEditor = None              
         
-        EditCommand_PM.__init__( self, 
-                                    win,
-                                    editCommand)
-
-
-        DebugMenuMixin._init1( self )
+        EditCommand_PM.__init__( self, command)
 
         self.showTopRowButtons( PM_DONE_BUTTON | \
                                 PM_WHATS_THIS_BUTTON)
@@ -139,117 +135,95 @@ class BuildNanotube_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         #called when you enter another command exiting or suspending the 
         #previous one. . At present. it doesn't exist (first needs cleanup in 
         #command/command sequencer (Done and other methods._)-- Ninad 2008-01-09
-        if hasattr(self.editCommand, 'flyoutToolbar') and \
-           self.editCommand.flyoutToolbar:            
-            self.editCommand.flyoutToolbar.exitNanotubeAction.setEnabled(not bool_enable)
+        if hasattr(self.command, 'flyoutToolbar') and \
+           self.command.flyoutToolbar:            
+            self.command.flyoutToolbar.exitModeAction.setEnabled(not bool_enable)
+            
+    #New command API method -- implemented on 2008-08-27
+    def _update_UI_do_updates(self):
+        """
+        Overrides superclass method. 
         
-    def model_changed(self):
-        """       
-        When the editCommand is treated as a 'command' by the 
-        commandSequencer. this method will override basicCommand.model_changed.
-        
-        @WARNING: Ideally this property manager should implement both
-               model_changed and selection_changed methods in the mode/command
-               API. 
-               model_changed method will be used here when the selected atom is 
-               dragged, transmuted etc. The selection_changed method will be 
-               used when the selection (picking/ unpicking) changes. 
-               At present, selection_changed and model_changed methods are 
-               called too frequently that it doesn't matter which one you use. 
-               Its better to use only a single method for preformance reasons 
-               (at the moment). This should change when the original 
-               methods in the API are revised to be called at appropiraite 
-               time. 
+        @see: Command_PropertyManager._update_UI_do_updates() for documentation        
+        @see: self._currentStructureParams()
         """  
-        newSelectionParams = self._currentSelectionParams()          
-        if same_vals(newSelectionParams, self.previousSelectionParams):
+        currentSelectionParams = self._currentSelectionParams() 
+        
+        currentStructParams = self._currentStructureParams()
+        
+        selection_params_unchanged = same_vals(currentSelectionParams,
+                                               self._previousSelectionParams)
+        
+        structure_params_unchanged = same_vals(currentStructParams,
+                                               self._previousStructureParams)
+        
+        
+        if selection_params_unchanged and structure_params_unchanged:
+            #This second condition above fixes bug 2888
             return
         
-        self.previousSelectionParams = newSelectionParams  
-        
-        selectedSegments = newSelectionParams
-
-        self.segmentListWidget.updateSelection(selectedSegments)
-                
-        if len(selectedSegments) == 1:
-            self.editSegmentPropertiesButton.setEnabled(True)
-        else:
-            self.editSegmentPropertiesButton.setEnabled(False)
-                         
-        #Update the segmment list widgets. 
-        #Ideally it should only update when the structure is modified 
-        #example --when structure is deleted. But as of 2008-02-21
-        #this feature is not easily available in the API method. 
-        #see Command class for some proposed methods such as 'something_changed'
-        #etc. The list widgets are updated even when selection changes.         
-        #NOTE: If this is called before listwidget's 'updateSelection' call, 
-        #done above, it 'may give' (as of 2008-02-25, it is unlikely to happen 
-        #because of a better implementation)  C/C++ object deleted errors. 
-        #So better to do it in the end. Cause -- unknown. 
-        #Guess : something to do with clearing the widget list and them readding
-        #items (done by self.updateListWidgets)
-        #..This probably interferes with the selection
-        #within that list. So better to do it after updating the selection.
-        #if not same_vals(self.strandListWidget.count(), 
-        #                 self._currentStructureParams()):  
-        #    self.updateListWidgets()   
+        if not selection_params_unchanged and structure_params_unchanged:        
+            self._previousSelectionParams = currentSelectionParams            
+            selectedSegments = currentSelectionParams
+            
+            self.segmentListWidget.updateSelection(selectedSegments)
+                    
+            if len(selectedSegments) == 1:
+                self.editSegmentPropertiesButton.setEnabled(True)
+            else:
+                self.editSegmentPropertiesButton.setEnabled(False)
+                        
+        #See self._currentStructureParams()
+        if not structure_params_unchanged:
+            self._previousStructureParams = currentStructParams
+            #Update the list widget 
+            self.updateListWidgets() 
+            
                       
     def _currentSelectionParams(self):
         """
-        This needs commandSequencer to treat various 
-        edit controllers as commands. Until then, the 'model_changed' method 
-        (and thus this method) will never be called.
-        
         Returns a tuple containing current selection parameters. These 
         parameters are then used to decide whether updating widgets
-        in this property manager is needed when L{self.model_changed} or 
-        L{self.selection_changed} methods are called. 
+        in this property manager is needed when L{self._update_UI_do_updates()}
+        method is called.
+        
         @return: A tuple that contains following selection parameters
                    - Total number of selected atoms (int)
                    - Selected Atom if a single atom is selected, else None
                    - Position vector of the single selected atom or None
         @rtype:  tuple
-        @NOTE: The method name may be renamed in future. 
-        Its possible that there are other groupboxes in the PM that need to be 
+        
+        @NOTE: The method may be renamed in future. 
+        It's possible that there are other groupboxes in the PM that need to be 
         updated when something changes in the glpane.        
         """
          
         selectedSegments = []
         selectedSegments = self.win.assy.getSelectedNanotubeSegments()
-        ##if self.editCommand is not None and self.editCommand.hasValidStructure():
-            ##selectedSegments = self.editCommand.struct.getSelectedSegments()             
+        ##if self.command is not None and self.command.hasValidStructure():
+            ##selectedSegments = self.command.struct.getSelectedSegments()             
                     
         return (selectedSegments)
     
-    def _currentStructureParams_NOT_APPLICABLE(self):
+    def _currentStructureParams(self):
         """
-        Return current structure parameters of interest to self.model_changed. 
-        Right now it only returns the number of strands within the structure
-        (or None) .  This is a good enough check (and no need to compare 
-        each and evry strand within the structure with a previously stored 
-        set of strands)         
-        """
-        #Can it happen that the total number of strands remains the same even 
-        #after some alterations to the strands? Unlikely. (Example: a single
-        #Break strands operation will increase the number of strands by one. 
-        #Or Join strands decrease it by 1)
-        params = None
+        Return current structure parameters of interest to self._update_UI_*. 
+        Right now it only returns the number of nanotube segments in the part
+        (or None). 
         
-        if self.editCommand and self.editCommand.hasValidStructure():
-            strandList = []
-            strandList = self.editCommand.struct.getStrands()
-            params = len(strandList)
-            
+        @ATTENTION: Is this a sufficient check? For optimization, it doesn't
+        compare each and every nanotube in that list with a previously stored 
+        set of nanotubes. In case of bugs, this method should return the list 
+        itself instead of 'len(list)
+        
+        @see: self._update_UI_do_updates()
+        """        
+        params = None
+        part = self.command.assy.part
+        nanotubes = part.get_topmost_subnodes_of_class(self.command.assy.NanotubeSegment)
+        params = len(nanotubes)
         return params 
     
-    def ok_btn_clicked(self):
-        """
-        Slot for the OK button
-        """   
-        if self.editCommand:
-            self.editCommand.preview_or_finalize_structure(previewing = False)
-        self.win.toolsDone()
-  
     
     def close(self):
         """
@@ -267,8 +241,11 @@ class BuildNanotube_PropertyManager( EditCommand_PM, DebugMenuMixin ):
         As of 2007-11-20, it also shows the Sequence Editor widget and hides 
         the history widget. This implementation may change in the near future
         """
-        EditCommand_PM.show(self) 
-        self.updateListWidgets()    
+        EditCommand_PM.show(self)             
+        self.updateMessage("Use appropriate command in the command "\
+                           "toolbar to create or modify a CNT Object"\
+                           "<br>" )
+        
     
     def _editNanotubeSegment(self):
         """
@@ -280,24 +257,11 @@ class BuildNanotube_PropertyManager( EditCommand_PM, DebugMenuMixin ):
             selectedSegments[0].edit()
         #Earlier implementation which used the segments in the 
         #'current Nanotube Group'. Deprecated as of 2008-05-05
-        ##if self.editCommand is not None and self.editCommand.hasValidStructure(): 
-            ##selectedSegments = self.editCommand.struct.getSelectedSegments()
+        ##if self.command is not None and self.command.hasValidStructure(): 
+            ##selectedSegments = self.command.struct.getSelectedSegments()
             ##if len(selectedSegments) == 1:
                 ##selectedSegments[0].edit()
-    
-    def _update_widgets_in_PM_before_show(self):
-        """
-        Update various widgets  in this Property manager.
-        Overrides EditCommand_PM._update_widgets_in_PM_before_show. 
-        The various  widgets , (e.g. spinboxes) will get values from the 
-        structure for which this propMgr is constructed for 
-        (self.editcCommand.struct)
-        
-        @see: MotorPropertyManager._update_widgets_in_PM_before_show
-        @see: self.show  
-        """  
-        self.updateListWidgets()
-        
+            
     def updateListWidgets(self):
         """
         Update the Cnt segment list widget in this property manager

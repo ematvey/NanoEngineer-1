@@ -3,7 +3,7 @@
 NanotubeSegment.py - ... 
 
 @author: Bruce, Mark
-@version: $Id: NanotubeSegment.py 13379 2008-07-10 02:52:02Z marksims $
+@version: $Id: NanotubeSegment.py 14379 2008-09-30 17:09:01Z ninadsathaye $
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
 """
 import foundation.env as env
@@ -123,15 +123,11 @@ class NanotubeSegment(Group):
         Edit this NanotubeSegment. 
         @see: NanotubeSegment_EditCommand
         """
-        
-        commandSequencer = self.assy.w.commandSequencer       
-        
-        if commandSequencer.currentCommand.commandName != "NANOTUBE_SEGMENT":
-            commandSequencer.userEnterTemporaryCommand('NANOTUBE_SEGMENT')
-            
+        commandSequencer = self.assy.w.commandSequencer
+        commandSequencer.userEnterCommand('NANOTUBE_SEGMENT')
         assert commandSequencer.currentCommand.commandName == 'NANOTUBE_SEGMENT'
         commandSequencer.currentCommand.editStructure(self)
-    
+        return
 
     #Following methods are likely to be revised in a fully functional dna data 
     # model. These methods are mainly created to get working many core UI 

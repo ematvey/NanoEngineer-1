@@ -5,7 +5,7 @@ are drawn as sine waves
 
 @author:    Ninad
 @copyright: 2007-2008 Nanorex, Inc.  See LICENSE file for details.
-@version:   $Id: drawDnaRibbons.py 13386 2008-07-10 19:59:15Z ninadsathaye $
+@version:   $Id: drawDnaRibbons.py 14197 2008-09-11 04:52:29Z brucesmith $
 @license:   GPL
 
 TODO:
@@ -381,7 +381,7 @@ def drawDnaRibbons(glpane,
     @type: B{V}    
     @param displayStyle: Rubberband display style (specified as an integer)
                          see comment in the method below. 
-                         See also GLpane.displayStyle.
+                         See also GLPane.displayMode.
     @type  displayStyle: int
     @param peakDeviationFromCenter: Distance of a peak from the axis 
                                     Also known as 'Amplitude' of a sine wave. 

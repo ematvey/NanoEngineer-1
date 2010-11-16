@@ -1,8 +1,8 @@
-# Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
+# Copyright 2004-2008 Nanorex, Inc.  See LICENSE file for details. 
 """
 @author: Ninad
-@copyright: 2004-2007 Nanorex, Inc.  See LICENSE file for details.
-@version: $Id: MovePropertyManager.py 12887 2008-05-21 20:25:23Z ninadsathaye $
+@copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
+@version: $Id: MovePropertyManager.py 14402 2008-10-02 18:03:15Z ninadsathaye $
 
 History:
 
@@ -10,10 +10,10 @@ ninad 2007-02-07: Created to implement new UI for Move and Rotate chunks mode.
 ninad 2007-08-20: Code cleanup to use new PM module classes. 
 
 """
-__author__  = "Ninad"
+
 
 from commands.Move.Ui_MovePropertyManager import Ui_MovePropertyManager
-from PyQt4.Qt import Qt, SIGNAL
+from PyQt4.Qt import SIGNAL
 
 
 class MovePropertyManager(Ui_MovePropertyManager):
@@ -23,39 +23,39 @@ class MovePropertyManager(Ui_MovePropertyManager):
     serves as a superclass for FusePropertyManager
     """
 
-    def __init__(self, parentMode):
-        Ui_MovePropertyManager.__init__(self, parentMode) 
-        
+    def __init__(self, command):
         #see self.connect_or_disconnect_signals for comment about this flag
-        self.isAlreadyConnected =  False
-                
+        self.isAlreadyConnected =  False                
         self.lastCheckedRotateButton = None 
-        self.lastCheckedTranslateButton = None                     
+        self.lastCheckedTranslateButton = None  
+        
+        Ui_MovePropertyManager.__init__(self, command)                            
         self.updateMessage()
         
-    def connect_or_disconnect_signals(self, connect):
+        
+    def connect_or_disconnect_signals(self, isConnect):
         """
         Connect the slots in Move Property Manager. 
-        @see: modifyMode.connect_or_disconnect_signals.
+        @see: Move_Command.connect_or_disconnect_signals.
         """
-        if connect:
+        if isConnect:
             change_connect = self.w.connect
         else:
             change_connect = self.w.disconnect
 
         #TODO: This is a temporary fix for a bug. When you invoke a temporary mode 
-        #such as LineMode or PanMode, entering such a temporary mode keeps the 
+        #such as Line_Command or PanMode, entering such a temporary mode keeps the 
         #PM from the previous mode open (and theus keeps all its signals 
         #connected)  but while exiting that temporary mode and reentering the 
         #previous mode, it atucally reconnects the signal! This gives rise to 
         #lots  of bugs. This needs more general fix in Temporary mode API. 
         # -- Ninad 2007-10-29
 
-        if connect and self.isAlreadyConnected:
+        if isConnect and self.isAlreadyConnected:
             return
         
 
-        self.isAlreadyConnected = connect
+        self.isAlreadyConnected = isConnect
 
         change_connect(self.translateGroupBox.titleButton,
                        SIGNAL("clicked()"),
@@ -83,42 +83,33 @@ class MovePropertyManager(Ui_MovePropertyManager):
 
         change_connect(self.transDeltaPlusButton, 
                        SIGNAL("clicked()"), 
-                       self.parentMode.transDeltaPlus)
+                       self.command.transDeltaPlus)
 
         change_connect(self.transDeltaMinusButton, 
                        SIGNAL("clicked()"), 
-                       self.parentMode.transDeltaMinus)
+                       self.command.transDeltaMinus)
 
         change_connect(self.moveAbsoluteButton, 
                        SIGNAL("clicked()"), 
-                       self.parentMode.moveAbsolute)
+                       self.command.moveAbsolute)
 
         change_connect(self.rotateThetaPlusButton, 
                        SIGNAL("clicked()"), 
-                       self.parentMode.rotateThetaPlus)
+                       self.command.rotateThetaPlus)
 
         change_connect(self.rotateThetaMinusButton, 
                        SIGNAL("clicked()"), 
-                       self.parentMode.rotateThetaMinus)
+                       self.command.rotateThetaMinus)
 
         change_connect(self.moveFromToButton, 
                        SIGNAL("toggled(bool)"), 
-                       self.parentMode.moveFromToTemporaryMode)
+                       self.command.moveFromToTemporaryMode)
         
         change_connect(self.rotateAboutPointButton, 
                        SIGNAL("toggled(bool)"), 
-                       self.parentMode.rotateAboutPointTemporaryCommand)
+                       self.command.rotateAboutPointTemporaryCommand)
         
-        
-
-    def ok_btn_clicked(self):
-        """
-        Calls MainWindow.toolsDone to exit the current mode. 
-        @attention: this method needs to be renamed. (this should be done in 
-        PM_Dialog)
-        """
-        self.w.toolsDone()
-
+    
     def activate_translateGroupBox_using_groupButton(self):
         """Show contents of this groupbox, deactivae the other groupbox. 
         Also check the button that was checked when this groupbox  was active
@@ -132,7 +123,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
         if not self.w.toolsMoveMoleculeAction.isChecked():
             
             self.w.toolsMoveMoleculeAction.setChecked(True)
-            self.parentMode.switchGraphicsModeTo(newGraphicsMode = 'TRANSLATE_CHUNKS')
+            self.command.switchGraphicsModeTo(newGraphicsMode = 'TRANSLATE_CHUNKS')
 
             # Update the title and icon.
             self.setHeaderIcon(self.translateIconPath)
@@ -151,7 +142,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
 
             self.changeMoveOption(buttonToCheck)
             
-            self.parentMode.graphicsMode.update_cursor()
+            self.command.graphicsMode.update_cursor()
             self.updateMessage()
             
 
@@ -167,7 +158,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
 
         if not self.w.rotateComponentsAction.isChecked():            
             self.w.rotateComponentsAction.setChecked(True)   
-            self.parentMode.switchGraphicsModeTo(newGraphicsMode = 'ROTATE_CHUNKS')
+            self.command.switchGraphicsModeTo(newGraphicsMode = 'ROTATE_CHUNKS')
             
             # Update the title and icon.
             self.setHeaderIcon(self.rotateIconPath)
@@ -189,7 +180,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
 
             self.changeRotateOption(buttonToCheck)
             
-            self.parentMode.graphicsMode.update_cursor()
+            self.command.graphicsMode.update_cursor()
             self.updateMessage()
            
     def activate_translateGroupBox(self):
@@ -202,7 +193,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
         """
 
         
-        self.parentMode.switchGraphicsModeTo(newGraphicsMode = 'TRANSLATE_CHUNKS')
+        self.command.switchGraphicsModeTo(newGraphicsMode = 'TRANSLATE_CHUNKS')
 
         #Update the icon and the title
         self.setHeaderIcon(self.translateIconPath)
@@ -227,7 +218,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
 
         self.changeMoveOption(buttonToCheck)
         
-        self.parentMode.graphicsMode.update_cursor()
+        self.command.graphicsMode.update_cursor()
         self.updateMessage()
        
     def activate_rotateGroupBox(self):
@@ -239,7 +230,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
         """
         
         
-        self.parentMode.switchGraphicsModeTo(newGraphicsMode = 'ROTATE_CHUNKS')
+        self.command.switchGraphicsModeTo(newGraphicsMode = 'ROTATE_CHUNKS')
                 
         #Update the icon and the title. 
         self.setHeaderIcon(self.rotateIconPath)
@@ -260,7 +251,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
 
         self.changeRotateOption(buttonToCheck)
         
-        self.parentMode.graphicsMode.update_cursor()
+        self.command.graphicsMode.update_cursor()
         self.updateMessage()
         
       
@@ -313,7 +304,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
         groupbox
         Example: If user clicks on Move groupbox button, it will toggle the 
         display of the groupbox, connect its actions and Hide the other groupbox 
-        i.e. Rotate Compomnents groupbox and also disconnect actions inside it.
+        i.e. Rotate Components groupbox and also disconnect actions inside it.
         """
 
         self.translateGroupBox.toggleExpandCollapse()
@@ -326,7 +317,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
         groupbox.
         Example: If user clicks on Move groupbox button, it will toggle the 
         display of the groupbox, connect its actions and Hide the other groupbox 
-        i.e. Rotate Compomnents groupbox and also  disconnect actions inside it
+        i.e. Rotate Components groupbox and also disconnect actions inside it
        """
 
         self.rotateGroupBox.toggleExpandCollapse()
@@ -336,7 +327,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
         """" 
         Sets the  'last checked button value' Program remembers the last checked 
         button in a groupbox (either Translate or rotate (components)) . 
-        When that groupbox is displayed, it checkes this last button again 
+        When that groupbox is displayed, it checks this last button again 
         (see get method)
         """
         self.lastCheckedRotateButton = lastCheckedButton
@@ -344,7 +335,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
     def setLastCheckedMoveButton(self, lastCheckedButton):
         """" Sets the  'last checked button value' Program remembers the last 
         checked button in a groupbox (either Translate components or rotate 
-        components) . When that groupbox is displayed, it checkes this last 
+        components) . When that groupbox is displayed, it checks this last 
         button again (see get method)
         """
         self.lastCheckedTranslateButton = lastCheckedButton
@@ -482,14 +473,14 @@ class MovePropertyManager(Ui_MovePropertyManager):
         assert buttonText in ['TRANSX', 'TRANSY', 'TRANSZ', 
                               'ROT_TRANS_ALONG_AXIS', 'MOVEDEFAULT' ]
         
-        self.parentMode.graphicsMode.moveOption = buttonText
+        self.command.graphicsMode.moveOption = buttonText
         
         #commandSequencer = self.win.commandSequencer  
         
         #if commandSequencer.currentCommand.commandName == 'TRANSLATE_CHUNKS':
             #commandSequencer.currentCommand.graphicsMode.moveOption = buttonText
 
-        ##self.parentMode.moveOption = buttonText
+        ##self.command.moveOption = buttonText
 
 
     def changeRotateOption(self, button):
@@ -514,12 +505,12 @@ class MovePropertyManager(Ui_MovePropertyManager):
         else:
             self.toggleRotationDeltaLabels(show = True)
         
-        self.parentMode.graphicsMode.rotateOption = buttonText
+        self.command.graphicsMode.rotateOption = buttonText
         #commandSequencer = self.win.commandSequencer
         #if commandSequencer.currentCommand.commandName == 'ROTATE_CHUNKS':
             #commandSequencer.currentCommand.graphicsMode.rotateOption = buttonText
 
-        ##self.parentMode.rotateOption = buttonText
+        ##self.command.rotateOption = buttonText
 
 
     def set_move_xyz(self, x, y, z):
@@ -576,7 +567,8 @@ class MovePropertyManager(Ui_MovePropertyManager):
             return (delX, delY, delZ) # Plus
         else: 
             return (-delX, -delY, -delZ) # Minus
-
+        
+   
     def close(self):
         """
         Closes this Property Manager.
@@ -593,6 +585,7 @@ class MovePropertyManager(Ui_MovePropertyManager):
 
         self.translateGroupBox.collapse()
         self.rotateGroupBox.collapse()
+                
         Ui_MovePropertyManager.close(self)
 
     def updateMessage(self, msg = ''): # Mark 2007-06-23
@@ -604,8 +597,8 @@ class MovePropertyManager(Ui_MovePropertyManager):
         #suchs as graphicsModeName ? (or a method that returns the GM name 
         # and which falls backs to graphicsMode.__class__.__name__ if name  is 
         # not defined ? -- Ninad 2008-01-25
-        if hasattr(self.parentMode, 'graphicsMode'):
-            graphicsModeName = self.parentMode.graphicsMode.__class__.__name__
+        if hasattr(self.command, 'graphicsMode'):
+            graphicsModeName = self.command.graphicsMode.__class__.__name__
 
         if msg:
             self.MessageGroupBox.insertHtmlMessage( msg, setAsDefault  =  True )

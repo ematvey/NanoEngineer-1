@@ -1,6 +1,6 @@
 # Copyright 2004-2007 Nanorex, Inc.  See LICENSE file for details. 
 """
-$Id: Ui_SelectToolBar.py 12540 2008-04-14 01:36:58Z marksims $
+$Id: Ui_SelectToolBar.py 14443 2008-11-07 05:22:52Z  $
 """
 
 from PyQt4 import QtGui
@@ -33,6 +33,7 @@ def setupUi(win, toolbarArea):
     win.selectToolBar.addAction(win.selectDoublyAction)
     win.selectToolBar.addAction(win.selectExpandAction)
     win.selectToolBar.addAction(win.selectContractAction)
+    win.selectToolBar.addAction(win.selectByNameAction)
 
 def retranslateUi(win):
     """

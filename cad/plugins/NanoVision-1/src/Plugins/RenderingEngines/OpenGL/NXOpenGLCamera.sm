@@ -1,0 +1,57 @@
+// Copyright 2008 Nanorex, Inc.  See LICENSE file for details.
+
+%class NXOpenGLCamera
+%header NXOpenGLCamera.h
+%start Trackball::Initial
+
+%map Trackball
+%%
+Initial
+{
+    // trap meaningless actions
+    Default
+        Initial
+        { }
+
+    rotateStartEvent(x: int, y: int)
+        Rotating
+        { rotateStart(x,y); }
+
+    panStartEvent(x: int, y: int)
+        Panning
+        { panStart(x,y); }
+}
+
+Rotating
+{
+    // trap meaningless actions
+    Default
+        Rotating
+        { }
+
+    rotatingEvent(x: int, y: int)
+        Rotating
+        { rotate(x, y); }
+
+    rotateStopEvent(x: int, y: int)
+        Initial
+        { rotateStop(x, y); }
+}
+
+Panning
+{
+    // trap meaningless actions
+    Default
+        Panning
+        { }
+
+    panEvent(x: int, y: int)
+        Panning
+        { pan(x,y); }
+
+    panStopEvent(x: int, y: int)
+        Initial
+        { panStop(x,y); }
+}
+
+%%

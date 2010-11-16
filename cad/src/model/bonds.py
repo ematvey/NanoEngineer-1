@@ -5,7 +5,7 @@ bonds.py -- class Bond, for any supported type of chemical bond between two atom
 and related code
 
 @author: Josh
-@version: $Id: bonds.py 13341 2008-07-03 22:56:55Z brucesmith $
+@version: $Id: bonds.py 14449 2008-11-11 15:35:08Z  $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -38,7 +38,7 @@ from utilities.debug import reload_once_per_event
 from utilities import debug_flags
 
 from utilities.constants import MAX_ATOM_SPHERE_RADIUS 
-
+from utilities.Log import quote_html
 from model.elements import Singlet
 
 from model.bond_constants import V_SINGLE
@@ -614,7 +614,7 @@ class Bond(BondBase, StateMixin, Selobj_API):
         if at1.molecule is not at2.molecule:
             at1.molecule._f_gained_externs = True
             at2.molecule._f_gained_externs = True
-        self.glname = env.alloc_my_glselect_name( self) #bruce 050610
+        self.glname = at1.molecule.assy.alloc_my_glselect_name( self) #bruce 050610, revised 080917
 
     def _undo_aliveQ(self, archive): #bruce 060405, rewritten 060406; see also new_Bond_oursQ in undo_archive.py
         """
@@ -827,12 +827,45 @@ class Bond(BondBase, StateMixin, Selobj_API):
     
     #- DNA helper functions. ------------------------------------------
     
-    def getStrandName(self): # probably by Mark
-        # Note: used only in SelectAtoms_GraphicsMode.bondDelete,
-        # for a history message, as of before 080225. Probably obsolete
-        # (if not, needs renaming and revision for dna data model).
-        # See also: Atom.getDnaStrandId_for_generators.
-        # [bruce 080225 comment]
+    def getDnaSegment(self):
+        """
+        """
+        segment = None
+        
+        if self.is_open_bond():
+            return None
+        
+        atom1 = self.atom1
+        atom2 = self.atom2
+        for atm in (atom1, atom2):
+            if atm.is_singlet():
+                continue
+            segment = atm.getDnaSegment()
+            if segment:
+                return segment
+        
+        return segment
+        
+    
+    def getDnaStrand(self):
+        """
+        Return the parent DnaStrand of the bond if its a strand bond. 
+        Returns None otherwise.
+        """
+        if not self.isStrandBond():
+            return None
+        
+        chunk = self.atom1.molecule
+        
+        #Assume that there is no DNA updater error, so, the chunk of self.atom2
+        #has the same strand as the one for chunk of atom1. 
+        if chunk and not chunk.isNullChunk():
+            return chunk.getDnaStrand()
+        
+        return None
+        
+    
+    def getStrandName(self): # probably by Mark        
         """
         Return the strand name, which is this bond's chunk name.
         
@@ -841,9 +874,19 @@ class Bond(BondBase, StateMixin, Selobj_API):
         @rtype:  str
         
         @see: L{setStrandName}
+        @see: Atom.getDnaStrandId_for_generators
+        @see:SelectAtoms_GraphicsMode.bondDelete
+        
         """
-        if self.atom1.molecule is self.atom2.molecule:
-            return self.atom1.molecule.name
+        # Note: used only in SelectAtoms_GraphicsMode.bondDelete,
+        # for a history message, as of before 080225.
+        # See also: Atom.getDnaStrandId_for_generators.
+        # [bruce 080225 comment]        
+        
+        strand = self.getDnaStrand()
+        if strand:
+            return strand.name
+        
         return ""
         
     def isStrandBond(self): # by Mark
@@ -933,18 +976,29 @@ class Bond(BondBase, StateMixin, Selobj_API):
         """
         Returns a string that has bond related info, for use in Dynamic Tool Tip
         """
-        bondInfoStr = str(self) # might be extended below
+        bondInfoStr = ""
+                
+        bondInfoStr += quote_html(str(self)) # might be extended below
         dna_error = self._dna_updater_error_tooltip_info() #bruce 080206
+                
         if dna_error:
-            bondInfoStr += "\n" + dna_error
+            bondInfoStr += "<br>" + dna_error
+        else:
+            strand = self.getDnaStrand()
+            segment = self.getDnaSegment()
+            if strand:
+                bondInfoStr += "<br>" + strand.getToolTipInfoForBond(self)            
+            elif segment:
+                bondInfoStr += "<br>" + segment.getDefaultToolTipInfo()
+                
         # check for user pref 'bond_chunk_info'
         if isBondChunkInfo:
             bondChunkInfo = self.getBondChunkInfo()
-            bondInfoStr +=  "\n" + bondChunkInfo
+            bondInfoStr +=  "<br>" + bondChunkInfo
         #check for user pref 'bond length'
         if isBondLength:
             bondLength = self.getBondLength(atomDistPrecision)
-            bondInfoStr += "\n" + bondLength
+            bondInfoStr += "<br>" + bondLength
                 #ninad060823  don't use "<br>" ..it is weird. doesn't break into a new line.
                 #perhaps because I am not using html stuff in getBondLength etc functions??
         return bondInfoStr
@@ -962,7 +1016,9 @@ class Bond(BondBase, StateMixin, Selobj_API):
             #ninad060822 I am not checking if chunk 1 and 2 are the same.
             #I think it's not needed as the tooltip string won't be compact
             #even if it is implemented. so leaving it as is
-        bondChunkInfo = str(a1) + " in [" + str(chunk1) + "]\n" + str(a2) + " in [" + str(chunk2) + "]"
+        bondChunkInfo = str(a1) + " in [" + \
+                      str(chunk1) + "]<br>" + \
+                      str(a2) + " in [" + str(chunk2) + "]"
         return bondChunkInfo
             
     def getBondLength(self, atomDistPrecision):#Ninad 060830
@@ -989,13 +1045,18 @@ class Bond(BondBase, StateMixin, Selobj_API):
         """
         @see: comments in L{Atom.destroy} docstring.
         """
+        if self.glname: #bruce 080917 revised this entire statement (never tested, before or after)
+            if self.at1 and self.at1.molecule and self.at1.molecule.assy:
+                self.at1.molecule.assy.dealloc_my_glselect_name( self, self.glname )
+            else:
+                print "bug: can't find assy for dealloc_my_glselect_name in %r.destroy()" % self
+            del self.glname
         try:
             self.bust() #bruce 080702 precaution
         except:
             pass # necessary for repeated destroy, given current implem -- should fix
         if self._direction:
             self._changed_bond_direction() #bruce 070415
-        env.dealloc_my_glselect_name( self, self.glname )
         key = id(self)
         for dict1 in _Bond_global_dicts:
             dict1.pop(key, None)
@@ -1499,7 +1560,8 @@ class Bond(BondBase, StateMixin, Selobj_API):
         """
         Given our atomtypes, are we a potential pi bond?
         """
-        return self.atom1.atomtype.spX < 3 and self.atom2.atomtype.spX < 3
+        return (self.atom1.atomtype.potential_pi_bond() and
+                self.atom2.atomtype.potential_pi_bond())
     
     # ==
     
@@ -1802,7 +1864,7 @@ class Bond(BondBase, StateMixin, Selobj_API):
         #bruce 080702 split this out of Chunk._draw_external_bonds
         return self.atom1.molecule.picked and self.atom2.molecule.picked
     
-    def draw(self, glpane, dispdef, col, level,
+    def draw(self, glpane, dispdef, col, detailLevel,
              highlighted = False,
              bool_fullBondLength = False,
              special_drawing_handler = None,
@@ -1812,7 +1874,7 @@ class Bond(BondBase, StateMixin, Selobj_API):
         Draw the bond. Note that for external bonds, this is [or used to be?]
         called twice, once for each bonded molecule (in arbitrary order)
         (and is never cached in either mol's display list);
-        each of these calls gets dispdef, col, and level from a different mol.
+        each of these calls gets dispdef, col, and detailLevel from a different mol.
         [bruce, 041104, thinks that leads to some bugs in bond looks.]
            Bonds are drawn only in certain display modes.
         The display mode is inherited from the atoms or molecule (as passed in
@@ -1843,7 +1905,7 @@ class Bond(BondBase, StateMixin, Selobj_API):
             import graphics.drawing.bond_drawer as bond_drawer
             reload_once_per_event( bond_drawer) #bruce 050825 use reload_once_per_event
         from graphics.drawing.bond_drawer import draw_bond
-        draw_bond( self, glpane, dispdef, col, level, highlighted,
+        draw_bond( self, glpane, dispdef, col, detailLevel, highlighted,
                    bool_fullBondLength,
                    special_drawing_handler = special_drawing_handler,
                    special_drawing_prefs = special_drawing_prefs

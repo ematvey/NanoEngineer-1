@@ -3,7 +3,7 @@
 ops_select.py -- operations and internal methods for changing what's selected
 and maintaining other selection-related state. (Not well-organized.)
 
-@version: $Id: ops_select.py 13362 2008-07-09 06:47:32Z ericmessick $
+@version: $Id: ops_select.py 14453 2008-11-14 02:48:15Z  $
 @copyright: 2004-2008 Nanorex, Inc.  See LICENSE file for details.
 
 History:
@@ -18,7 +18,6 @@ as of 080414.
 
 from utilities.constants import SELWHAT_CHUNKS, SELWHAT_ATOMS
 from utilities.constants import diINVISIBLE, diDEFAULT
-from model.jigs import Jig
 from model.global_model_changedicts import _changed_picked_Atoms
 from model.chunk import Chunk
 from model.elements import Singlet
@@ -35,6 +34,14 @@ from utilities.icon_utilities import geticon
 from dna.model.DnaGroup import DnaGroup
 from dna.model.DnaStrand import DnaStrand
 from cnt.model.NanotubeGroup import NanotubeGroup
+
+
+from foundation.Group import Group
+from dna.model.DnaLadderRailChunk import DnaAxisChunk
+from dna.model.DnaLadderRailChunk import DnaStrandChunk
+from dna.model.DnaMarker import DnaMarker
+from dna.model.DnaSegment import DnaSegment
+from cnt.model.NanotubeSegment import NanotubeSegment
 
 # Object flags, used by objectSelected() and its callers. 
 ATOMS = 1
@@ -86,6 +93,33 @@ def objectSelected(part, objectFlags = ALLOBJECTS): # Mark 2007-06-24
             return True
 
     return False
+
+def renameableLeafNode(obj, groups_renameable = False):
+    """
+    Returns True if obj is a visible, renameable leaf node in the model tree. 
+    Otherwise, returns False.
+    
+    If obj is a Group or DnaGroup and groups_renameable is True,
+    return True.
+    """
+    
+    _nodeList = [[DnaAxisChunk,    False], # Chunk subclass
+                 [DnaStrandChunk,  False], # Chunk subclass
+                 [DnaMarker,       False], # Jig subclass
+                 [DnaSegment,      True], # Group subclass
+                 [DnaStrand,       True], # Group subclass
+                 [NanotubeSegment, True], # Group subclass
+                 [DnaGroup,        groups_renameable], # Group subclass
+                 [Group,           groups_renameable]] # Group must be last in list.
+    
+    if not obj.rename_enabled():
+        return False
+    
+    for _class, _renameable in _nodeList:
+        if isinstance(obj, _class):
+            return _renameable
+        
+    return True   
 
 class ops_select_Mixin:
     """
@@ -170,11 +204,23 @@ class ops_select_Mixin:
         """
         selJigs = []
         def addSelectedJig(obj, jigs=selJigs):
-            if obj.picked and isinstance(obj, Jig):
+            if obj.picked and isinstance(obj, self.win.assy.Jig):
                 jigs += [obj]
 
         self.topnode.apply2all(addSelectedJig)
         return selJigs
+    
+    def getSelectedPlanes(self):
+        """
+        Returns a list of selected planes. 
+        @see: self.getSelectedJigs()
+        """
+        selectedJigs = self.getSelectedJigs()
+        
+        selectedPlanes = filter(lambda p: 
+                                isinstance(p, self.win.assy.Plane), 
+                                selectedJigs)
+        return selectedPlanes
     
     def getSelectedDnaGroups(self):
         """
@@ -587,7 +633,7 @@ class ops_select_Mixin:
         if self.selatoms:
             # Hide selected atoms by changing their display style to invisible.
             for a in self.selatoms.itervalues():
-                a.setDisplay(diINVISIBLE)
+                a.setDisplayStyle(diINVISIBLE)
         return
     
     def unhideSelection(self):
@@ -626,11 +672,11 @@ class ops_select_Mixin:
             # Unhide any invisible atoms in the selected chunks.
             for chunk in self.assy.selmols[:]:
                 for a in chunk.atoms.itervalues():
-                    a.setDisplay(diDEFAULT)
+                    a.setDisplayStyle(diDEFAULT)
         else:
             # Unhide selected atoms by changing their display style to default.
             for a in self.selatoms.itervalues():
-                a.setDisplay(diDEFAULT)
+                a.setDisplayStyle(diDEFAULT)
         self.w.win_update()
         return
     
@@ -643,8 +689,8 @@ class ops_select_Mixin:
         then win_update
         [warning: not for general use -- doesn't change which select mode is in use]
         """
-        # This is called only by modifyMode.Enter.
-        # (Why not selectChunksMode? because selectMolsMode calls it w/o update, instead:
+        # This is called by Move_GraphicsMode.Enter_GraphicsMode.
+        # (Why not selectChunksMode? because SelectChunks_GraphicsMode calls it w/o update, instead:
         #   self.o.assy.selectChunksWithSelAtoms_noupdate() # josh 10/7 to avoid race in assy init
         # )
         # BTW, MainWindowUI.{py,ui} has an unused slot with the same name this method used to have [selectParts]
@@ -756,6 +802,9 @@ class ops_select_Mixin:
         #  external callers which pass their own water_enabled flag to it.
         #  So we can't just inline this into it.)
         # [bruce 071008]
+        #UPDATE 2008-08-01: Water surface is currently an aspect of the 
+        #command class rather than graphicsMode class. The graphicsmode checks
+        #it by calling self.command.isWaterSurfaceEnabled() --[ Ninad comment]
         commandSequencer = self.win.commandSequencer
         if commandSequencer.currentCommand.commandName == 'DEPOSIT':
             return True
@@ -821,9 +870,13 @@ class ops_select_Mixin:
     # I renamed them to distinguish them from the many other "pick" (etc) methods
     # for Node subclasses, with common semantics different than these have.
     # I removed some no-longer-used related methods.
+    
+    # All these methods should be rewritten to be more general;
+    # for more info, see comment about findAtomUnderMouse and jigGLSelect
+    # in def end_selection_curve in Select_GraphicsMode.py.
+    # [bruce 080917 comment]
 
     def pick_at_event(self, event): #renamed from pick; modified
-        # renamed from pick_at_event(). mark 060212.
         """
         Pick whatever visible atom or chunk (depending on 
         self.selwhat) is under the mouse, adding it to the current selection. 

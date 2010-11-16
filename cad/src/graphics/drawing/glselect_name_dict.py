@@ -3,7 +3,7 @@
 glselect_name_dict.py - allocate GL_SELECT names and record their owners.
 
 @author: Bruce
-@version: $Id: glselect_name_dict.py 13207 2008-06-19 18:07:40Z russfish $
+@version: $Id: glselect_name_dict.py 14277 2008-09-18 05:24:46Z brucesmith $
 @copyright: 2005-2008 Nanorex, Inc.  See LICENSE file for details. 
 
 Module classification:  [bruce 080223]
@@ -74,7 +74,7 @@ class glselect_name_dict(object):
         return self.obj_with_glselect_name.get( glname)
 
     # Todo: add a variant of object_for_glselect_name to which the entire
-    # name stack should be passed. Current code (080220) passes the last
+    # name stack should be passed. Current code (as of 080220) passes the last
     # (innermost) element of the name stack.
     
     # Maybe todo: add methods for temporarily removing glname from dict (without
