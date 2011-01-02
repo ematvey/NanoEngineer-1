@@ -476,9 +476,9 @@ class DiffTests(TestCase):
         w = water()
         db = DiffFactoryBase(w.atomset.values())
 
-        as = AtomDict()
+        aas = AtomDict()
         for x in w.atomset.values():
-            as.add(x)
+            aas.add(x)
         diffobj = db.snapshot()
         keys, olds, news = unpack(diffobj.sets)
         assert keys == [3, 4, 5]

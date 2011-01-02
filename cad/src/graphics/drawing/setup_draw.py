@@ -39,6 +39,8 @@ ColorSorter.py CS_workers.py CS_ShapeList.py CS_draw_primitives.py drawers.py
 gl_lighting.py gl_buffers.py
 """
 
+import sys
+
 # the imports from math vs. Numeric are as discovered in existing code
 # as of 2007/06/25.  It's not clear why acos is coming from math...
 from Numeric import sin, cos, pi
@@ -71,6 +73,7 @@ from OpenGL.GL import GL_UNSIGNED_SHORT
 from OpenGL.GL import glVertex
 from OpenGL.GL import glVertex3f
 from OpenGL.GL import glVertex3fv
+from OpenGL import ERROR_CHECKING
 
 from geometry.VQT import norm, vlen, V, Q, A
 
@@ -106,10 +109,14 @@ def setup_drawer():
         glNewList(sphereList[i], GL_COMPILE)
         glBegin(GL_TRIANGLE_STRIP) # GL_LINE_LOOP to see edges
         stripVerts = getSphereTriStrips(i)
+        print 'setup_drawer XXX1'
         for vertNorm in stripVerts:
+            print 'setup_drawer XXX2'
+            print vertNorm
             glNormal3fv(vertNorm)
             glVertex3fv(vertNorm)
             continue
+        print 'setup_drawer XXX3'
         glEnd()
         glEndList()
         continue
