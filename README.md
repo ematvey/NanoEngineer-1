@@ -1,15 +1,14 @@
-NanoInventor
+NanoEngineer-1
 ===============
 
-Project for further development of NanoEngineer-1.
+CAD for design of molecular machines.
 
-Goals
+What was done
 ----------
-
- * Support actual state of the original project.
- * Bring to the NanoEngineer-1 GPU acceleration.
+* Applied a few patches for OS X compatibility.
 
 Contacts
 ----------
-Please contact us at: [nanoinv.ru](http://nanoinv.ru)
 Original project: [nanoengineer-1.com](http://www.nanoengineer-1.com/content)
+
+Current source: https://github.com/kanzure/nanoengineer
